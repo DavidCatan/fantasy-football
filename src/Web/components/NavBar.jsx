@@ -12,6 +12,9 @@ const Navbar = () => {
                     <NavLink to="/Draft">
                         Draft
                     </NavLink>
+                    <NavLink to="/Players">
+                        Players
+                    </NavLink>
                 </NavMenu>
             </Nav>
         </>
