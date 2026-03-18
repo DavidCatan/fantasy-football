@@ -3,7 +3,8 @@ import styled from "styled-components"
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json"
 import { playerNames } from "../utils/draftUtils";
-import { fetchPlayerStats } from "../utils/draftUtils";
+//import { fetchPlayerStats } from "../utils/draftUtils";
+import { calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { TextField } from "@mui/material";
@@ -102,7 +103,8 @@ const PlayerButton = styled.button`
 
 function PlayerModal({player, isOpen, close}){
     
-    let data = fetchPlayerStats(SEASON, player.id);
+    //let data = fetchPlayerStats(SEASON, player.id);
+    let data = calculatePoints(player.name);
     console.log(data);
     const customStyles = {
         content: {
@@ -127,7 +129,7 @@ function PlayerModal({player, isOpen, close}){
                 <div>
                     <button onClick={close}>close</button>
                     <img src={player.headshot} style={{width:'50%', display:'flex', margin:'auto'}}></img>
-                    <div>I am a modal</div>
+                    <div>{data}</div>
                   
                 </div>
                 <div>
