@@ -10,7 +10,7 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { TextField } from "@mui/material";
 
 var SEASON = "2025"; 
-var curPlayer = players[0];
+var curPlayer = players[0]; // fix this 
 //console.log(players);
 const Players = () => {
     return(
@@ -26,6 +26,15 @@ const Players = () => {
 function playerList() {
   
     const [modalIsOpen, setIsOpen] = React.useState(false);
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    var displayedPlayers;
+    if (!isExpanded){
+        displayedPlayers  = players.slice(0,30); // initial first thirty players
+    }
+    else{
+        displayedPlayers = players;
+    }
 
     function openModal(player) {
         if(!player || player == ""){
@@ -57,7 +66,7 @@ function playerList() {
                     const { key, ...optionProps } = props;
                     return (
                         <li key={key} {...optionProps}>  
-                            <img src={playerData[option].headshot} style={{width:"10%"}}></img>
+                            <img src={playerData[option].headshot} style={{width:"10%"}} loading="lazy"></img>
                             <div>
                                 <div style={{ fontWeight: 'bold' }}>{option}</div>
                             </div>
@@ -69,11 +78,11 @@ function playerList() {
                 onChange={(event, player) => openModal(playerData[player])}
             />
         <ul>
-                {players.map((player) => (
+                {displayedPlayers.map((player) => (
                     <PlayerItem key={player.id}>
                         <PlayerButton onClick={() => openModal(player)}>
                             <div style={{fontWeight:'bold'}}>
-                                <img src={player.headshot} style={{width:"10%"}}></img> 
+                                <img src={player.headshot} style={{width:"10%"}} loading="lazy"></img> 
                                 {player.name} - {player.position}
                             </div>
                         </PlayerButton>
@@ -86,6 +95,9 @@ function playerList() {
                     
                 />
             </ul>
+            <button onClick={() => setIsExpanded(true)} style={{cursor: 'pointer', display: 'flex', margin: '0 auto'}}>
+                 View All </button>
+            
         </div>
         
 

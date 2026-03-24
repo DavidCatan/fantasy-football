@@ -12,11 +12,14 @@ for (const player in playerData) {
     players["names"].push(playerData[player].name);
     players["positions"].push(playerData[player].position);
     players["headshots"].push(playerData[player].headshot);*/
-    players.push(playerData[player]);
-    playerNames.push(playerData[player].name);
-    nameSet.add(playerData[player].name);
+    let newPlayer = playerData[player];
+    newPlayer["points"] = calculatePoints(playerData[player]["name"]).reduce((a, b) => a + b, 0);
+    players.push(newPlayer);
+    playerNames.push(playerData[player]["name"]);
+    nameSet.add(playerData[player]["name"]);
 }
 
+players.sort((a,b) => b.points - a.points);
 
 export async function fetchPlayerStats(season, playerId) {
   try {
@@ -73,7 +76,6 @@ export function calculatePoints(player){
 
   }
   
-
   return totalPoints;
 }
 
