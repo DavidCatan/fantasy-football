@@ -81,8 +81,9 @@ export function calculatePoints(player){
           //console.log(playerStats["week"][i][player][stat]);
         }
       }
+      
     }
-
+    totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;
   }
   
   return totalPoints;

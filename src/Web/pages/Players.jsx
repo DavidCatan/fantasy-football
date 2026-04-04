@@ -10,11 +10,11 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 
 var SEASON = "2025"; 
-var curPlayer = players["all"][0]; // fix this 
-var filtered = false;
+//var curPlayer = players["all"][0]; // fix this 
 //console.log(players);
 const Players = () => {
     const [pos, setPosition] = React.useState("all");
+
     return(
         <div>
             <h1>Players</h1>
@@ -35,6 +35,7 @@ function PlayerList({pos}) {
   
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
+    const [curPlayer, setPlayer] = React.useState("");
 
     var displayedPlayers;
     if (!isExpanded){
@@ -43,13 +44,13 @@ function PlayerList({pos}) {
     else{
         displayedPlayers = players[pos];
     }
-    console.log("current players", displayedPlayers);
+
     function openModal(player) {
         if(!player || player == ""){
             return null;
         }
         setIsOpen(true);
-        curPlayer = player;
+        setPlayer(player);
     }
 
     function afterOpenModal() {
@@ -148,8 +149,33 @@ function PlayerModal({player, isOpen, close}){
             >
                 <div>
                     <button onClick={close}>close</button>
+                    <span style={{display:'flex', justifyContent: 'center', fontWeight: 'bold', fontSize: '150%'}}>
+                        {player.name}
+                    </span>
                     <img src={player.headshot} style={{width:'50%', display:'flex', margin:'auto'}}></img>
-                    <div>{data}</div>
+                    <div style={{height: '450px', overflow: 'auto'}}>
+                        <table align='center'>
+                            <style>{`
+                                    td, th { border: 1px solid #ddd; padding: 8px; text-align: center;}
+                                    tr:nth-child(even) { background-color: #f2f2f2; }
+                                `}
+                            </style>
+                            <thead>
+                                <tr>
+                                    <th>Week</th>
+                                    <th>Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.map((points, index) =>(
+                                    <tr key={index}>
+                                        <td>{index + 1}</td>
+                                        <td>{points}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                   
                 </div>
                 <div>
@@ -162,6 +188,12 @@ function PlayerModal({player, isOpen, close}){
     );
 }
 
+/*function makeTable({data}){
+    return(
+        
+    )
+    
+}*/
 
 /*function PlayerSearch(playerData, playerNames) {
   return (
