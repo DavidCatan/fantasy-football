@@ -2,7 +2,13 @@ import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json"
 
 //console.log(playerData);
-var players = [];
+var players = {
+  "all" : [],
+  "QB" : [],
+  "WR" : [],
+  "RB" : [],
+  "TE" : []
+};
 export var playerNames = [];
 export var nameSet = new Set();
 
@@ -14,12 +20,15 @@ for (const player in playerData) {
     players["headshots"].push(playerData[player].headshot);*/
     let newPlayer = playerData[player];
     newPlayer["points"] = calculatePoints(playerData[player]["name"]).reduce((a, b) => a + b, 0);
-    players.push(newPlayer);
+    players["all"].push(newPlayer);
+    players[playerData[player]["position"]].push(newPlayer);
     playerNames.push(playerData[player]["name"]);
     nameSet.add(playerData[player]["name"]);
 }
 
-players.sort((a,b) => b.points - a.points);
+for (const key in players){
+  players[key].sort((a,b) => b.points - a.points);
+}
 
 export async function fetchPlayerStats(season, playerId) {
   try {

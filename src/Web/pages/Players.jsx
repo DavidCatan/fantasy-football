@@ -7,35 +7,43 @@ import { playerNames } from "../utils/draftUtils";
 import { calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
-import { TextField } from "@mui/material";
+import { Button, ButtonGroup, TextField } from "@mui/material";
 
 var SEASON = "2025"; 
-var curPlayer = players[0]; // fix this 
+var curPlayer = players["all"][0]; // fix this 
+var filtered = false;
 //console.log(players);
 const Players = () => {
+    const [pos, setPosition] = React.useState("all");
     return(
         <div>
             <h1>Players</h1>
-            {playerList()}
+            <ButtonGroup variant="outlined" disableElevation>
+                <Button onClick={() => setPosition("all")}>All</Button>
+                <Button onClick={() => setPosition("QB")}>QB</Button>
+                <Button onClick={() => setPosition("RB")}>RB</Button>
+                <Button onClick={() => setPosition("WR")}>WR</Button>
+                <Button onClick={() => setPosition("TE")}>TE</Button>
+            </ButtonGroup>
+            <PlayerList pos={pos}/>
         </div>
     );
 };
 
 
-
-function playerList() {
+function PlayerList({pos}) {
   
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
 
     var displayedPlayers;
     if (!isExpanded){
-        displayedPlayers  = players.slice(0,30); // initial first thirty players
+        displayedPlayers  = players[pos].slice(0,30); // initial first thirty players
     }
     else{
-        displayedPlayers = players;
+        displayedPlayers = players[pos];
     }
-
+    console.log("current players", displayedPlayers);
     function openModal(player) {
         if(!player || player == ""){
             return null;
@@ -94,7 +102,7 @@ function playerList() {
                     close={() => closeModal()}
                     
                 />
-            </ul>
+        </ul>
             <button onClick={() => setIsExpanded(true)} style={{cursor: 'pointer', display: 'flex', margin: '0 auto'}}>
                  View All </button>
             
