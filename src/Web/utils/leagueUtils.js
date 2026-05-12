@@ -1,19 +1,23 @@
-export var league = {
-    "Team_1" : {
-        "owner" : "team1",
+export var teams = [
+    {
+        "id": 1,
+        "name" : "team1",
         "roster" : []
     },
-    "Team_2" : {
-        "owner" : "team2",
+    {
+        "id": 2,
+        "name" : "team2",
         "roster" : []
     },
-    "Team_3" : {
-        "owner" : "team3",
+    {
+        "id": 3,
+        "name" : "team3",
         "roster" : []
     },
-    "Team_4" : {
-        "owner" : "team4",
+    {
+        "id": 4,
+        "name" : "team4",
         "roster" : []
-    },
-}
+    }
+]
 

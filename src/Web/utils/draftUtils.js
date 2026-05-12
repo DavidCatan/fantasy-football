@@ -1,5 +1,6 @@
 import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json"
+import { teams } from "./leagueUtils";
 
 //console.log(playerData);
 var players = {
@@ -24,6 +25,7 @@ for (const player in playerData) {
     players[playerData[player]["position"]].push(newPlayer);
     playerNames.push(playerData[player]["name"]);
     nameSet.add(playerData[player]["name"]);
+    //playerData[player]["available"] = true;
 }
 
 for (const key in players){
@@ -87,6 +89,10 @@ export function calculatePoints(player){
   }
   
   return totalPoints;
+}
+
+export function draftPlayer(team, player){
+  team["roster"].push(player);
 }
 
 export default players;
