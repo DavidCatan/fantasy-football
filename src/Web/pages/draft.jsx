@@ -134,6 +134,7 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
             console.log('hello');
             return;
         }
+        updateDraftDB(team["id"],player);
         team["roster"].push(player);
         drafted.push(player.id);
         setDraftedPlayers((prev) => [...prev, player.id]);
@@ -179,6 +180,23 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
             </div>
         </Modal>
     );
+}
+
+async function updateDraftDB(teamId, player){
+    const response = await fetch ('http://localhost:3001/draft', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            teamId: teamId,
+            playerId: player.id,
+            playerName: player.name
+        })
+    });
+
+    if (response.ok){
+        console.log('saved to db');
+    }
 }
 
 export default Draft;
