@@ -8,6 +8,7 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import { teams } from "../utils/leagueUtils";
 import {draftPlayer} from "../utils/draftUtils";
+import { data } from "react-router-dom";
 
 const SEASON = "2025"; 
 
@@ -15,7 +16,13 @@ const Draft = () => {
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(teams[0]);
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
+    
+    React.useEffect(() => {
+        getRosteredPlayers();
+        const ws = new WebSocket(`ws://localhost:3001`);
+        receiveMessage(ws);
 
+    }, []);
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-4 text-slate-800">Draft</h1>
@@ -31,6 +38,28 @@ const Draft = () => {
             <PlayerList pos={pos} team={team} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers}/>
         </div>
     );
+
+    async function getRosteredPlayers(){
+            const response = await fetch(`http://localhost:3001/rostered`);
+            const data = await response.json();
+            const ids = data.map(item => item.player_id);
+            setDraftedPlayers(ids);
+    }
+
+    function receiveMessage(ws) {
+    return new Promise((resolve, reject) => {
+
+        // update page when message received from server
+        ws.onmessage = (message) => {
+            getRosteredPlayers();
+            resolve();
+        }
+        ws.onerror = (error) => {
+            console.log(error);
+            reject();
+        }
+    });
+}
 };
 
 function PlayerList({ pos, team, draftedPlayers, setDraftedPlayers }) {
@@ -45,7 +74,12 @@ function PlayerList({ pos, team, draftedPlayers, setDraftedPlayers }) {
         setPlayer(player);
         setIsOpen(true);
     }
-
+    /*
+        TODO for autocomplete: 
+            make search bar clear after player selected
+            use arrow keys to select 
+            sort by points like the main list
+    */
     return (
         <div className="space-y-4">
             <Autocomplete
@@ -55,12 +89,16 @@ function PlayerList({ pos, team, draftedPlayers, setDraftedPlayers }) {
                 filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {
                     const { key, ...optionProps } = props;
-                    return (
-                        <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
-                            <img src={playerData[option].headshot} className="w-10 h-10 rounded-full object-cover" loading="lazy" alt="" />
-                            <div className="font-bold text-slate-700">{option}</div>
-                        </li>
-                    );
+                    const isAvailable = !draftedPlayers.includes(playerData[option].id);
+                    if (isAvailable){
+                        return (
+                            <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
+                                <img src={playerData[option].headshot} className="w-12 h-12 rounded-full border border-slate-200 
+                                bg-radial via-yellow-400 to-orange-700 object-cover" loading="lazy" alt={option.name} />
+                                <div className="font-bold text-slate-700">{option}</div>
+                            </li>
+                        );
+                    }
                 }}
                 renderInput={(params) => <TextField {...params} label="Search for a player" />}
                 onChange={(event, player) => openModal(playerData[player])}
@@ -77,7 +115,8 @@ function PlayerList({ pos, team, draftedPlayers, setDraftedPlayers }) {
                                     onClick={() => openModal(player)} 
                                     className="w-full flex items-center gap-4 p-3 text-left hover:bg-slate-50 transition-colors"
                                 >
-                                    <img src={player.headshot} className="w-12 h-12 rounded-full border border-slate-200" loading="lazy" alt="" />
+                                    <img src={player.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
+                                    via-yellow-400 to-orange-700" loading="lazy" alt={player.name} />
                                     <span className="font-semibold text-slate-700">
                                         {player.name} <span className="text-slate-400 font-normal ml-2">| {player.position}</span>
                                     </span>
@@ -109,8 +148,6 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
     if (!player) return null;
     const data = calculatePoints(player.name);
     
-    var drafted = [];
-
     const modalStyles = {
         content: {
             top: '50%',
@@ -129,17 +166,21 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
         overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
     };
 
+    let wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700"
+    if (Math.floor(Math.random() * 20) == 0){
+        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
+    } 
+    
     function draftPlayer(team, player){
         if(draftedPlayers.includes(player.id)){
-            console.log('hello');
+            alert('Player is rostered!');
+            close();
             return;
         }
         updateDraftDB(team["id"],player);
         team["roster"].push(player);
-        drafted.push(player.id);
         setDraftedPlayers((prev) => [...prev, player.id]);
         close();
-        console.log(teams);
     }
 
     return (
@@ -149,7 +190,7 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
                 
                 <div className="text-center mb-4">
                     <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <img src={player.headshot} className="w-32 h-32 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner" alt="" />
+                    <img src={player.headshot} className={wideimage} alt={player.name} />
                 </div>
 
                 <button 
@@ -194,9 +235,9 @@ async function updateDraftDB(teamId, player){
         })
     });
 
-    if (response.ok){
-        console.log('saved to db');
-    }
 }
+
+
+
 
 export default Draft;
