@@ -11,13 +11,18 @@ import {draftPlayer} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 
 const SEASON = "2025"; 
+const DRAFT_ORDER = []; // hardcoded for now
 
 const Draft = () => {
     const [pos, setPosition] = React.useState("all");
-    const [team, setTeam] = React.useState(teams[0]);
+    const [league, setLeague] = React.useState();
+    const [team, setTeam] = React.useState("");
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
+    const [curDraftTeam, setDraftTeam] = React.useState(DRAFT_ORDER[0]);
     
     React.useEffect(() => {
+        getLeagueId();
+        getTeam(league,'ERIC');
         getRosteredPlayers();
         const ws = new WebSocket(`ws://localhost:3001`);
         receiveMessage(ws);
@@ -40,10 +45,23 @@ const Draft = () => {
     );
 
     async function getRosteredPlayers(){
-            const response = await fetch(`http://localhost:3001/rostered`);
-            const data = await response.json();
-            const ids = data.map(item => item.player_id);
-            setDraftedPlayers(ids);
+        const response = await fetch(`http://localhost:3001/leagues/1234/rostered`);
+        const data = await response.json();
+        const ids = data.map(item => item.player_id);
+        setDraftedPlayers(ids);
+    }
+
+    async function getLeagueId(){
+        const response = await fetch(`http://localhost:3001/ERIC`);
+        const data = await response.json();
+        setLeague(data["league_id"]);
+        console.log(team);
+    }
+
+    async function getTeam(league_id, owner){
+        const response = await fetch(`http://localhost:3001/leagues/${league_id}/teams/${owner}`);
+        const data = await response.json();
+        setTeam(data["id"]);
     }
 
     function receiveMessage(ws) {
@@ -178,7 +196,7 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
             return;
         }
         updateDraftDB(team["id"],player);
-        team["roster"].push(player);
+        //team["roster"].push(player);
         setDraftedPlayers((prev) => [...prev, player.id]);
         close();
     }
@@ -190,6 +208,7 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
                 
                 <div className="text-center mb-4">
                     <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
+                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
                     <img src={player.headshot} className={wideimage} alt={player.name} />
                 </div>
 

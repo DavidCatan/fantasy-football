@@ -24,20 +24,31 @@ app.use(express.json());
 db.exec(`
     CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id INTEGER,
         name TEXT,
-        owner TEXT
+        owner TEXT UNIQUE
     );
 
     CREATE TABLE IF NOT EXISTS roster_slots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         team_id INTEGER,
+        league_id INTEGER,
         player_id TEXT UNIQUE,
         player_name TEXT,
-        FOREIGN KEY (team_id) REFERENCES teams(id)
+        FOREIGN KEY (league_id) REFERENCES teams(league_id) ON DELETE CASCADE,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
 `);
+//db.prepare("DELETE FROM roster_slots WHERE team_id=1").run();
+//db.prepare("DELETE FROM teams").run();
+db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team1', 'ERIC')").run();
+db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team2', 'DAVID')").run();
+db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team3', 'OSCAR')").run();
+db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team4', 'LIAM')").run();
 
-db.prepare("INSERT INTO teams (name, owner) VALUES ('team1', 'ERIC')").run();
+/*
+    TODO: validate inputs
+*/
 
 // API Endpoint to get a team's roster
 app.get('/team/:id', (req, res) => {
@@ -45,8 +56,32 @@ app.get('/team/:id', (req, res) => {
     res.json(players);
 });
 
-app.get('/rostered', (req, res) => {
-    const players = db.prepare('SELECT player_id FROM roster_slots').all();
+// API Endpoint to get team's league id
+//app.get
+
+// API Endpoint to get league team is in
+app.get('/:owner', (req, res) => {
+    const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
+    res.json(league_id);
+});
+
+// API Endpoint to get team from league
+app.get('/leagues/:league_id/teams/:owner', (req, res) => {
+    const league_id = req.params.league_id;
+    if(isNaN(league_id)){
+        return res.status(400).json({ error: "Invalid League ID" });
+    }
+    const team_id = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
+    res.json(team_id);
+});
+
+// API Endpoint to get rostered data from league
+app.get('/leagues/:league_id/rostered', (req, res) => {
+    const league_id = req.params.league_id;
+    if(isNaN(league_id)){
+        return res.status(400).json({ error: "Invalid League ID" });
+    }
+    const players = db.prepare('SELECT player_id FROM roster_slots WHERE league_id=?').all(league_id);
     res.json(players);
 });
 
