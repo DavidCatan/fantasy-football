@@ -1,33 +1,60 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { playerNames } from "../utils/draftUtils";
-import { calculatePoints } from "../utils/draftUtils";
+import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import { teams } from "../utils/leagueUtils";
 import {draftPlayer} from "../utils/draftUtils";
 import { data } from "react-router-dom";
+import {getRosteredPlayers, getLeagueId, getTeam} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
 const DRAFT_ORDER = []; // hardcoded for now
+const OWNER = 'ERIC'; // hardcoded for now, get from post/session or something on login
+
+const LEAGUE = await getLeagueId(OWNER);
+const TEAM = await getTeam(LEAGUE, OWNER);
+//var rosteredPlayers = await getRosteredPlayers();
+var update = false;
 
 const Draft = () => {
     const [pos, setPosition] = React.useState("all");
-    const [league, setLeague] = React.useState();
+    //const [league, setLeague] = React.useState();
     const [team, setTeam] = React.useState("");
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
     const [curDraftTeam, setDraftTeam] = React.useState(DRAFT_ORDER[0]);
     
     React.useEffect(() => {
-        getLeagueId();
-        getTeam(league,'ERIC');
-        getRosteredPlayers();
-        const ws = new WebSocket(`ws://localhost:3001`);
-        receiveMessage(ws);
+      
+        const getRostered = async () => {
+            try{
+                setDraftedPlayers(await getRosteredPlayers());
+            } catch(err){
+                alert('error getting rostered data');
+            }
+        };
+        getRostered();
+
+        const ws = new WebSocket(`ws://localhost:3001`); 
+        receiveMessage(ws); // start up websocket to listen for updates
 
     }, []);
+
+    React.useEffect(() => {
+      
+        const getRostered = async () => {
+            try{
+                setDraftedPlayers(await getRosteredPlayers());
+            } catch(err){
+                alert('error getting rostered data');
+            }
+        };
+        getRostered();
+
+    }, [update]);
+
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-4 text-slate-800">Draft</h1>
@@ -44,32 +71,13 @@ const Draft = () => {
         </div>
     );
 
-    async function getRosteredPlayers(){
-        const response = await fetch(`http://localhost:3001/leagues/1234/rostered`);
-        const data = await response.json();
-        const ids = data.map(item => item.player_id);
-        setDraftedPlayers(ids);
-    }
-
-    async function getLeagueId(){
-        const response = await fetch(`http://localhost:3001/ERIC`);
-        const data = await response.json();
-        setLeague(data["league_id"]);
-        console.log(team);
-    }
-
-    async function getTeam(league_id, owner){
-        const response = await fetch(`http://localhost:3001/leagues/${league_id}/teams/${owner}`);
-        const data = await response.json();
-        setTeam(data["id"]);
-    }
-
     function receiveMessage(ws) {
     return new Promise((resolve, reject) => {
 
         // update page when message received from server
         ws.onmessage = (message) => {
-            getRosteredPlayers();
+            update = !update;
+            //getRosteredPlayers();
             resolve();
         }
         ws.onerror = (error) => {
@@ -195,7 +203,7 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
             close();
             return;
         }
-        updateDraftDB(team["id"],player);
+        updateDraftDB(TEAM, LEAGUE, player);
         //team["roster"].push(player);
         setDraftedPlayers((prev) => [...prev, player.id]);
         close();
@@ -242,13 +250,14 @@ function PlayerModal({ player, isOpen, close, team, draftedPlayers, setDraftedPl
     );
 }
 
-async function updateDraftDB(teamId, player){
+async function updateDraftDB(teamId, leagueId, player){
     const response = await fetch ('http://localhost:3001/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:
         JSON.stringify({
             teamId: teamId,
+            leagueId: leagueId,
             playerId: player.id,
             playerName: player.name
         })

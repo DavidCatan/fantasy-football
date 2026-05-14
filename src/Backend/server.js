@@ -23,31 +23,33 @@ app.use(express.json());
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
         league_id INTEGER,
-        name TEXT,
-        owner TEXT UNIQUE
+        name TEXT NOT NULL,
+        owner TEXT UNIQUE NOT NULL
+
     );
 
     CREATE TABLE IF NOT EXISTS roster_slots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER,
-        league_id INTEGER,
-        player_id TEXT UNIQUE,
-        player_name TEXT,
-        FOREIGN KEY (league_id) REFERENCES teams(league_id) ON DELETE CASCADE,
+        team_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        player_id TEXT UNIQUE NOT NULL,
+        player_name TEXT NOT NULL,
+
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
 `);
 //db.prepare("DELETE FROM roster_slots WHERE team_id=1").run();
 //db.prepare("DELETE FROM teams").run();
-db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team1', 'ERIC')").run();
-db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team2', 'DAVID')").run();
-db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team3', 'OSCAR')").run();
-db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team4', 'LIAM')").run();
+//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team1', 'ERIC')").run();
+//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team2', 'DAVID')").run();
+//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team3', 'OSCAR')").run();
+//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team4', 'LIAM')").run();
 
 /*
     TODO: validate inputs
+    on all: check input for unique identifier
 */
 
 // API Endpoint to get a team's roster
@@ -87,9 +89,9 @@ app.get('/leagues/:league_id/rostered', (req, res) => {
 
 // API Endpoint to draft a player
 app.post('/draft', (req, res) => {
-    const { teamId, playerId, playerName } = req.body;
-    const info = db.prepare('INSERT INTO roster_slots (team_id, player_id, player_name) VALUES (?, ?, ?)')
-                   .run(teamId, playerId, playerName);
+    const { teamId, leagueId, playerId, playerName } = req.body;
+    const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
+                   .run(teamId, leagueId, playerId, playerName);
 
     broadcastUpdate();
     res.json({ success: true, rowId: info.lastInsertRowid });
