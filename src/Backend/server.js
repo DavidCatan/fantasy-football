@@ -47,6 +47,7 @@ db.exec(`
 /*
     TODO: validate inputs
     on all: check input for unique identifier
+    check if team id matches owner
 */
 
 // API Endpoint to get a team's roster
@@ -96,41 +97,81 @@ app.get('/leagues/:league_id/rostered', (req, res) => {
 
 // API Endpoint to draft a player
 app.post('/draft', (req, res) => {
+
     const { teamId, leagueId, playerId, playerName } = req.body;
-    const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
+
+    if(leagueDraftOrders.has(leagueId)){
+        const draftOrder = leagueDraftOrders.get(leagueId)[0];
+        let draftIndex = leagueDraftOrders.get(leagueId)[1];
+
+        if(teamId != draftOrder[draftIndex]){ // check if team should be drafting first
+            res.json({success: false});
+            return;
+        }
+
+        draftIndex = (draftIndex + 1) % draftOrder.length;
+        const nextDrafter = draftOrder[draftIndex];
+        leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        
+        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
                    .run(teamId, leagueId, playerId, playerName);
 
-    broadcastUpdate();
-    res.json({ success: true, rowId: info.lastInsertRowid });
+        broadcastUpdate('UPDATE_BOARD', null, leagueId);
+        res.json({ success: true, rowId: info.lastInsertRowid });
+        return;
+    }
+    res.json({sucess: false});
+    
 });
 
 wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;
     const parameters = new URL(url);
+    const leagueId = parameters.searchParams.get('league');
+    ws.leagueId = leagueId;
     if(parameters['pathname'] == '/draft'){
-        const leagueId = parameters.searchParams.get('league');
         sendDraftOrder(ws, leagueId);
     }
+
+    /*ws.on('message', (message) => {
+        const messageString = Buffer.isBuffer(message) ? message.toString() : message;
+        const data = JSON.parse(messageString);
+
+        if(data['type'] == 'UPDATE_DRAFTER'){
+            const league_id = data['data'];
+            if(leagueDraftOrders.has(league_id)){
+                const draftOrder = leagueDraftOrders.get(league_id)[0];
+                let draftIndex = leagueDraftOrders.get(league_id)[1];
+                //draftIndex = (draftIndex + 1) % draftOrder.length;
+                const curDrafter = draftOrder[draftIndex];
+                //leagueDraftOrders.set(league_id,[draftOrder, draftIndex]);
+                broadcastUpdate('UPDATE_DRAFTER', curDrafter);
+            }
+        }
+    });*/
   
 });
 
 async function sendDraftOrder(ws, league_id){
     var draftOrder;
+    league_id = JSON.parse(league_id);
     if(!leagueDraftOrders.has(league_id)){
         draftOrder = await getDraftOrder(league_id);
-        leagueDraftOrders.set(league_id, draftOrder);
+        leagueDraftOrders.set(league_id, [draftOrder, 0]);
     }
     else{
-        draftOrder = leagueDraftOrders.get(league_id);
+        draftOrder = leagueDraftOrders.get(league_id)[0];
     }
     ws.send(JSON.stringify({type: "DRAFT_ORDER", data: draftOrder}));
+    broadcastUpdate('UPDATE_DRAFTER', draftOrder[leagueDraftOrders.get(league_id)[1]], league_id);
 }
 
-function broadcastUpdate(){
+function broadcastUpdate(type, data, league_id){
     wss.clients.forEach(client =>
     {
-        if(client.readyState == 1){
-            client.send(JSON.stringify({type : 'UPDATE'}));
+        if(client.readyState == 1 && client.leagueId == league_id){
+            client.send(JSON.stringify({'type' : type, 'data': data}));
         }
     });
 }

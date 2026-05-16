@@ -24,8 +24,8 @@ export var teams = [
 const API_HOST = "localhost";
 const API_PORT = 3001;
 
-export async function getRosteredPlayers(){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/leagues/1234/rostered`);
+export async function getRosteredPlayers(league_id){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/leagues/${league_id}/rostered`);
     const data = await response.json();
     const ids = data.map(item => item.player_id);
     return ids;

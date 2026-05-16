@@ -10,33 +10,57 @@ import {draftPlayer} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagueId, getTeam, getDraftOrder} from '../utils/leagueUtils';
 
-const SEASON = "2025"; 
-const OWNER = 'ERIC'; // hardcoded for now, get from post/session or something on login
 
-const LEAGUE = await getLeagueId(OWNER);
-const TEAM = await getTeam(LEAGUE, OWNER);
+const SEASON = "2025"; 
+//const OWNER = 'ERIC'; // hardcoded for now, get from post/session or something on login
+
+//const LEAGUE = await getLeagueId(OWNER);
+//var TEAM = await getTeam(LEAGUE, OWNER);
 var DRAFT_ORDER;
+
+var ws; 
 
 const Draft = () => {
     const [pos, setPosition] = React.useState("all");
-    //const [league, setLeague] = React.useState();
-    const [draftedPlayers, setDraftedPlayers] = React.useState([]);
+    const [team, setTeam] = React.useState(null);
+    const [league, setLeague] = React.useState(null);
+    const [draftedPlayers, setDraftedPlayers] = React.useState(null);
     const [curDraftTeam, setDraftTeam] = React.useState();
-
-    
+    const [OWNER, setOwner] = React.useState("ERIC");
     
     React.useEffect(() => {
+        const loadLeagueData = async () => {
+            try{
+                let l = await getLeagueId(OWNER);
+                let t = await getTeam(l, OWNER);
+                setLeague(l);
+                setTeam(t);
+            } catch(err){
+                alert('error getting league data');
+            }
+        }
+       
+        loadLeagueData();
+
+    },[OWNER]);
+
+    React.useEffect(() => {
+        
+        if(!league || !team){
+            return;
+        }
+      
         const getRostered = async () => {
             try{
-                setDraftedPlayers(await getRosteredPlayers());
+                setDraftedPlayers(await getRosteredPlayers(league));
             } catch(err){
                 alert('error getting rostered data');
             }
         };
-       
+
         getRostered();
 
-        const ws = new WebSocket(`ws://localhost:3001/draft?league=${LEAGUE}`); 
+        ws = new WebSocket(`ws://localhost:3001/draft?league=${league}`);
 
         ws.onopen = () => {
             console.log("Connected to WebSocket Server!");
@@ -44,14 +68,18 @@ const Draft = () => {
 
         // update page when message received from server
         ws.onmessage = (message) => {
+            console.log(message);
             const data = JSON.parse(message.data);
-            if(data['type'] == 'UPDATE'){
+            if(data['type'] == 'UPDATE_BOARD'){
                 getRostered();
             }
             if(data['type'] == 'DRAFT_ORDER'){
                 DRAFT_ORDER = data['data'];
-                setDraftTeam(DRAFT_ORDER[0]);
+                //setDraftTeam(DRAFT_ORDER[0]);
                 console.log(DRAFT_ORDER);
+            }
+            if(data['type'] == 'UPDATE_DRAFTER'){
+                setDraftTeam(data['data']);
             }
         }
         ws.onerror = (error) => {
@@ -64,12 +92,19 @@ const Draft = () => {
             }
         };
 
-    }, []);
+    }, [league, team]);
+
+    
+    if(!league || !team || !draftedPlayers){
+        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+    }
 
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-4 text-slate-800">Draft</h1>
             <div className="mb-6">
+
+
                 <ButtonGroup variant="outlined" disableElevation>
                     {["all", "QB", "RB", "WR", "TE"].map((p) => (
                         <Button key={p} onClick={() => setPosition(p)} className="capitalize">
@@ -78,14 +113,14 @@ const Draft = () => {
                     ))}
                 </ButtonGroup>
             </div>
-            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam}/>
+            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league}/>
         </div>
     );
 
     
 };
 
-function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam }) {
+function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -162,12 +197,12 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam }) {
             )}
 
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} draftedPlayers={draftedPlayers} 
-            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} />
+            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} />
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam }) {
+function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team }) {
     if (!player) return null;
     const data = calculatePoints(player.name);
     
@@ -188,6 +223,8 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
         },
         overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
     };
+    console.log(curDraftTeam);
+    console.log('team', team);
 
     var wideimage; 
     if (Math.floor(Math.random() * 20) == 0){
@@ -198,7 +235,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
 
     var draftbutton;
-    if (TEAM == curDraftTeam){
+    if (team == curDraftTeam){
         draftbutton = "px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium";
     }
     else{
@@ -216,8 +253,9 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             close();
             return;
         }
-        updateDraftDB(TEAM, LEAGUE, player);
-        //TEAM["roster"].push(player);
+        updateDraftDB(team, league, player);
+        console.log(league);
+        ws.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         setDraftedPlayers((prev) => [...prev, player.id]);
         close();
     }
@@ -235,8 +273,8 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
 
                 <button 
                     onClick={() => 
-                        {if(TEAM == curDraftTeam){
-                            draftPlayer(TEAM, player);
+                        {if(team == curDraftTeam){
+                            draftPlayer(team, player);
                         }}
                     }
                     className={draftbutton}
