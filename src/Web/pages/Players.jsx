@@ -1,133 +1,103 @@
 import React from "react";
-import styled from "styled-components"
 import players from "../utils/draftUtils";
-import playerData from "../../../nfl_players.json"
+import playerData from "../../../nfl_players.json";
 import { playerNames } from "../utils/draftUtils";
-//import { fetchPlayerStats } from "../utils/draftUtils";
 import { calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 
-var SEASON = "2025"; 
-//var curPlayer = players["all"][0]; // fix this 
-//console.log(players);
+const SEASON = "2025"; 
+
 const Players = () => {
     const [pos, setPosition] = React.useState("all");
 
-    return(
-        <div>
-            <h1>Players</h1>
-            <ButtonGroup variant="outlined" disableElevation>
-                <Button onClick={() => setPosition("all")}>All</Button>
-                <Button onClick={() => setPosition("QB")}>QB</Button>
-                <Button onClick={() => setPosition("RB")}>RB</Button>
-                <Button onClick={() => setPosition("WR")}>WR</Button>
-                <Button onClick={() => setPosition("TE")}>TE</Button>
-            </ButtonGroup>
-            <PlayerList pos={pos}/>
+    return (
+        <div className="p-6 max-w-4xl mx-auto">
+            <h1 className="text-3xl font-bold mb-4 text-slate-800">Players</h1>
+            <div className="mb-6">
+                <ButtonGroup variant="outlined" disableElevation>
+                    {["all", "QB", "RB", "WR", "TE"].map((p) => (
+                        <Button key={p} onClick={() => setPosition(p)} className="capitalize">
+                            {p}
+                        </Button>
+                    ))}
+                </ButtonGroup>
+            </div>
+            <PlayerList pos={pos} />
         </div>
     );
 };
 
-
-function PlayerList({pos}) {
-  
+function PlayerList({ pos }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
 
-    var displayedPlayers;
-    if (!isExpanded){
-        displayedPlayers  = players[pos].slice(0,30); // initial first thirty players
-    }
-    else{
-        displayedPlayers = players[pos];
-    }
+    const displayedPlayers = isExpanded ? players[pos] : players[pos].slice(0, 30);
 
     function openModal(player) {
-        if(!player || player == ""){
-            return null;
-        }
-        setIsOpen(true);
+        if (!player) return;
         setPlayer(player);
+        setIsOpen(true);
     }
 
-    function afterOpenModal() {
-    // references are now sync'd and can be accessed.
-    }
-
-    function closeModal() {
-        setIsOpen(false);
-    }
-    
     return (
-        <div>
+        <div className="space-y-4">
             <Autocomplete
                 disablePortal
                 options={playerNames}
                 noOptionsText="No Players"
-                filterOptions={createFilterOptions({
-                        limit: 20
-                    })
-                }
+                filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {
                     const { key, ...optionProps } = props;
                     return (
-                        <li key={key} {...optionProps}>  
-                            <img src={playerData[option].headshot} style={{width:"10%"}} loading="lazy"></img>
-                            <div>
-                                <div style={{ fontWeight: 'bold' }}>{option}</div>
-                            </div>
+                        <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
+                            <img src={playerData[option].headshot} className="w-10 h-10 rounded-full object-cover" loading="lazy" alt="" />
+                            <div className="font-bold text-slate-700">{option}</div>
                         </li>
                     );
-                    }
-                }
+                }}
                 renderInput={(params) => <TextField {...params} label="Search for a player" />}
                 onChange={(event, player) => openModal(playerData[player])}
+                className="bg-white rounded-lg shadow-sm"
             />
-        <ul>
-                {displayedPlayers.map((player) => (
-                    <PlayerItem key={player.id}>
-                        <PlayerButton onClick={() => openModal(player)}>
-                            <div style={{fontWeight:'bold'}}>
-                                <img src={player.headshot} style={{width:"10%"}} loading="lazy"></img> 
-                                {player.name} - {player.position}
-                            </div>
-                        </PlayerButton>
-                    </PlayerItem>
-                ))}
-                <PlayerModal
-                    player={curPlayer}
-                    isOpen={modalIsOpen}
-                    close={() => closeModal()}
-                    
-                />
-        </ul>
-            <button onClick={() => setIsExpanded(true)} style={{cursor: 'pointer', display: 'flex', margin: '0 auto'}}>
-                 View All </button>
-            
-        </div>
-        
 
+            <ul className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                {displayedPlayers.map((player) => (
+                    <li key={player.id} className="list-none">
+                        <button 
+                            onClick={() => openModal(player)} 
+                            className="w-full flex items-center gap-4 p-3 text-left hover:bg-slate-50 transition-colors"
+                        >
+                            <img src={player.headshot} className="w-12 h-12 rounded-full border border-slate-200" loading="lazy" alt="" />
+                            <span className="font-semibold text-slate-700">
+                                {player.name} <span className="text-slate-400 font-normal ml-2">| {player.position}</span>
+                            </span>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+
+            {!isExpanded && (
+                <button 
+                    onClick={() => setIsExpanded(true)} 
+                    className="mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium"
+                >
+                    View All
+                </button>
+            )}
+
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} />
+        </div>
     );
 }
 
-const PlayerItem = styled.li`
-    list-style-type: none;  
-`;
+function PlayerModal({ player, isOpen, close }) {
+    if (!player) return null;
+    const data = calculatePoints(player.name);
 
-const PlayerButton = styled.button`
-    width: 100%;
-    text-align: left;
-`;
-
-function PlayerModal({player, isOpen, close}){
-    
-    //let data = fetchPlayerStats(SEASON, player.id);
-    let data = calculatePoints(player.name);
-    console.log(data);
-    const customStyles = {
+    const modalStyles = {
         content: {
             top: '50%',
             left: '50%',
@@ -135,70 +105,47 @@ function PlayerModal({player, isOpen, close}){
             bottom: 'auto',
             marginRight: '-50%',
             transform: 'translate(-50%, -50%)',
+            borderRadius: '16px',
+            border: 'none',
+            padding: '24px',
+            maxWidth: '90%',
+            width: '400px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
         },
+        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
     };
 
-    return(
-        <div>
-          <Modal
-                isOpen={isOpen}
-                style={customStyles}
-                onRequestClose={close}
-                contentLabel="Example Modal"
-                closeTimeoutMS={200}
-            >
-                <div>
-                    <button onClick={close}>close</button>
-                    <span style={{display:'flex', justifyContent: 'center', fontWeight: 'bold', fontSize: '150%'}}>
-                        {player.name}
-                    </span>
-                    <img src={player.headshot} style={{width:'50%', display:'flex', margin:'auto'}}></img>
-                    <div style={{height: '450px', overflow: 'auto'}}>
-                        <table align='center'>
-                            <style>{`
-                                    td, th { border: 1px solid #ddd; padding: 8px; text-align: center;}
-                                    tr:nth-child(even) { background-color: #f2f2f2; }
-                                `}
-                            </style>
-                            <thead>
-                                <tr>
-                                    <th>Week</th>
-                                    <th>Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.map((points, index) =>(
-                                    <tr key={index}>
-                                        <td>{index + 1}</td>
-                                        <td>{points}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                  
-                </div>
-                <div>
-                </div>
+    return (
+        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
+            <div className="relative">
+                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
                 
-            </Modal>
-            
-       
-        </div>
+                <div className="text-center mb-4">
+                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
+                    <img src={player.headshot} className="w-32 h-32 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner" alt="" />
+                </div>
+
+                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm text-center border-collapse">
+                        <thead className="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.map((points, index) => (
+                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
+                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
+                                    <td className="p-3 font-bold text-slate-800">{points}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </Modal>
     );
 }
-
-/*function makeTable({data}){
-    return(
-        
-    )
-    
-}*/
-
-/*function PlayerSearch(playerData, playerNames) {
-  return (
-    
-  );
-}*/
 
 export default Players;
