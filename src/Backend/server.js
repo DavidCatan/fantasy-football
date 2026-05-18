@@ -19,11 +19,22 @@ app.use(cors());
 app.use(express.json());
 
 db.exec(`
+
+    CREATE TABLE IF NOT EXISTS users(
+        username VARCHAR(50) PRIMARY KEY,
+        password VARCHAR(100) NOT NULL,
+        display_name VARCHAR(50) NOT NULL
+    )
+
+    CREATE TABLE IF NOT EXISTS leagues(
+        id INTEGER PRIMARY KEY UNIQUE
+    )
+
     CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
         league_id INTEGER,
-        name TEXT NOT NULL,
-        owner TEXT UNIQUE NOT NULL
+        name VARCHAR(50) NOT NULL,
+        owner VARCHAR(50) UNIQUE NOT NULL
 
     );
 
@@ -31,8 +42,8 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         team_id INTEGER NOT NULL,
         league_id INTEGER NOT NULL,
-        player_id TEXT UNIQUE NOT NULL,
-        player_name TEXT NOT NULL,
+        player_id INTEGER UNIQUE NOT NULL,
+        player_name VARCHAR(100) NOT NULL,
 
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
@@ -105,8 +116,7 @@ app.post('/draft', (req, res) => {
         let draftIndex = leagueDraftOrders.get(leagueId)[1];
 
         if(teamId != draftOrder[draftIndex]){ // check if team should be drafting first
-            res.json({success: false});
-            return;
+            return res.status(400).json({ error: "Invalid team selection" });
         }
 
         draftIndex = (draftIndex + 1) % draftOrder.length;
