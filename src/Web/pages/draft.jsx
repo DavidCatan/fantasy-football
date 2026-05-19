@@ -100,8 +100,8 @@ const Draft = () => {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-4 text-slate-800">Draft</h1>
+        <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
+            <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Draft</h1>
             <div className="mb-6">
 
 
@@ -306,7 +306,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
 }
 
 async function updateDraftDB(teamId, leagueId, player){
-    const response = await fetch ('http://localhost:3001/draft', {
+    const response = await fetch ('http://localhost:3001/api/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:

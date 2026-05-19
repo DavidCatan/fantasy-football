@@ -25,26 +25,26 @@ const API_HOST = "localhost";
 const API_PORT = 3001;
 
 export async function getRosteredPlayers(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/leagues/${league_id}/rostered`);
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/rostered`, {credentials: 'include'});
     const data = await response.json();
     const ids = data.map(item => item.player_id);
     return ids;
 }
 
 export async function getLeagueId(owner){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/${owner}`);
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/${owner}`, {credentials: 'include'});
     const data = await response.json();
     return data["league_id"];
 }
 
 export async function getTeam(league_id, owner){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/leagues/${league_id}/teams/${owner}`);
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${owner}`, {credentials: 'include'});
     const data = await response.json();
     return data["id"];
 }
 
 async function getTeams(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/leagues/${league_id}/teams`);
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
     return data;
 }

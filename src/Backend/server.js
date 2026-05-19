@@ -1,12 +1,15 @@
 import express from 'express';
-import Database from 'better-sqlite3';
+import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import { getDraftOrder } from '../Web/utils/leagueUtils.js';
+import db from './db.js';
+import { register_user, login_user, sessionAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import session from 'express-session';
 
 const app = express();
-const db = new Database('fantasy.db');
+//const db = new Database('fantasy.db');
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
@@ -15,45 +18,24 @@ var leagueDraftOrders = new Map();
 
 
 
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true               
+}));
+
 app.use(express.json());
 
-db.exec(`
-
-    CREATE TABLE IF NOT EXISTS users(
-        username VARCHAR(50) PRIMARY KEY,
-        password VARCHAR(100) NOT NULL,
-        display_name VARCHAR(50) NOT NULL
-    )
-
-    CREATE TABLE IF NOT EXISTS leagues(
-        id INTEGER PRIMARY KEY UNIQUE
-    )
-
-    CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
-        league_id INTEGER,
-        name VARCHAR(50) NOT NULL,
-        owner VARCHAR(50) UNIQUE NOT NULL
-
-    );
-
-    CREATE TABLE IF NOT EXISTS roster_slots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER NOT NULL,
-        league_id INTEGER NOT NULL,
-        player_id INTEGER UNIQUE NOT NULL,
-        player_name VARCHAR(100) NOT NULL,
-
-        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
-    );
-`);
-//db.prepare("DELETE FROM roster_slots WHERE team_id=1").run();
-//db.prepare("DELETE FROM teams").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team1', 'ERIC')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team2', 'DAVID')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team3', 'OSCAR')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team4', 'LIAM')").run();
+app.use(session({
+    secret: process.env.SESSION_SECRET, // Used to sign the session ID cookie
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 15 * 60 * 1000, // 15 minutes 
+        secure: false,          // Set to true for https!!!!!!!
+        httpOnly: true,       
+        sameSite: 'lax' // set to lax later
+    }
+}));
 
 /*
     TODO: validate inputs
@@ -61,23 +43,32 @@ db.exec(`
     check if team id matches owner
 */
 
-// API Endpoint to get a team's roster
-app.get('/team/:id', (req, res) => {
+app.get('/debug-session', (req, res) => {
+    req.session.counter = (req.session.counter || 0) + 1;
+    res.json({
+        message: "Check your terminal",
+        sessionData: req.session,
+        cookieReceived: req.headers.cookie
+    });
+});
+
+// /api Endpoint to get a team's roster
+app.get('/api/team/:id', sessionAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);
     res.json(players);
 });
 
-// API Endpoint to get team's league id
+// /api Endpoint to get team's league id
 //app.get
 
-// API Endpoint to get league team is in
-app.get('/:owner', (req, res) => {
+// /api Endpoint to get league team is in
+app.get('/api/:owner', sessionAuth, (req, res) => {
     const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
     res.json(league_id);
 });
 
-// API Endpoint to get all teams from league
-app.get('/leagues/:league_id/teams', (req, res) => {
+// /api Endpoint to get all teams from league
+app.get('/api/leagues/:league_id/teams', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
     if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -86,8 +77,8 @@ app.get('/leagues/:league_id/teams', (req, res) => {
     res.json(team_ids);
 });
 
-// API Endpoint to get team from league
-app.get('/leagues/:league_id/teams/:owner', (req, res) => {
+// /api Endpoint to get team from league
+app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
     if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -96,8 +87,8 @@ app.get('/leagues/:league_id/teams/:owner', (req, res) => {
     res.json(team_id);
 });
 
-// API Endpoint to get rostered data from league
-app.get('/leagues/:league_id/rostered', (req, res) => {
+// /api Endpoint to get rostered data from league
+app.get('/api/leagues/:league_id/rostered', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
     if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -106,8 +97,8 @@ app.get('/leagues/:league_id/rostered', (req, res) => {
     res.json(players);
 });
 
-// API Endpoint to draft a player
-app.post('/draft', (req, res) => {
+// /api Endpoint to draft a player
+app.post('/api/draft', sessionAuth, (req, res) => {
 
     const { teamId, leagueId, playerId, playerName } = req.body;
 
@@ -133,6 +124,63 @@ app.post('/draft', (req, res) => {
     }
     res.json({sucess: false});
     
+});
+
+app.post('/api/login', async (req, res) => {
+    var { username, password } = req.body;
+
+    username = sanitize(username);
+
+    // validate inputs
+    if (!username || !password){
+        return res.status(400).json({ message: "Invalid username or password" });
+    }
+
+    if(await login_user(username, password)){
+        req.session.logged = true;
+        req.session.username = username;
+        req.session.browser = req.headers['user-agent'];
+        //req.session.save((err) => {
+          //  if (err) {
+            //    console.error("Session save error:", err);
+              //  return res.status(500).json({ message: "Server error" });
+            //}
+        return res.status(200).json({message: "Successfully logged in!", success: true});
+       // });
+    }
+    else{
+        return res.status(400).json({ message: "Error logging in; invalid username or password" });
+    }
+});
+
+app.post('//api/register', async (req, res) => {
+    var { username, password } = req.body;
+
+    username = sanitize(username);
+
+    // validate inputs
+    if (!username || !password){
+        return res.status(400).json({ message: "Invalid username or password" });
+    }
+   
+    if(password.length < 8){
+        return res.status(400).json({ message: "Password not long enough" });
+    }
+    
+    // check password regex requirements
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&])[\w!@#$%^&]{8,}$/;
+    if(!regex.test(password)){
+        return res.status(400).json({ message: "Invalid Password format" });
+    }
+
+
+    if(await register_user(username, password)){
+        return res.status(200).json({message: "Successfully created account!", success: true});
+    }
+    else{
+        return res.status(400).json({ message: "Username taken or other error" });
+    }
+
 });
 
 wss.on('connection', (ws, req) => {
