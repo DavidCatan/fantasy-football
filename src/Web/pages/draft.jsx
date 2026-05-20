@@ -315,7 +315,8 @@ async function updateDraftDB(teamId, leagueId, player){
             leagueId: leagueId,
             playerId: player.id,
             playerName: player.name
-        })
+        }),
+        credentials: 'include'
     });
 
 }

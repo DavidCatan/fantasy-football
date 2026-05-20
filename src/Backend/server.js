@@ -15,8 +15,8 @@ const wss = new WebSocketServer({server});
 
 var leagueDraftOrders = new Map();
 
-
-
+// for TESTING!!!!!
+//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run(1234);
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -43,13 +43,51 @@ app.use(session({
     check if team id matches owner
 */
 
-app.get('/debug-session', (req, res) => {
-    req.session.counter = (req.session.counter || 0) + 1;
-    res.json({
-        message: "Check your terminal",
-        sessionData: req.session,
-        cookieReceived: req.headers.cookie
+// api endpoint to check session
+app.get('/api/session', (req, res) => {
+    if(req.session.logged){
+        return res.status(200).json({logged: true, username: req.session.username});
+    }
+    return res.status(200).json({logged: false});
+});
+
+// api endpoint to logout
+app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if(err){
+            return res.status(500).json({message: "Could not logout"});
+        }
     });
+    res.clearCookie('connect.sid');
+    return res.status(200).json({ message: "Logged out successfully" });
+});
+
+// api endpoint to create a league
+//app.post('/api/leagues/create', sessionAuth, (req, res) => {
+
+//});
+
+// api endpoint to join a league
+app.post('/api/leagues/join', sessionAuth, (req,res) => {
+    const {leagueId, owner} = req.body;
+    if(isNaN(leagueId)){
+        return res.status(400).json({ message: "League not found" });
+    }
+    try{
+        const league = db.prepare('SELECT * FROM leagues WHERE league_id=?').get(leagueId);
+        if(!league){
+            return res.status(404).json({message: "League not found"});
+        }
+        db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        return res.status(200).json({message: "Successfully added to league!"});
+    }
+    catch(err){
+        if(err.code === 'SQLITE_CONSTRAINT_UNIQUE'){
+            return res.status(400).json({message: "User already in league!"});
+
+        }
+        return res.status(400).json({message: "Could not add to league"});
+    }
 });
 
 // /api Endpoint to get a team's roster
@@ -153,7 +191,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('//api/register', async (req, res) => {
+app.post('/api/register', async (req, res) => {
     var { username, password } = req.body;
 
     username = sanitize(username);

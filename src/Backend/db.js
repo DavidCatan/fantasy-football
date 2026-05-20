@@ -18,8 +18,8 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
         league_id INTEGER,
-        name VARCHAR(50) NOT NULL,
-        owner VARCHAR(50) UNIQUE NOT NULL
+        name VARCHAR(50) DEFAULT '',
+        owner VARCHAR(50) NOT NULL
 
     );
 
@@ -32,6 +32,8 @@ db.exec(`
 
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_league ON teams (owner, league_id);
 `);
 
 export default db;

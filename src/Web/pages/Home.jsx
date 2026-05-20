@@ -3,8 +3,12 @@ import { Link } from "react-router-dom";
 
 const Home = () => {
 
-    const [username, setUsername] = React.useState("");
-    const [password, setPassword] = React.useState("");
+    const [username, setUsername] = React.useState();
+    const [password, setPassword] = React.useState();
+    const [user, setUser] = React.useState();
+    const [loading, setLoading] = React.useState(true);
+    const [newLeague, setNewLeague] = React.useState();
+
 
     const handleLogin = async (e) => {
         e.preventDefault(); 
@@ -19,14 +23,97 @@ const Home = () => {
         const data = await response.json();
         if (data.success) {
             alert(data.message);
+            location.reload();
 
-            // TODO send user to roster page...
         } else {
             alert("Login failed: " + data.message);
         }
     };
 
-    return (
+    const joinLeague = async (e) => {
+      e.preventDefault();
+      const response = await fetch('http://localhost:3001/api/leagues/join', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leagueId: newLeague, owner: user }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert(data.message);
+
+        } else {
+            alert("Login failed: " + data.message);
+        }
+    }
+
+    React.useEffect(() => {
+      fetch('http://localhost:3001/api/session', {credentials: 'include'})
+        .then(res => res.json())
+        .then(data => {
+          if(data.logged){
+            setUser(data['username']);
+          }
+          else{
+            setUser(null);
+          }
+        })
+        .finally(() => setLoading(false));      
+    }, [])
+
+    if(loading){
+      return (<div className="text-3xl font-bold mb-4 text-yellow-800">Loading...</div>)
+    }
+
+    if(user){
+      return(
+        <div className="grid grid-cols-2 gap-8">
+          <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 ml-7">
+            <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
+              Create New League
+            </div>
+            <button
+                type="submit"
+                className="flex w-full justify-center rounded-md bg-blue-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+              >
+                Create League
+              </button>
+          </div>
+
+          <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 mr-7">
+            <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
+              Have a League ID? Join Now
+            </div>
+            <form onSubmit={joinLeague} className="space-y-6">
+               <div>
+              <div className="mt-2">
+                <input
+                  name="league_id"
+                  type="text"
+                  placeholder="Enter x Digit ID"
+                  onChange={(e) => setNewLeague(e.target.value)}
+                  required
+                  className="appearance-none block w-full bg-gray-200 text-gray-700 border border-green-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
+                />
+              </div>
+            </div>
+              <div>
+                 <button
+                type="submit"
+                className="flex w-full justify-center rounded-md bg-green-700 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-green-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+              >
+                Join League
+              </button>
+              </div>
+            </form>
+          </div>
+        </div>
+       
+      )
+    }
+    else{
+       return (
     <>
       <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
@@ -102,6 +189,7 @@ const Home = () => {
       </div>
     </>
   )
+    }
 };
 
 export default Home;

@@ -3,11 +3,24 @@ import { Link } from "react-router-dom";
 
 const Register = () => {
 
-    const [username, setUsername] = React.useState("");
-    const [password, setPassword] = React.useState("");
+    const [username, setUsername] = React.useState();
+    const [password, setPassword] = React.useState();
+    const [repassword, setRepassword] = React.useState();
+
+    function checkPasswords(){
+      if(password == repassword){
+        return true;
+      }
+      return false;
+    }
 
     const handleRegister = async (e) => {
         e.preventDefault(); 
+
+        if(!checkPasswords()){
+          alert("Passwords don't match!");
+          return;
+        }
 
         const response = await fetch('http://localhost:3001/api/register', {
             method: 'POST',
@@ -72,6 +85,25 @@ const Register = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
+                />
+              </div>
+            </div>
+             <div>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm/6 font-medium text-gray-100">
+                  Confirm Password
+                </label>
+              </div>
+              <div className="mt-2">
+                <input
+                  id="repassword"
+                  name="repassword"
+                  type="password"
+                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&])[\w!@#$%^&]{8,}$"
+                  title="Password does not match"
+                  onChange={(e) => setRepassword(e.target.value)}
+                  required
                   className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
                 />
               </div>
