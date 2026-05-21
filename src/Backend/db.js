@@ -12,12 +12,14 @@ db.exec(`
 
     CREATE TABLE IF NOT EXISTS leagues(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        league_id INTEGER UNIQUE
+        league_id VARCHAR(6) UNIQUE,
+        name VARCHAR(100) NOT NULL,
+        owner VARCHAR(50) NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
-        league_id INTEGER,
+        league_id VARCHAR(6) NOT NULL,
         name VARCHAR(50) DEFAULT '',
         owner VARCHAR(50) NOT NULL
 
@@ -26,7 +28,7 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS roster_slots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         team_id INTEGER NOT NULL,
-        league_id INTEGER NOT NULL,
+        league_id VARCHAR(6) NOT NULL,
         player_id INTEGER UNIQUE NOT NULL,
         player_name VARCHAR(100) NOT NULL,
 

@@ -8,6 +8,7 @@ const Home = () => {
     const [user, setUser] = React.useState();
     const [loading, setLoading] = React.useState(true);
     const [newLeague, setNewLeague] = React.useState();
+    const [leagueName, setLeagueName] = React.useState();
 
 
     const handleLogin = async (e) => {
@@ -30,6 +31,27 @@ const Home = () => {
         }
     };
 
+    const createLeague = async (e) => {
+      e.preventDefault();
+      if(!leagueName || leagueName.length == 0 || leagueName.length > 100){
+        return alert('League Name must be at least 1 character and less than 100 characters');
+      }
+      const response = await fetch('http://localhost:3001/api/leagues/create', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leagueName: leagueName, owner: user }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert(data.message);
+
+        } else {
+            alert("Create league failed: " + data.message);
+        }
+    }
+
     const joinLeague = async (e) => {
       e.preventDefault();
       const response = await fetch('http://localhost:3001/api/leagues/join', {
@@ -44,7 +66,7 @@ const Home = () => {
             alert(data.message);
 
         } else {
-            alert("Login failed: " + data.message);
+            alert("Join failed: " + data.message);
         }
     }
 
@@ -73,12 +95,28 @@ const Home = () => {
             <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
               Create New League
             </div>
-            <button
+            <form onSubmit={createLeague} className="space-y-6">
+               <div>
+              <div className="mt-2">
+                <input
+                  name="league_name"
+                  type="text"
+                  placeholder="Enter League Name"
+                  onChange={(e) => setLeagueName(e.target.value)}
+                  required
+                  className="appearance-none block w-full bg-gray-200 text-gray-700 border border-blue-500 rounded py-3 h-18 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
+                />
+              </div>
+            </div>
+              <div>
+                 <button
                 type="submit"
                 className="flex w-full justify-center rounded-md bg-blue-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
               >
                 Create League
               </button>
+              </div>
+            </form>
           </div>
 
           <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 mr-7">
@@ -91,7 +129,7 @@ const Home = () => {
                 <input
                   name="league_id"
                   type="text"
-                  placeholder="Enter x Digit ID"
+                  placeholder="Enter 6 Digit ID"
                   onChange={(e) => setNewLeague(e.target.value)}
                   required
                   className="appearance-none block w-full bg-gray-200 text-gray-700 border border-green-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"

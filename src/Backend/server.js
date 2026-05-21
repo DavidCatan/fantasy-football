@@ -3,7 +3,7 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
 import { register_user, login_user, sessionAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
@@ -16,7 +16,7 @@ const wss = new WebSocketServer({server});
 var leagueDraftOrders = new Map();
 
 // for TESTING!!!!!
-//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run(1234);
+//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -63,16 +63,37 @@ app.post('/api/logout', (req, res) => {
 });
 
 // api endpoint to create a league
-//app.post('/api/leagues/create', sessionAuth, (req, res) => {
+app.post('/api/leagues/create', sessionAuth, (req, res) => {
+    const {leagueName, owner} = req.body;
+    const leagueId = makeId(6);  
 
-//});
+    if(!leagueName || leagueName.length == 0 || leagueName.length > 100){
+        return res.status(400).json({message: "League Name not valid"});
+    }
+
+    try{
+        db.prepare('INSERT INTO leagues (league_id, name, owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
+        try{
+            db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        }
+        catch(err){
+            db.prepare('DELETE FROM leagues WHERE league_id=?').run(leagueId);
+            return res.status(400).json({message: "Error adding user to league"});
+        }
+        return res.status(200).json({message: "Successfully created league!"});
+    }
+    catch(err){
+        return res.status(400).json({message: "Could not create league"});
+    }
+
+});
 
 // api endpoint to join a league
 app.post('/api/leagues/join', sessionAuth, (req,res) => {
     const {leagueId, owner} = req.body;
-    if(isNaN(leagueId)){
+    /*if(isNaN(leagueId)){
         return res.status(400).json({ message: "League not found" });
-    }
+    }*/
     try{
         const league = db.prepare('SELECT * FROM leagues WHERE league_id=?').get(leagueId);
         if(!league){
@@ -108,9 +129,9 @@ app.get('/api/:owner', sessionAuth, (req, res) => {
 // /api Endpoint to get all teams from league
 app.get('/api/leagues/:league_id/teams', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const team_ids = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
     res.json(team_ids);
 });
@@ -118,9 +139,9 @@ app.get('/api/leagues/:league_id/teams', sessionAuth, (req, res) => {
 // /api Endpoint to get team from league
 app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const team_id = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
     res.json(team_id);
 });
@@ -128,9 +149,9 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, (req, res) => {
 // /api Endpoint to get rostered data from league
 app.get('/api/leagues/:league_id/rostered', sessionAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const players = db.prepare('SELECT player_id FROM roster_slots WHERE league_id=?').all(league_id);
     res.json(players);
 });
@@ -225,6 +246,8 @@ wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;
     const parameters = new URL(url);
     const leagueId = parameters.searchParams.get('league');
+    //const teams = parameters.searchParams.get('teams');
+    //console.log('web-teams',teams);
     ws.leagueId = leagueId;
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
@@ -251,9 +274,10 @@ wss.on('connection', (ws, req) => {
 
 async function sendDraftOrder(ws, league_id){
     var draftOrder;
-    league_id = JSON.parse(league_id);
+    const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
+    //league_id = JSON.parse(league_id);
     if(!leagueDraftOrders.has(league_id)){
-        draftOrder = await getDraftOrder(league_id);
+        draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
     }
     else{

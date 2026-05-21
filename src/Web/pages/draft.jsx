@@ -10,12 +10,11 @@ import {draftPlayer} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagueId, getTeam, getDraftOrder} from '../utils/leagueUtils';
 
-
 const SEASON = "2025"; 
-//const OWNER = 'ERIC'; // hardcoded for now, get from post/session or something on login
+//const owner = 'ERIC'; // hardcoded for now, get from post/session or something on login
 
-//const LEAGUE = await getLeagueId(OWNER);
-//var TEAM = await getTeam(LEAGUE, OWNER);
+//const LEAGUE = await getLeagueId(owner);
+//var TEAM = await getTeam(LEAGUE, owner);
 var DRAFT_ORDER;
 
 var ws; 
@@ -26,33 +25,52 @@ const Draft = () => {
     const [league, setLeague] = React.useState(null);
     const [draftedPlayers, setDraftedPlayers] = React.useState(null);
     const [curDraftTeam, setDraftTeam] = React.useState();
-    const [OWNER, setOwner] = React.useState("ERIC");
+    const [owner, setOwner] = React.useState();
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        fetch('http://localhost:3001/api/session', {credentials: 'include'})
+            .then(res => res.json())
+            .then(data => {
+                if(data.logged){
+                setOwner(data['username']);
+                }
+                else{
+                setOwner(null);
+                }
+            })
+    }, [])
     
     React.useEffect(() => {
+        if(!owner){
+            return;
+        }
         const loadLeagueData = async () => {
             try{
-                let l = await getLeagueId(OWNER);
-                let t = await getTeam(l, OWNER);
+                let l = await getLeagueId(owner);
+                let t = await getTeam(l, owner);
                 setLeague(l);
                 setTeam(t);
             } catch(err){
+                console.log(err);
                 alert('error getting league data');
             }
         }
        
         loadLeagueData();
 
-    },[OWNER]);
+    },[owner]);
 
     React.useEffect(() => {
         
-        if(!league || !team){
+        if(!league || !team || !owner){
             return;
         }
       
         const getRostered = async () => {
             try{
                 setDraftedPlayers(await getRosteredPlayers(league));
+                setLoading(false);
             } catch(err){
                 alert('error getting rostered data');
             }
@@ -79,6 +97,8 @@ const Draft = () => {
                 console.log(DRAFT_ORDER);
             }
             if(data['type'] == 'UPDATE_DRAFTER'){
+                console.log('setting draft team');
+                console.log(data.data);
                 setDraftTeam(data['data']);
             }
         }
@@ -95,7 +115,7 @@ const Draft = () => {
     }, [league, team]);
 
     
-    if(!league || !team || !draftedPlayers){
+    if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
 

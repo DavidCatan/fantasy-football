@@ -17,7 +17,7 @@ export async function register_user(username, password){
     try{
         db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
         // for TESTING!!!
-        db.prepare('INSERT INTO teams (league_id, name, owner) VALUES (?,?,?)').run(1234,'E','ERIC');
+        //db.prepare('INSERT INTO teams (league_id, name, owner) VALUES (?,?,?)').run("123ABC",'E','ERIC');
     }
     catch(e){
         if (e.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {

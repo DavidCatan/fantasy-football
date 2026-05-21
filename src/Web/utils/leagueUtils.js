@@ -43,14 +43,13 @@ export async function getTeam(league_id, owner){
     return data["id"];
 }
 
-async function getTeams(league_id){
+export async function getTeams(league_id){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
     return data;
 }
 
-export async function getDraftOrder(league_id){
-    const teams = await getTeams(league_id);
+export async function getDraftOrder(league_id, teams){
     let shuffledArray = [teams.length];
     for(let i = 0; i < teams.length; i++){
         shuffledArray[i] = teams[i]["id"];
@@ -60,6 +59,16 @@ export async function getDraftOrder(league_id){
     shuffle(shuffledArray);
 
     return shuffledArray;
+}
+
+export function makeId(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
 }
 
 function shuffle(array) {
