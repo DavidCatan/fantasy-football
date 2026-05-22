@@ -17,16 +17,27 @@ const SEASON = "2025";
 //var TEAM = await getTeam(LEAGUE, owner);
 var DRAFT_ORDER;
 
-var ws; 
 
 const Draft = () => {
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
-    const [draftedPlayers, setDraftedPlayers] = React.useState(null);
+    const [draftedPlayers, setDraftedPlayers] = React.useState([]);
     const [curDraftTeam, setDraftTeam] = React.useState();
     const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
+
+    const ws = React.useRef(null);
+
+
+    const getRostered = async () => {
+        try{
+            setDraftedPlayers(await getRosteredPlayers(league));
+            setLoading(false);
+        } catch(err){
+            alert('error getting rostered data');
+        }
+    };
 
     React.useEffect(() => {
         fetch('http://localhost:3001/api/session', {credentials: 'include'})
@@ -67,26 +78,17 @@ const Draft = () => {
             return;
         }
       
-        const getRostered = async () => {
-            try{
-                setDraftedPlayers(await getRosteredPlayers(league));
-                setLoading(false);
-            } catch(err){
-                alert('error getting rostered data');
-            }
-        };
-
         getRostered();
 
-        ws = new WebSocket(`ws://localhost:3001/draft?league=${league}`);
+        ws.current = new WebSocket(`ws://localhost:3001/draft?league=${league}`);
 
-        ws.onopen = () => {
+        ws.current.onopen = () => {
             console.log("Connected to WebSocket Server!");
         };
 
         // update page when message received from server
-        ws.onmessage = (message) => {
-            console.log(message);
+        ws.current.onmessage = (message) => {
+            //console.log(message);
             const data = JSON.parse(message.data);
             if(data['type'] == 'UPDATE_BOARD'){
                 getRostered();
@@ -98,17 +100,17 @@ const Draft = () => {
             }
             if(data['type'] == 'UPDATE_DRAFTER'){
                 console.log('setting draft team');
-                console.log(data.data);
                 setDraftTeam(data['data']);
             }
         }
-        ws.onerror = (error) => {
+        ws.current.onerror = (error) => {
             console.log(error);
         }
 
         return () => {
-            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-                ws.close();
+            if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
+                console.log('closing');
+                ws.current.close();
             }
         };
 
@@ -133,14 +135,14 @@ const Draft = () => {
                     ))}
                 </ButtonGroup>
             </div>
-            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league}/>
+            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}/>
         </div>
     );
 
     
 };
 
-function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league }) {
+function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league, ws }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -167,7 +169,7 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
                 filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {
                     const { key, ...optionProps } = props;
-                    const isAvailable = !draftedPlayers.includes(playerData[option].id);
+                    const isAvailable = !draftedPlayers.includes(Number(playerData[option].id));
                     if (isAvailable){
                         return (
                             <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
@@ -185,7 +187,7 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
 
             <ul className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
                 {displayedPlayers.map((player) => {
-                    const isAvailable = !draftedPlayers.includes(player.id);
+                    const isAvailable = !draftedPlayers.includes(Number(player.id));
                     if (isAvailable){
                         return (
                             <li key={player.id} className="list-none">
@@ -217,13 +219,22 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
             )}
 
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} draftedPlayers={draftedPlayers} 
-            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} />
+            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}/>
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team }) {
+function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, ws }) {
     if (!player) return null;
+
+    React.useEffect(() => {
+        if(draftedPlayers.includes(Number(player.id)) && isOpen) {
+            alert('player has been drafted! you got sniped!');
+            close();
+        }
+
+    }, [draftedPlayers, isOpen]);
+
     const data = calculatePoints(player.name);
     
     const modalStyles = {
@@ -273,10 +284,14 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             close();
             return;
         }
-        updateDraftDB(team, league, player);
-        console.log(league);
-        ws.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
-        setDraftedPlayers((prev) => [...prev, player.id]);
+        if(ws.current && ws.current.readyState === WebSocket.OPEN){
+            updateDraftDB(team, league, player);
+            ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
+        }
+        else{
+            alert('websocket connection error');
+        }
+        //setDraftedPlayers((prev) => [...prev, player.id]);
         close();
     }
 

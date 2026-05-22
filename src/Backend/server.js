@@ -30,7 +30,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 15 * 60 * 1000, // 15 minutes 
+        maxAge: 60 * 60 * 1000, // 15 minutes 
         secure: false,          // Set to true for https!!!!!!!
         httpOnly: true,       
         sameSite: 'lax' // set to lax later
@@ -169,17 +169,21 @@ app.post('/api/draft', sessionAuth, (req, res) => {
             return res.status(400).json({ error: "Invalid team selection" });
         }
 
-        draftIndex = (draftIndex + 1) % draftOrder.length;
-        const nextDrafter = draftOrder[draftIndex];
-        leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
-        
-        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
-                   .run(teamId, leagueId, playerId, playerName);
 
-        broadcastUpdate('UPDATE_BOARD', null, leagueId);
-        res.json({ success: true, rowId: info.lastInsertRowid });
-        return;
+        try{
+            const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
+                   .run(teamId, leagueId, playerId, playerName);
+            draftIndex = (draftIndex + 1) % draftOrder.length;
+            const nextDrafter = draftOrder[draftIndex];
+            leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+            broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+            broadcastUpdate('UPDATE_BOARD', null, leagueId);
+            return res.json({ success: true, rowId: info.lastInsertRowid });
+        }
+        catch(err){
+            return res.status(400).json({message: "could not draft player"});
+        }
+        
     }
     res.json({sucess: false});
     
@@ -276,7 +280,7 @@ async function sendDraftOrder(ws, league_id){
     var draftOrder;
     const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
     //league_id = JSON.parse(league_id);
-    if(!leagueDraftOrders.has(league_id)){
+    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[1].length != teams.length){
         draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
     }
