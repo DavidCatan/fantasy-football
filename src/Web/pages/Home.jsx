@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { getLeagueId } from "../utils/leagueUtils";
 
 const Home = () => {
 
@@ -9,6 +10,7 @@ const Home = () => {
     const [loading, setLoading] = React.useState(true);
     const [newLeague, setNewLeague] = React.useState();
     const [leagueName, setLeagueName] = React.useState();
+    const [userLeagues, setUserLeagues] = React.useState([]);
 
 
     const handleLogin = async (e) => {
@@ -70,6 +72,22 @@ const Home = () => {
         }
     }
 
+    const enterLeague = async () => {
+      return true;
+    }
+
+    const getUserLeagues = async () => {
+      const data = await getLeagueId(user);
+      //if (response.ok) {
+        console.log(data);
+        setUserLeagues([data]);
+     // } 
+      //else {
+       // setUserLeagues([]);
+      //}
+
+    }
+
     React.useEffect(() => {
       fetch('http://localhost:3001/api/session', {credentials: 'include'})
         .then(res => res.json())
@@ -81,8 +99,16 @@ const Home = () => {
             setUser(null);
           }
         })
-        .finally(() => setLoading(false));      
+        .finally(() => setLoading(false));   
+        
     }, [])
+
+    React.useEffect(() => {
+      if(!user){
+        return;
+      }
+      getUserLeagues();
+    },[user, newLeague]);
 
     if(loading){
       return (<div className="text-3xl font-bold mb-4 text-yellow-800">Loading...</div>)
@@ -90,7 +116,29 @@ const Home = () => {
 
     if(user){
       return(
-        <div className="grid grid-cols-2 gap-8">
+        <div className="grid grid-cols-3 gap-8 justify-items-center m-auto">
+            <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 ml-7 col-span-3 size-full">
+            <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
+              View Leagues
+            </div>
+            <div>
+              <form onSubmit={enterLeague} className="space-y-6">
+                <div>
+                <div className="mt-2">
+                  {userLeagues}
+                </div>
+              </div>
+                <div>
+                  <button
+                  type="submit"
+                  className="flex w-full justify-center rounded-md bg-blue-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                >
+                  Create League
+                </button>
+                </div>
+              </form>
+            </div>
+          </div>
           <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 ml-7">
             <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
               Create New League

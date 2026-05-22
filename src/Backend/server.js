@@ -122,8 +122,13 @@ app.get('/api/team/:id', sessionAuth, (req, res) => {
 
 // /api Endpoint to get league team is in
 app.get('/api/:owner', sessionAuth, (req, res) => {
-    const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
-    res.json(league_id);
+    try{
+        const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
+        return res.status(200).json(league_id);
+    }
+    catch(err){
+        return res.status(400).json({message: "No leagues associated with user"});
+    }
 });
 
 // /api Endpoint to get all teams from league
