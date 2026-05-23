@@ -31,10 +31,16 @@ export async function getRosteredPlayers(league_id){
     return ids;
 }
 
-export async function getLeagueId(owner){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/${owner}`, {credentials: 'include'});
-    const data = await response.json();
-    return data["league_id"];
+export async function getLeagues(user){
+    try{
+        const response = await fetch(`http://${API_HOST}:${API_PORT}/api/${user}`, {credentials: 'include'});
+        const data = await response.json();
+        return {success: true, leagues: data};
+    }
+    catch(err){
+        return {success: false};
+    }
+    
 }
 
 export async function getTeam(league_id, owner){

@@ -1,6 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { getLeagueId } from "../utils/leagueUtils";
+import { getLeagues } from "../utils/leagueUtils";
+import {Swiper, SwiperSlide} from 'swiper/react';
+import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
 
 const Home = () => {
 
@@ -10,8 +15,7 @@ const Home = () => {
     const [loading, setLoading] = React.useState(true);
     const [newLeague, setNewLeague] = React.useState();
     const [leagueName, setLeagueName] = React.useState();
-    const [userLeagues, setUserLeagues] = React.useState([]);
-
+    const [userLeagues, setUserLeagues] = React.useState(["no leagues"]);
 
     const handleLogin = async (e) => {
         e.preventDefault(); 
@@ -47,7 +51,8 @@ const Home = () => {
 
         const data = await response.json();
         if (response.ok) {
-            alert(data.message);
+          setNewLeague(data["league_id"]);
+          alert(data.message);
 
         } else {
             alert("Create league failed: " + data.message);
@@ -77,14 +82,18 @@ const Home = () => {
     }
 
     const getUserLeagues = async () => {
-      const data = await getLeagueId(user);
-      //if (response.ok) {
-        console.log(data);
-        setUserLeagues([data]);
-     // } 
-      //else {
-       // setUserLeagues([]);
-      //}
+      const data = await getLeagues(user);
+      if (data.success) {
+        console.log(data["leagues"]);
+        /*let l = [data.length];
+        for(let i = 0; i < data.length; i++){
+          l[i] = data[i]["league_id"];
+        }*/
+        setUserLeagues(data["leagues"]);
+      } 
+      else {
+        setUserLeagues([]);
+      }
 
     }
 
@@ -125,7 +134,21 @@ const Home = () => {
               <form onSubmit={enterLeague} className="space-y-6">
                 <div>
                 <div className="mt-2">
-                  {userLeagues}
+                  <Swiper navigation={true} modules={[Navigation, Pagination, EffectCoverflow, Keyboard]} 
+                  centeredSlides={true} slidesPerView={userLeagues.length > 3 ? 3 : 1} effect={'coverflow'} 
+                  loop={true} 
+                  keyboard={{
+                    enabled: true,
+                  }}
+                  className="mySwiper">
+                    {userLeagues.length > 0 ? userLeagues.map((league) => {
+                      return (
+                        <SwiperSlide>{league["league_name"]}</SwiperSlide>
+
+                      )})
+                      : ""
+                    }
+                  </Swiper>
                 </div>
               </div>
                 <div>

@@ -8,7 +8,7 @@ import { Button, ButtonGroup, TextField } from "@mui/material";
 import { teams } from "../utils/leagueUtils";
 import {draftPlayer} from "../utils/draftUtils";
 import { data } from "react-router-dom";
-import {getRosteredPlayers, getLeagueId, getTeam, getDraftOrder} from '../utils/leagueUtils';
+import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
 //const owner = 'ERIC'; // hardcoded for now, get from post/session or something on login
@@ -58,8 +58,9 @@ const Draft = () => {
         }
         const loadLeagueData = async () => {
             try{
-                let l = await getLeagueId(owner);
+                let l = await getLeagues(owner);
                 let t = await getTeam(l, owner);
+                console.log(l);
                 setLeague(l);
                 setTeam(t);
             } catch(err){

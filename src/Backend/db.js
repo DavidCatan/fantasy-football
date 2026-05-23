@@ -13,8 +13,8 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS leagues(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         league_id VARCHAR(6) UNIQUE,
-        name VARCHAR(100) NOT NULL,
-        owner VARCHAR(50) NOT NULL
+        league_name VARCHAR(100) NOT NULL,
+        league_owner VARCHAR(50) NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS teams (

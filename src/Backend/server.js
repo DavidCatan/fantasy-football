@@ -64,7 +64,8 @@ app.post('/api/logout', (req, res) => {
 
 // api endpoint to create a league
 app.post('/api/leagues/create', sessionAuth, (req, res) => {
-    const {leagueName, owner} = req.body;
+    var {leagueName, owner} = req.body;
+    leagueName = sanitize(leagueName);
     const leagueId = makeId(6);  
 
     if(!leagueName || leagueName.length == 0 || leagueName.length > 100){
@@ -72,7 +73,7 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
     }
 
     try{
-        db.prepare('INSERT INTO leagues (league_id, name, owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
+        db.prepare('INSERT INTO leagues (league_id, league_name, league_owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
         try{
             db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
         }
@@ -80,7 +81,7 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
             db.prepare('DELETE FROM leagues WHERE league_id=?').run(leagueId);
             return res.status(400).json({message: "Error adding user to league"});
         }
-        return res.status(200).json({message: "Successfully created league!"});
+        return res.status(200).json({message: "Successfully created league!", league_id: leagueId});
     }
     catch(err){
         return res.status(400).json({message: "Could not create league"});
@@ -123,8 +124,9 @@ app.get('/api/team/:id', sessionAuth, (req, res) => {
 // /api Endpoint to get league team is in
 app.get('/api/:owner', sessionAuth, (req, res) => {
     try{
-        const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
-        return res.status(200).json(league_id);
+        const leagues = db.prepare(`SELECT leagues.league_name, teams.* FROM teams JOIN leagues ON teams.league_id = leagues.league_id 
+                                     WHERE teams.owner = ?`).all(req.params.owner);
+        return res.status(200).json(leagues);
     }
     catch(err){
         return res.status(400).json({message: "No leagues associated with user"});
