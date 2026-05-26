@@ -1,11 +1,12 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Register = () => {
 
     const [username, setUsername] = React.useState();
     const [password, setPassword] = React.useState();
     const [repassword, setRepassword] = React.useState();
+    const navigate = useNavigate();
 
     function checkPasswords(){
       if(password == repassword){
@@ -25,13 +26,14 @@ const Register = () => {
         const response = await fetch('http://localhost:3001/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
 
         const data = await response.json();
         if (data.success) {
             alert(data.message);
-            // TODO send user to roster page...
+            navigate("/");
         } else {
             alert("Registration failed: " + data.message);
         }

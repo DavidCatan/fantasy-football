@@ -8,14 +8,15 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 const Home = () => {
-
     const [username, setUsername] = React.useState();
     const [password, setPassword] = React.useState();
     const [user, setUser] = React.useState();
     const [loading, setLoading] = React.useState(true);
     const [newLeague, setNewLeague] = React.useState();
     const [leagueName, setLeagueName] = React.useState();
-    const [userLeagues, setUserLeagues] = React.useState(["no leagues"]);
+    const [userLeagues, setUserLeagues] = React.useState([]);
+    const [activeLeague, setActiveLeague] = React.useState("");
+    const [activeSlide, setActiveSlide] = React.useState(0);
 
     const handleLogin = async (e) => {
         e.preventDefault(); 
@@ -78,7 +79,8 @@ const Home = () => {
     }
 
     const enterLeague = async () => {
-      return true;
+      console.log("entering league ", activeLeague);
+      alert("entering league ", activeLeague);
     }
 
     const getUserLeagues = async () => {
@@ -131,35 +133,33 @@ const Home = () => {
               View Leagues
             </div>
             <div>
-              <form onSubmit={enterLeague} className="space-y-6">
                 <div>
-                <div className="mt-2">
+                <div>
                   <Swiper navigation={true} modules={[Navigation, Pagination, EffectCoverflow, Keyboard]} 
                   centeredSlides={true} slidesPerView={userLeagues.length > 3 ? 3 : 1} effect={'coverflow'} 
                   loop={true} 
+                  coverflowEffect={{
+                    slideShadows: false,
+                  }}
                   keyboard={{
                     enabled: true,
                   }}
-                  className="mySwiper">
-                    {userLeagues.length > 0 ? userLeagues.map((league) => {
-                      return (
-                        <SwiperSlide>{league["league_name"]}</SwiperSlide>
-
-                      )})
+                  onSlideChange={(swiper) => {
+                    setActiveLeague(userLeagues[swiper.realIndex]);
+                    setActiveSlide(swiper.realIndex);
+                  }}
+                  className="mySwiper h-50">
+                    {userLeagues.length > 0 ? userLeagues.map((league, index) => {
+                      return(
+                        <SwiperSlide key={league["league_id"]} className="bg-red-400 text-center truncate z-10" >
+                          <LeagueSlide league={league} enterLeague={enterLeague} active={activeSlide == index}></LeagueSlide>    
+                        </SwiperSlide>    
+                      )})             
                       : ""
                     }
                   </Swiper>
                 </div>
               </div>
-                <div>
-                  <button
-                  type="submit"
-                  className="flex w-full justify-center rounded-md bg-blue-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                >
-                  Create League
-                </button>
-                </div>
-              </form>
             </div>
           </div>
           <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 ml-7">
@@ -300,5 +300,22 @@ const Home = () => {
   )
     }
 };
+
+function LeagueSlide ({league, enterLeague, active}){
+  const buttonBg = active ? "bg-blue-500 hover:bg-blue-400" : "bg-gray-400 "
+  return (
+    <div>
+      <span className="text-2xl font-black mt-2 mb-4 uppercase italic">{league["league_name"]} </span>
+      <div className="justify-items-center ">
+        <button
+        onClick={enterLeague}
+        className={`${buttonBg} flex w-fit justify-center rounded-md px-3 py-1.5 font-semibold text-white  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500`}
+        >
+          Enter League
+        </button>
+      </div> 
+    </div>     
+  )
+}
 
 export default Home;

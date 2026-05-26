@@ -12,3 +12,19 @@
 .ReactModal__Overlay--before-close{
     opacity: 0;
 }
+
+.swiper-slide-active {
+  z-index: 100 !important;
+  /* Push it slightly toward the user to clear the 3D hitboxes */
+  transform: translateZ(10px) !important; 
+}
+
+/* Tell the side slides to stop blocking mouse events */
+.swiper-slide-next, .swiper-slide-prev {
+  pointer-events: none !important;
+}
+
+/* Re-enable mouse events inside the active slide */
+.swiper-slide-active * {
+  pointer-events: auto !important;
+}

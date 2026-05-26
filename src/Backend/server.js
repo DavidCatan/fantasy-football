@@ -245,6 +245,9 @@ app.post('/api/register', async (req, res) => {
 
 
     if(await register_user(username, password)){
+        req.session.logged = true;
+        req.session.username = username;
+        req.session.browser = req.headers['user-agent'];
         return res.status(200).json({message: "Successfully created account!", success: true});
     }
     else{
