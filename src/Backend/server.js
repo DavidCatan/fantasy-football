@@ -5,7 +5,7 @@ import { WebSocketServer } from 'ws';
 import http from 'http';
 import { getDraftOrder, makeId, getTeams } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
-import { register_user, login_user, sessionAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 
 const app = express();
@@ -49,6 +49,14 @@ app.get('/api/session', (req, res) => {
         return res.status(200).json({logged: true, username: req.session.username});
     }
     return res.status(200).json({logged: false});
+});
+
+// api endpoint to check league
+app.get('/api/league', (req, res) => {
+    if(req.session.activeLeague){
+        return res.status(200).json({activeLeague: req.session.activeLeague});
+    }
+    return res.status(200).json({activeLeague: null});
 });
 
 // api endpoint to logout
@@ -112,14 +120,33 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
     }
 });
 
+// api endpoint to enter a league
+app.post('/api/leagues/enter', sessionAuth, (req,res) => {
+    const {leagueId, owner} = req.body;
+    if (!leagueId || !owner || owner != req.session.username){
+        return res.status(400).json({message: "League invalid"});
+    }
+    try{
+        const league_team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
+        if(league_team){
+            req.session.activeLeague = leagueId;
+            return res.status(200).json({message: "successfully entered league"});
+        }
+        else{
+            return res.status(400).json({message: "User not in valid league"});
+        }
+    }
+    catch(err){
+        return res.status(400).json({message: "User not in valid league"});
+    }
+});
+
 // /api Endpoint to get a team's roster
-app.get('/api/team/:id', sessionAuth, (req, res) => {
+app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);
     res.json(players);
 });
 
-// /api Endpoint to get team's league id
-//app.get
 
 // /api Endpoint to get league team is in
 app.get('/api/:owner', sessionAuth, (req, res) => {
@@ -134,7 +161,7 @@ app.get('/api/:owner', sessionAuth, (req, res) => {
 });
 
 // /api Endpoint to get all teams from league
-app.get('/api/leagues/:league_id/teams', sessionAuth, (req, res) => {
+app.get('/api/leagues/:league_id/teams', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
     /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -144,7 +171,7 @@ app.get('/api/leagues/:league_id/teams', sessionAuth, (req, res) => {
 });
 
 // /api Endpoint to get team from league
-app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, (req, res) => {
+app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
     /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -153,8 +180,9 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, (req, res) => {
     res.json(team_id);
 });
 
+
 // /api Endpoint to get rostered data from league
-app.get('/api/leagues/:league_id/rostered', sessionAuth, (req, res) => {
+app.get('/api/leagues/:league_id/rostered', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
     /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
@@ -164,7 +192,7 @@ app.get('/api/leagues/:league_id/rostered', sessionAuth, (req, res) => {
 });
 
 // /api Endpoint to draft a player
-app.post('/api/draft', sessionAuth, (req, res) => {
+app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 
     const { teamId, leagueId, playerId, playerName } = req.body;
 

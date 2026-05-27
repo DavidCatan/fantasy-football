@@ -69,6 +69,14 @@ export function sessionAuth(req, res, next) {
     next(); 
 };
 
+export function leagueAuth(req, res, next){
+    // check if user has entered a league
+    if(!req.session.activeLeague){
+        return res.status(403).json({message: "No league data. Please enter a league first"});
+    }
+    next();
+}
+
 export function sanitize(input){
     return input.trim();
 }

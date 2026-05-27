@@ -49,19 +49,29 @@ const Draft = () => {
                 else{
                 setOwner(null);
                 }
-            })
+            });
+        fetch('http://localhost:3001/api/league', {credentials: 'include'})
+            .then(res => res.json())
+            .then(data => {
+                if(data.activeLeague){
+                    setLeague(data["activeLeague"]);
+                }
+                else{
+                    setLeague(null);
+                }
+            });
     }, [])
     
     React.useEffect(() => {
-        if(!owner){
+        if(!owner || !league){
             return;
         }
         const loadLeagueData = async () => {
             try{
-                let l = await getLeagues(owner);
-                let t = await getTeam(l, owner);
-                console.log(l);
-                setLeague(l);
+                //let l = league 
+                let t = await getTeam(league, owner);
+                //console.log(l);
+                //setLeague(l);
                 setTeam(t);
             } catch(err){
                 console.log(err);
@@ -71,7 +81,7 @@ const Draft = () => {
        
         loadLeagueData();
 
-    },[owner]);
+    },[owner, league]);
 
     React.useEffect(() => {
         

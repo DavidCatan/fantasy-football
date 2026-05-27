@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getLeagues } from "../utils/leagueUtils";
 import {Swiper, SwiperSlide} from 'swiper/react';
 import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
@@ -8,6 +8,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 const Home = () => {
+    const navigate = useNavigate();
     const [username, setUsername] = React.useState();
     const [password, setPassword] = React.useState();
     const [user, setUser] = React.useState();
@@ -67,20 +68,33 @@ const Home = () => {
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ leagueId: newLeague, owner: user }),
-        });
+      });
 
-        const data = await response.json();
-        if (response.ok) {
-            alert(data.message);
+      const data = await response.json();
+      if (response.ok) {
+          alert(data.message);
 
-        } else {
-            alert("Join failed: " + data.message);
-        }
+      } else {
+          alert("Join failed: " + data.message);
+      }
     }
 
     const enterLeague = async () => {
-      console.log("entering league ", activeLeague);
-      alert("entering league ", activeLeague);
+      const response = await fetch('http://localhost:3001/api/leagues/enter', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leagueId: activeLeague["league_id"], owner: user}),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+          alert(data.message);
+          navigate("/roster");
+
+      } else {
+          alert("Join failed: " + data.message);
+      }
     }
 
     const getUserLeagues = async () => {
