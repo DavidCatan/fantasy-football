@@ -1,59 +1,41 @@
 import express from 'express';
-import Database from 'better-sqlite3';
+import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams } from '../Web/utils/leagueUtils.js';
+import db from './db.js';
+import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import session from 'express-session';
 
 const app = express();
-const db = new Database('fantasy.db');
+//const db = new Database('fantasy.db');
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 var leagueDraftOrders = new Map();
 
+// for TESTING!!!!!
+//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
 
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true               
+}));
 
-
-app.use(cors());
 app.use(express.json());
 
-db.exec(`
-
-    CREATE TABLE IF NOT EXISTS users(
-        username VARCHAR(50) PRIMARY KEY,
-        password VARCHAR(100) NOT NULL,
-        display_name VARCHAR(50) NOT NULL
-    )
-
-    CREATE TABLE IF NOT EXISTS leagues(
-        id INTEGER PRIMARY KEY UNIQUE
-    )
-
-    CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
-        league_id INTEGER,
-        name VARCHAR(50) NOT NULL,
-        owner VARCHAR(50) UNIQUE NOT NULL
-
-    );
-
-    CREATE TABLE IF NOT EXISTS roster_slots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER NOT NULL,
-        league_id INTEGER NOT NULL,
-        player_id INTEGER UNIQUE NOT NULL,
-        player_name VARCHAR(100) NOT NULL,
-
-        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
-    );
-`);
-//db.prepare("DELETE FROM roster_slots WHERE team_id=1").run();
-//db.prepare("DELETE FROM teams").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team1', 'ERIC')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team2', 'DAVID')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team3', 'OSCAR')").run();
-//db.prepare("INSERT INTO teams (league_id, name, owner) VALUES (1234, 'team4', 'LIAM')").run();
+app.use(session({
+    secret: process.env.SESSION_SECRET, // Used to sign the session ID cookie
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 60 * 60 * 1000, // 15 minutes 
+        secure: false,          // Set to true for https!!!!!!!
+        httpOnly: true,       
+        sameSite: 'lax' // set to lax later
+    }
+}));
 
 /*
     TODO: validate inputs
@@ -61,53 +43,156 @@ db.exec(`
     check if team id matches owner
 */
 
-// API Endpoint to get a team's roster
-app.get('/team/:id', (req, res) => {
+// api endpoint to check session
+app.get('/api/session', (req, res) => {
+    if(req.session.logged){
+        return res.status(200).json({logged: true, username: req.session.username});
+    }
+    return res.status(200).json({logged: false});
+});
+
+// api endpoint to check league
+app.get('/api/league', (req, res) => {
+    if(req.session.activeLeague){
+        return res.status(200).json({activeLeague: req.session.activeLeague});
+    }
+    return res.status(200).json({activeLeague: null});
+});
+
+// api endpoint to logout
+app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if(err){
+            return res.status(500).json({message: "Could not logout"});
+        }
+    });
+    res.clearCookie('connect.sid');
+    return res.status(200).json({ message: "Logged out successfully" });
+});
+
+// api endpoint to create a league
+app.post('/api/leagues/create', sessionAuth, (req, res) => {
+    var {leagueName, owner} = req.body;
+    leagueName = sanitize(leagueName);
+    const leagueId = makeId(6);  
+
+    if(!leagueName || leagueName.length == 0 || leagueName.length > 100){
+        return res.status(400).json({message: "League Name not valid"});
+    }
+
+    try{
+        db.prepare('INSERT INTO leagues (league_id, league_name, league_owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
+        try{
+            db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        }
+        catch(err){
+            db.prepare('DELETE FROM leagues WHERE league_id=?').run(leagueId);
+            return res.status(400).json({message: "Error adding user to league"});
+        }
+        return res.status(200).json({message: "Successfully created league!", league_id: leagueId});
+    }
+    catch(err){
+        return res.status(400).json({message: "Could not create league"});
+    }
+
+});
+
+// api endpoint to join a league
+app.post('/api/leagues/join', sessionAuth, (req,res) => {
+    const {leagueId, owner} = req.body;
+    /*if(isNaN(leagueId)){
+        return res.status(400).json({ message: "League not found" });
+    }*/
+    try{
+        const league = db.prepare('SELECT * FROM leagues WHERE league_id=?').get(leagueId);
+        if(!league){
+            return res.status(404).json({message: "League not found"});
+        }
+        db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        return res.status(200).json({message: "Successfully added to league!"});
+    }
+    catch(err){
+        if(err.code === 'SQLITE_CONSTRAINT_UNIQUE'){
+            return res.status(400).json({message: "User already in league!"});
+
+        }
+        return res.status(400).json({message: "Could not add to league"});
+    }
+});
+
+// api endpoint to enter a league
+app.post('/api/leagues/enter', sessionAuth, (req,res) => {
+    const {leagueId, owner} = req.body;
+    if (!leagueId || !owner || owner != req.session.username){
+        return res.status(400).json({message: "League invalid"});
+    }
+    try{
+        const league_team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
+        if(league_team){
+            req.session.activeLeague = leagueId;
+            return res.status(200).json({message: "successfully entered league"});
+        }
+        else{
+            return res.status(400).json({message: "User not in valid league"});
+        }
+    }
+    catch(err){
+        return res.status(400).json({message: "User not in valid league"});
+    }
+});
+
+// /api Endpoint to get a team's roster
+app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);
     res.json(players);
 });
 
-// API Endpoint to get team's league id
-//app.get
 
-// API Endpoint to get league team is in
-app.get('/:owner', (req, res) => {
-    const league_id = db.prepare('SELECT league_id FROM teams WHERE owner=?').get(req.params.owner);
-    res.json(league_id);
+// /api Endpoint to get league team is in
+app.get('/api/:owner', sessionAuth, (req, res) => {
+    try{
+        const leagues = db.prepare(`SELECT leagues.league_name, teams.* FROM teams JOIN leagues ON teams.league_id = leagues.league_id 
+                                     WHERE teams.owner = ?`).all(req.params.owner);
+        return res.status(200).json(leagues);
+    }
+    catch(err){
+        return res.status(400).json({message: "No leagues associated with user"});
+    }
 });
 
-// API Endpoint to get all teams from league
-app.get('/leagues/:league_id/teams', (req, res) => {
+// /api Endpoint to get all teams from league
+app.get('/api/leagues/:league_id/teams', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const team_ids = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
     res.json(team_ids);
 });
 
-// API Endpoint to get team from league
-app.get('/leagues/:league_id/teams/:owner', (req, res) => {
+// /api Endpoint to get team from league
+app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const team_id = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
     res.json(team_id);
 });
 
-// API Endpoint to get rostered data from league
-app.get('/leagues/:league_id/rostered', (req, res) => {
+
+// /api Endpoint to get rostered data from league
+app.get('/api/leagues/:league_id/rostered', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    if(isNaN(league_id)){
+    /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
-    }
+    }*/
     const players = db.prepare('SELECT player_id FROM roster_slots WHERE league_id=?').all(league_id);
     res.json(players);
 });
 
-// API Endpoint to draft a player
-app.post('/draft', (req, res) => {
+// /api Endpoint to draft a player
+app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 
     const { teamId, leagueId, playerId, playerName } = req.body;
 
@@ -119,26 +204,92 @@ app.post('/draft', (req, res) => {
             return res.status(400).json({ error: "Invalid team selection" });
         }
 
-        draftIndex = (draftIndex + 1) % draftOrder.length;
-        const nextDrafter = draftOrder[draftIndex];
-        leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
-        
-        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
-                   .run(teamId, leagueId, playerId, playerName);
 
-        broadcastUpdate('UPDATE_BOARD', null, leagueId);
-        res.json({ success: true, rowId: info.lastInsertRowid });
-        return;
+        try{
+            const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
+                   .run(teamId, leagueId, playerId, playerName);
+            draftIndex = (draftIndex + 1) % draftOrder.length;
+            const nextDrafter = draftOrder[draftIndex];
+            leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+            broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+            broadcastUpdate('UPDATE_BOARD', null, leagueId);
+            return res.json({ success: true, rowId: info.lastInsertRowid });
+        }
+        catch(err){
+            return res.status(400).json({message: "could not draft player"});
+        }
+        
     }
     res.json({sucess: false});
     
+});
+
+app.post('/api/login', async (req, res) => {
+    var { username, password } = req.body;
+
+    username = sanitize(username);
+
+    // validate inputs
+    if (!username || !password){
+        return res.status(400).json({ message: "Invalid username or password" });
+    }
+
+    if(await login_user(username, password)){
+        req.session.logged = true;
+        req.session.username = username;
+        req.session.browser = req.headers['user-agent'];
+        //req.session.save((err) => {
+          //  if (err) {
+            //    console.error("Session save error:", err);
+              //  return res.status(500).json({ message: "Server error" });
+            //}
+        return res.status(200).json({message: "Successfully logged in!", success: true});
+       // });
+    }
+    else{
+        return res.status(400).json({ message: "Error logging in; invalid username or password" });
+    }
+});
+
+app.post('/api/register', async (req, res) => {
+    var { username, password } = req.body;
+
+    username = sanitize(username);
+
+    // validate inputs
+    if (!username || !password){
+        return res.status(400).json({ message: "Invalid username or password" });
+    }
+   
+    if(password.length < 8){
+        return res.status(400).json({ message: "Password not long enough" });
+    }
+    
+    // check password regex requirements
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&])[\w!@#$%^&]{8,}$/;
+    if(!regex.test(password)){
+        return res.status(400).json({ message: "Invalid Password format" });
+    }
+
+
+    if(await register_user(username, password)){
+        req.session.logged = true;
+        req.session.username = username;
+        req.session.browser = req.headers['user-agent'];
+        return res.status(200).json({message: "Successfully created account!", success: true});
+    }
+    else{
+        return res.status(400).json({ message: "Username taken or other error" });
+    }
+
 });
 
 wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;
     const parameters = new URL(url);
     const leagueId = parameters.searchParams.get('league');
+    //const teams = parameters.searchParams.get('teams');
+    //console.log('web-teams',teams);
     ws.leagueId = leagueId;
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
@@ -165,9 +316,10 @@ wss.on('connection', (ws, req) => {
 
 async function sendDraftOrder(ws, league_id){
     var draftOrder;
-    league_id = JSON.parse(league_id);
-    if(!leagueDraftOrders.has(league_id)){
-        draftOrder = await getDraftOrder(league_id);
+    const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
+    //league_id = JSON.parse(league_id);
+    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[1].length != teams.length){
+        draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
     }
     else{
