@@ -91,6 +91,71 @@ export function calculatePoints(player){
   return totalPoints;
 }
 
+export function determineSlot(pos, posCount){
+  let slot = pos;
+  if(pos == "QB"){
+    if(posCount["qb"] > 0){
+      slot = "BN"+ ++posCount["bn"];
+    }
+    posCount["qb"]++;
+  }
+  else if(pos == "RB"){
+      if(posCount["rb"] > 1){
+          if(posCount["flex"] > 0){
+              slot = "BN"+ ++posCount["bn"];
+          }
+          else{
+              slot = "FLEX";
+              posCount["flex"]++;
+          }
+          posCount["rb"]++;
+      }
+      else{
+          slot = "RB"+ ++posCount["rb"];
+      }
+  }
+  else if(pos == "WR"){
+    if(posCount["wr"] > 1){
+        if(posCount["flex"] > 0){
+            slot = "BN"+ ++posCount["bn"];
+        }
+        else{
+            slot = "FLEX";
+            posCount["flex"]++;
+        }
+        posCount["wr"]++;
+    }
+    else{
+        slot = "WR"+ ++posCount["wr"];
+    }
+  }
+  else if(pos == "TE"){
+    if(posCount["te"] > 0){
+        if(posCount["flex"] > 0){
+            slot = "BN"+ ++posCount["bn"];
+        }
+        else{
+            slot = "FLEX";
+            posCount["flex"]++;
+        }
+        posCount["te"]++;
+    }
+    else{
+        slot = "TE";
+        posCount["te"]++;
+    }
+  }
+  else if(pos == "K"){
+    if(posCount["k"] > 0){
+      slot = "BN"+posCount["bn"]++;
+    }
+  }
+
+  posCount["total"]++;
+
+  return slot;
+}
+
 export function draftPlayer(team, player){
   team["roster"].push(player);
 }
