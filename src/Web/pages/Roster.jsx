@@ -45,10 +45,8 @@ const Roster = () => {
         if(!owner || !league){
             return;
         }
-        console.log(0);
         const loadTeamData = async () => {
             try{
-                console.log(1);
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t);
                 let l = new Map();
@@ -108,8 +106,14 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
     }
 
     const movePlayer = (player, curSlot, index) => {
-        if(moving && movingSlot && movingPlayer != player){
-            console.log('hey');
+        if(moving&&player==movingPlayer){
+            setMoving(false);
+            setMovingPlayer();
+            setMovingSlot();
+            return;
+        }
+
+        if(moving && movingSlot){
             if(!movingPlayer){ // fill button clicked
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
@@ -195,13 +199,24 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                                             {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
                                         </span>
                                     </button>
-                            : <span>Empty</span>
+                            : <span className="italic text-slate-500" >Empty</span>
                             }
                             </div>
                             
                                 
                             <div>
-                                <button onClick={() => movePlayer(playerInSlot, slot, index)} className="px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium">
+                                <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
+                                undefined 
+                                : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
+                                : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
+                                : movePlayer(playerInSlot, slot, index)} 
+                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
+                                    ${moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) 
+                                         ? "bg-gray-500 text-black"
+                                         : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
+                                         : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
+                                         :"bg-slate-800 text-white hover:bg-slate-700"}
+                                `}>
                                     {playerInSlot ? "Move" : "Fill"}
                                 </button>
                             </div>

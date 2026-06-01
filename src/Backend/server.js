@@ -129,9 +129,10 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
         return res.status(400).json({message: "League invalid"});
     }
     try{
-        const league_team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
-        if(league_team){
+        const teamId = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
+        if(teamId){
             req.session.activeLeague = leagueId;
+            req.session.activeTeam = teamId["id"];
             return res.status(200).json({message: "successfully entered league"});
         }
         else{
@@ -147,7 +148,7 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
 // api endpoint to update roster slots
 app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     const {player1, slot1, player2, slot2, teamId} = req.body;
-    if (!slot1|| !slot2 || !teamId || player1 == player2){
+    if (!slot1|| !slot2 || !teamId || player1 == player2 || teamId != req.session.activeTeam){
         return res.status(400).json({message: "Invalid slots to change"});
     }
     try{
@@ -256,7 +257,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 
     const { teamId, leagueId, playerId, playerName, playerPos, slot } = req.body;
 
-    if(!teamId || !leagueId || !playerId || !playerName || !playerPos || !slot){
+    if(!teamId || !leagueId || !playerId || !playerName || !playerPos || !slot || teamId != req.session.activeTeam){
         return res.status(400).json({error: "invalid drafting parameters"});
     }
 

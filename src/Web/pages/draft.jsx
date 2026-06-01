@@ -18,6 +18,8 @@ const SEASON = "2025";
 var DRAFT_ORDER;
 const MAX_SLOTS = 13;
 
+// TODO: disable ability to change roster lineup while drafting!!
+
 
 const Draft = () => {
     const [pos, setPosition] = React.useState("all");
