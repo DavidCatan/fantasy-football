@@ -144,6 +144,45 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     }
 });
 
+// api endpoint to update roster slots
+app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
+    const {player1, slot1, player2, slot2, teamId} = req.body;
+    if (!slot1|| !slot2 || !teamId || player1 == player2){
+        return res.status(400).json({message: "Invalid slots to change"});
+    }
+    try{
+        if(!player1){ // fill button clicked on empty position
+            if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
+                return res.status(400).json({message: "Invalid positions to change"});
+            }
+            db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot1.id, teamId, player2.id);
+            return res.status(200).json({message: "Sucessfully updated team!"});
+        }
+
+        if(!player2){ // move player to empty position
+            if(!slot1.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player1.position)) {
+                return res.status(400).json({message: "Invalid positions to change"});
+            }
+            db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot2.id, teamId, player1.id);
+            return res.status(200).json({message: "Sucessfully updated team!"});
+        }
+
+        // move two players
+        if(!slot1.eligiblePositions.includes(player1.position) || !slot1.eligiblePositions.includes(player2.position) 
+        || !slot2.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player2.position)) {
+            return res.status(400).json({message: "Invalid positions to change"});
+        }
+
+        db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot2.id, teamId, player1.id);
+        db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot1.id, teamId, player2.id);
+        return res.status(200).json({message: "Sucessfully updated team!"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error switching slots"});
+    }
+});
+
 // /api Endpoint to get a team's roster
 app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);

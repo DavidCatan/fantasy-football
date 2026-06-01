@@ -15,6 +15,7 @@ const Roster = () => {
     const [roster, setRoster] = React.useState();
     const [lineup, setLineup] = React.useState({});
     const [loading, setLoading] = React.useState(true);
+    const [changedLineup, setChangedLineup] = React.useState(false);
 
       // check session and league
     React.useEffect(() => {
@@ -56,6 +57,12 @@ const Roster = () => {
                         l.set(player["player_slot"], player["player_name"]);
                     })
                 }
+                /*ROSTER_TEMPLATE.forEach((slot) => {
+                    if(!l.has(slot["id"])){
+                        l.set(slot["id"], "empty");
+                    }
+                });*/
+
                 setTeam(t);
                 setRoster(r);
                 setLineup(l);
@@ -70,7 +77,7 @@ const Roster = () => {
         
         loadTeamData();
 
-    },[owner, league]);
+    },[owner, league, changedLineup]);
 
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
@@ -81,14 +88,18 @@ const Roster = () => {
             <h1 className="text-yellow-500">Roster </h1>
             <PlayerList team={team} league={league} roster={roster}/>
         </>*/
-        <Lineup team={team} league={league} roster={roster} lineup={lineup}/>
+        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
         
     );
 }
 
-function Lineup({team, league, roster, lineup}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
+    const [moving, setMoving] = React.useState(false);
+    const [movingPlayer, setMovingPlayer] = React.useState();
+    const [movingSlot, setMovingSlot] = React.useState();
+    const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
     function openModal(player) {
         if (!player) return;
@@ -96,13 +107,66 @@ function Lineup({team, league, roster, lineup}){
         setIsOpen(true);
     }
 
+    const movePlayer = (player, curSlot, index) => {
+        if(moving && movingSlot && movingPlayer != player){
+            console.log('hey');
+            if(!movingPlayer){ // fill button clicked
+                if(eligibleSlots.length > 0){
+                    if(eligibleSlots.includes(player.position)){
+                        console.log('interesting');
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                    }
+                }
+            }
+            else if(!player){ // move player to empty slot
+                if(eligibleSlots.length > 0){
+                    if(eligibleSlots[index]){
+                        console.log('interesting');
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                    }
+                }
+            }
+            else{ // moving two players
+                if(eligibleSlots.length > 0){
+                    if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
+                        console.log('interesting');
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                    }
+                }
+            }
+            
+            setMoving(false);
+            setMovingPlayer();
+            setMovingSlot();
+            setChangedLineup(!changedLineup);
+        }
+        else{
+            if(player){
+                const eSlots = [ROSTER_TEMPLATE.length];
+                for(let i = 0; i < ROSTER_TEMPLATE.length; i++){
+                if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
+                    eSlots[i] = true;
+                }
+                setEligibleSlots(eSlots);
+                }
+            }
+            else{
+                setEligibleSlots(ROSTER_TEMPLATE[index]["eligiblePositions"]);
+            }
+           
+            setMoving(true);
+            setMovingPlayer(player);
+            setMovingSlot(curSlot);
+        }   
+    }
+
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
             
             <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot) => {
-                    const playerInSlot = lineup?.[slot["id"]];
+                {ROSTER_TEMPLATE.map((slot, index) => {
+                    const playerInSlot = playerData[lineup?.get(slot["id"])];
 
                     return(
                         <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
@@ -119,17 +183,26 @@ function Lineup({team, league, roster, lineup}){
                             }>
                                 {slot["label"]}
                             </div>
-
                             <div className='flex-1 items-center justify-between p-3'>
-                                <button 
-                                    onClick={() => openModal(playerData[lineup.get(slot["id"])])} 
-                                    className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                >
-                                    <img src={playerData[lineup.get(slot["id"])].headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                    via-yellow-400 to-orange-700" loading="lazy" alt={playerData[lineup.get(slot["id"])].name} />
-                                    <span className="font-semibold text-white-700">
-                                        {playerData[lineup.get(slot["id"])].name} <span className="text-slate-400 font-normal ml-2">| {playerData[lineup.get(slot["id"])].position}</span>
-                                    </span>
+                            {playerInSlot ? 
+                                    <button 
+                                        onClick={() => openModal(playerInSlot)} 
+                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
+                                    >
+                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
+                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
+                                        <span className="font-semibold text-white-700">
+                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
+                                        </span>
+                                    </button>
+                            : <span>Empty</span>
+                            }
+                            </div>
+                            
+                                
+                            <div>
+                                <button onClick={() => movePlayer(playerInSlot, slot, index)} className="px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium">
+                                    {playerInSlot ? "Move" : "Fill"}
                                 </button>
                             </div>
                         </div>
@@ -251,6 +324,29 @@ function PlayerModal({ player, isOpen, close, league, team}) {
             </div>
         </Modal>
     );
+}
+
+async function changeSlots(player1, slot1, player2, slot2, team){
+    const response = await fetch ('http://localhost:3001/api/updateLineup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            player1: player1,
+            slot1: slot1,
+            player2: player2,
+            slot2: slot2,
+            teamId: team
+        }),
+        credentials: 'include'
+    });
+    const data = await response.json();
+    if(response.ok){
+        alert(data.message);
+    }
+    else{
+        alert(data.message);
+    }
 }
 
 export default Roster;
