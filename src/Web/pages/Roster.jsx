@@ -82,10 +82,6 @@ const Roster = () => {
     }
 
     return(
-        /*<>
-            <h1 className="text-yellow-500">Roster </h1>
-            <PlayerList team={team} league={league} roster={roster}/>
-        </>*/
         <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
         
     );
@@ -225,52 +221,6 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                     );
                 })}
             </div>
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
-        </div>
-    );
-}
-
-function PlayerList({team, league, roster }) {
-    const [modalIsOpen, setIsOpen] = React.useState(false);
-    const [isExpanded, setIsExpanded] = React.useState(false);
-    const [curPlayer, setPlayer] = React.useState("");
-
-    const displayedPlayers = players["all"];
-
-    function openModal(player) {
-        if (!player) return;
-        setPlayer(player);
-        setIsOpen(true);
-    }
- 
-    return (
-        <div className="space-y-4">
-
-            <ul className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                {displayedPlayers.map((player) => {
-                    const isRostered = roster.includes(Number(player.id));
-                    if(isRostered){
-                        return (
-                            <li key={player.id} className="list-none">
-                                <button 
-                                    onClick={() => openModal(player)} 
-                                    className="w-full flex items-center gap-4 p-3 text-left hover:bg-slate-50 transition-colors"
-                                >
-                                    <img src={player.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                    via-yellow-400 to-orange-700" loading="lazy" alt={player.name} />
-                                    <span className="font-semibold text-slate-700">
-                                        {player.name} <span className="text-slate-400 font-normal ml-2">| {player.position}</span>
-                                    </span>
-                                </button>
-                            </li>
-                        )
-                    }
-                    
-                    
-                }
-                )}
-            </ul>
-
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
         </div>
     );
