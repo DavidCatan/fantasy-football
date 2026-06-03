@@ -37,6 +37,18 @@ db.exec(`
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS matchups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id VARCHAR(6) NOT NULL,
+        home_team_id INTEGER NOT NULL,
+        away_team_id INTEGER NOT NULL,
+        week INTEGER NOT NULL,
+
+        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        FOREIGN KEY (home_team_id) REFERENCES teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (away_team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_league ON teams (owner, league_id);
 `);
 

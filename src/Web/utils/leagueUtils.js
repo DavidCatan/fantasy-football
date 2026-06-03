@@ -1,26 +1,4 @@
-export var teams = [
-    {
-        "id": 1,
-        "name" : "team1",
-        "roster" : []
-    },
-    {
-        "id": 2,
-        "name" : "team2",
-        "roster" : []
-    },
-    {
-        "id": 3,
-        "name" : "team3",
-        "roster" : []
-    },
-    {
-        "id": 4,
-        "name" : "team4",
-        "roster" : []
-    }
-]
-
+import roundrobin from 'roundrobin-tournament-js';
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
@@ -104,6 +82,34 @@ export function makeId(length) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
+}
+
+export function setMatchups(leagueId, teams, leagueMatchups ) { // implement a rival system?????
+    leagueMatchups.set(leagueId , new Map());
+    leagueMatchups.get(leagueId).set("week", new Map());
+    //console.log(leagueMatchups);
+    const schedule = roundrobin(teams);
+    //console.log(schedule);
+    for(let i = 0; i < 9; i++){
+        leagueMatchups.get(leagueId).get("week").set(i+1, schedule[i]);
+    }
+    for(let i = 9; i < 13; i++){
+        leagueMatchups.get(leagueId).get("week").set(i+1, generateMatchups(teams));
+    }
+    console.log(leagueMatchups.get(leagueId).get("week"));
+    console.log(leagueMatchups.get(leagueId).get("week").get(1));
+    console.log(leagueMatchups.get(leagueId).get("week").get(13));
+
+}
+
+function generateMatchups(teams){
+    shuffle(teams);
+    if(teams.length == 10){
+        return [teams.slice(0,2), teams.slice(2,4), teams.slice(4,6), teams.slice(6,8), teams.slice(8,10)];
+    }
+    else{
+        return null;
+    }
 }
 
 function shuffle(array) {

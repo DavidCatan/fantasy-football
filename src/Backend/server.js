@@ -3,7 +3,7 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams, setMatchups } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
 import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
@@ -14,8 +14,27 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
+const MAX_TEAMS = 10;
 
 var leagueDraftOrders = new Map();
+var leagueMatchups = new Map();
+leagueMatchups.set("leagues", new Map());
+
+/*
+    Leagues : {
+        1234 : {
+            week : {
+                1 : [ [1,2], [3,4] ]
+            }
+        },
+
+        5678 : {
+            week :{
+                1 : 
+            }
+        }
+    }
+*/
 
 // for TESTING!!!!!
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
@@ -110,7 +129,19 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
         if(!league){
             return res.status(404).json({message: "League not found"});
         }
+
+        var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        if(teams.length >= MAX_TEAMS){
+            return res.status(400).json({message: "League is full!"});
+        }
+
         db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        
+        var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        if(teams.length >= MAX_TEAMS){
+            setMatchups(leagueId, teams, leagueMatchups.get("leagues"));
+        }
+
         return res.status(200).json({message: "Successfully added to league!"});
     }
     catch(err){
@@ -118,6 +149,7 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
             return res.status(400).json({message: "User already in league!"});
 
         }
+        console.log(err);
         return res.status(400).json({message: "Could not add to league"});
     }
 });
