@@ -21,6 +21,24 @@ export var teams = [
     }
 ]
 
+
+export const ROSTER_TEMPLATE = [
+    { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
+    { id: "RB1",  label: "RB",   eligiblePositions: ["RB"] },
+    { id: "RB2",  label: "RB",   eligiblePositions: ["RB"] },
+    { id: "WR1",  label: "WR",   eligiblePositions: ["WR"] },
+    { id: "WR2",  label: "WR",   eligiblePositions: ["WR"] },
+    { id: "TE",   label: "TE",   eligiblePositions: ["TE"] },
+    { id: "FLEX", label: "FLEX", eligiblePositions: ["RB", "WR", "TE"] },
+    //{ id: "K",    label: "K",    eligiblePositions: ["K"] },
+    { id: "BN1",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
+    { id: "BN2",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
+    { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
+    { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
+    { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
+    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
+];
+
 const API_HOST = "localhost";
 const API_PORT = 3001;
 
@@ -29,6 +47,17 @@ export async function getRosteredPlayers(league_id){
     const data = await response.json();
     const ids = data.map(item => item.player_id);
     return ids;
+}
+
+export async function getTeamRoster(league_id, team_id){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${team_id}/roster`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        //const ids = data["data"].map(item => item.player_id);
+        //return ids;
+        return data["data"];
+    }
+    return null;
 }
 
 export async function getLeagues(user){

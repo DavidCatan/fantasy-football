@@ -13,6 +13,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
+const MAX_SLOTS = 14;
+
 var leagueDraftOrders = new Map();
 
 // for TESTING!!!!!
@@ -127,9 +129,10 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
         return res.status(400).json({message: "League invalid"});
     }
     try{
-        const league_team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
-        if(league_team){
+        const teamId = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
+        if(teamId){
             req.session.activeLeague = leagueId;
+            req.session.activeTeam = teamId["id"];
             return res.status(200).json({message: "successfully entered league"});
         }
         else{
@@ -137,7 +140,47 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
         }
     }
     catch(err){
+        console.log(err);
         return res.status(400).json({message: "User not in valid league"});
+    }
+});
+
+// api endpoint to update roster slots
+app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
+    const {player1, slot1, player2, slot2, teamId} = req.body;
+    if (!slot1|| !slot2 || !teamId || player1 == player2 || teamId != req.session.activeTeam){
+        return res.status(400).json({message: "Invalid slots to change"});
+    }
+    try{
+        if(!player1){ // fill button clicked on empty position
+            if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
+                return res.status(400).json({message: "Invalid positions to change"});
+            }
+            db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot1.id, teamId, player2.id);
+            return res.status(200).json({message: "Sucessfully updated team!"});
+        }
+
+        if(!player2){ // move player to empty position
+            if(!slot1.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player1.position)) {
+                return res.status(400).json({message: "Invalid positions to change"});
+            }
+            db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot2.id, teamId, player1.id);
+            return res.status(200).json({message: "Sucessfully updated team!"});
+        }
+
+        // move two players
+        if(!slot1.eligiblePositions.includes(player1.position) || !slot1.eligiblePositions.includes(player2.position) 
+        || !slot2.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player2.position)) {
+            return res.status(400).json({message: "Invalid positions to change"});
+        }
+
+        db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot2.id, teamId, player1.id);
+        db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?').run(slot1.id, teamId, player2.id);
+        return res.status(200).json({message: "Sucessfully updated team!"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error switching slots"});
     }
 });
 
@@ -156,6 +199,7 @@ app.get('/api/:owner', sessionAuth, (req, res) => {
         return res.status(200).json(leagues);
     }
     catch(err){
+        console.log(err);
         return res.status(400).json({message: "No leagues associated with user"});
     }
 });
@@ -191,10 +235,31 @@ app.get('/api/leagues/:league_id/rostered', sessionAuth, leagueAuth, (req, res) 
     res.json(players);
 });
 
+// api endpoint to get specific team's roster
+app.get('/api/leagues/:league_id/teams/:team_id/roster', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, team_id} = req.params;
+    if(!league_id || !team_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or team"});
+    }
+    try{
+        const roster = db.prepare('SELECT * FROM roster_slots WHERE league_id=? AND team_id=?').all(league_id, team_id);
+        return res.status(200).json({message: "got roster data", data: roster});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error fetching roster info for team"});
+    }
+});
+
+
 // /api Endpoint to draft a player
 app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 
-    const { teamId, leagueId, playerId, playerName } = req.body;
+    const { teamId, leagueId, playerId, playerName, playerPos, slot } = req.body;
+
+    if(!teamId || !leagueId || !playerId || !playerName || !playerPos || !slot || teamId != req.session.activeTeam){
+        return res.status(400).json({error: "invalid drafting parameters"});
+    }
 
     if(leagueDraftOrders.has(leagueId)){
         const draftOrder = leagueDraftOrders.get(leagueId)[0];
@@ -204,10 +269,22 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             return res.status(400).json({ error: "Invalid team selection" });
         }
 
+        try{
+            const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
+            if(rosteredPlayers.length >= MAX_SLOTS){
+                return res.status(400).json({message: "roster already full"});
+            }
+        }
+        catch(err){
+            console.log(err);
+            return res.status(400).json({message: "could not draft player"});
+        }
+
 
         try{
-            const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name) VALUES (?, ?, ?, ?)')
-                   .run(teamId, leagueId, playerId, playerName);
+            const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)')
+                   .run(teamId, leagueId, playerId, playerName, playerPos, slot);
             draftIndex = (draftIndex + 1) % draftOrder.length;
             const nextDrafter = draftOrder[draftIndex];
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
@@ -216,6 +293,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             return res.json({ success: true, rowId: info.lastInsertRowid });
         }
         catch(err){
+            console.log(err);
             return res.status(400).json({message: "could not draft player"});
         }
         

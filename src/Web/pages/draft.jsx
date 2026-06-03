@@ -6,9 +6,9 @@ import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import { teams } from "../utils/leagueUtils";
-import {draftPlayer} from "../utils/draftUtils";
+import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
-import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder} from '../utils/leagueUtils';
+import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
 //const owner = 'ERIC'; // hardcoded for now, get from post/session or something on login
@@ -16,6 +16,9 @@ const SEASON = "2025";
 //const LEAGUE = await getLeagueId(owner);
 //var TEAM = await getTeam(LEAGUE, owner);
 var DRAFT_ORDER;
+const MAX_SLOTS = 13;
+
+// TODO: disable ability to change roster lineup while drafting!!
 
 
 const Draft = () => {
@@ -26,6 +29,8 @@ const Draft = () => {
     const [curDraftTeam, setDraftTeam] = React.useState();
     const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
+    const [roster, setRoster] = React.useState([]);
+    const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
 
     const ws = React.useRef(null);
 
@@ -39,6 +44,7 @@ const Draft = () => {
         }
     };
 
+    // check session and league
     React.useEffect(() => {
         fetch('http://localhost:3001/api/session', {credentials: 'include'})
             .then(res => res.json())
@@ -68,10 +74,15 @@ const Draft = () => {
         }
         const loadLeagueData = async () => {
             try{
-                //let l = league 
                 let t = await getTeam(league, owner);
-                //console.log(l);
-                //setLeague(l);
+                let r = await getTeamRoster(league, t);
+                if(r){
+                    setRoster(r);
+                    console.log(r);
+                    r.forEach((player) => {
+                        determineSlot(player.player_pos, posCount);
+                    })
+                }
                 setTeam(t);
             } catch(err){
                 console.log(err);
@@ -132,6 +143,10 @@ const Draft = () => {
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
 
+    if(posCount["total"] >= MAX_SLOTS){
+        return <div className="text-3xl font-bold mb-4 text-slate-800">Draft Complete!</div>;
+    }
+
     return (
         <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
             <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Draft</h1>
@@ -146,14 +161,15 @@ const Draft = () => {
                     ))}
                 </ButtonGroup>
             </div>
-            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}/>
+            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}
+            posCount={posCount} />
         </div>
     );
 
     
 };
 
-function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league, ws }) {
+function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league, posCount, ws }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -230,12 +246,13 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
             )}
 
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} draftedPlayers={draftedPlayers} 
-            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}/>
+            setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}
+            posCount={posCount} />
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, ws }) {
+function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, posCount, ws }) {
     if (!player) return null;
 
     React.useEffect(() => {
@@ -285,6 +302,11 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
     
     function draftPlayer(team, player){
+        if(posCount["total"] >= MAX_SLOTS){
+            alert('Draft is complete!');
+            close();
+            return;
+        }
         if(draftedPlayers.includes(player.id)){
             alert('Player is rostered!');
             close();
@@ -296,7 +318,9 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             return;
         }
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
-            updateDraftDB(team, league, player);
+            let slot = determineSlot(player.position, posCount);  
+            console.log(slot);          
+            updateDraftDB(team, league, player, slot);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
@@ -351,7 +375,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     );
 }
 
-async function updateDraftDB(teamId, leagueId, player){
+async function updateDraftDB(teamId, leagueId, player, slot){
     const response = await fetch ('http://localhost:3001/api/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -360,7 +384,9 @@ async function updateDraftDB(teamId, leagueId, player){
             teamId: teamId,
             leagueId: leagueId,
             playerId: player.id,
-            playerName: player.name
+            playerName: player.name,
+            playerPos: player.position,
+            slot: slot
         }),
         credentials: 'include'
     });

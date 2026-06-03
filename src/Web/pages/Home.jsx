@@ -320,6 +320,8 @@ function LeagueSlide ({league, enterLeague, active}){
   return (
     <div>
       <span className="text-2xl font-black mt-2 mb-4 uppercase italic">{league["league_name"]} </span>
+      <br></br>
+      <span className="text-sm font-bold">League Id: {league["league_id"]}</span>
       <div className="justify-items-center ">
         <button
         onClick={enterLeague}

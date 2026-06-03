@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 
 const db = new Database('fantasy.db');
-
+// make roster slot unique for each user and player id for each league
 db.exec(`
 
     CREATE TABLE IF NOT EXISTS users(
@@ -29,8 +29,10 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         team_id INTEGER NOT NULL,
         league_id VARCHAR(6) NOT NULL,
-        player_id INTEGER UNIQUE NOT NULL,
+        player_id INTEGER NOT NULL,
         player_name VARCHAR(100) NOT NULL,
+        player_pos VARCHAR(2) NOT NULL,
+        player_slot VARCHAR(5) NOT NULL, 
 
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
