@@ -53,20 +53,40 @@ export async function getLeagues(user){
 export async function getTeam(league_id, owner){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${owner}`, {credentials: 'include'});
     const data = await response.json();
-    return data["id"];
+    if(response.ok){
+        return data;
+    }
+    return null;
+    
 }
 
 export async function getTeams(league_id){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
-    return data;
+    if(response.ok){
+        return data
+    }
+    return null;
 }
 
 export async function getMatchup(league_id, team, week){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}/${team}`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data;
+    }
+    return null;
+}
+
+export async function getMatchups(league_id, week){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}`, {credentials: 'include'});
     const data = await response.json();
-    return data;
+    if(response.ok){
+        return data;
+    }
+    return null;
 }
+
 
 export async function getDraftOrder(league_id, teams){
     let shuffledArray = [teams.length];

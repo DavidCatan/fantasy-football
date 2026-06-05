@@ -48,7 +48,7 @@ const Roster = () => {
         const loadTeamData = async () => {
             try{
                 let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t);
+                let r = await getTeamRoster(league, t["data"]["id"]);
                 let l = new Map();
                 if(r){
                     r.forEach((player) => {
@@ -61,7 +61,7 @@ const Roster = () => {
                     }
                 });*/
 
-                setTeam(t);
+                setTeam(t["data"]);
                 setRoster(r);
                 setLineup(l);
                 console.log(l);
@@ -114,7 +114,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
                     }
                 }
             }
@@ -122,7 +122,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
                     }
                 }
             }
@@ -130,7 +130,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
                     }
                 }
             }
@@ -301,7 +301,7 @@ async function changeSlots(player1, slot1, player2, slot2, team){
             slot1: slot1,
             player2: player2,
             slot2: slot2,
-            teamId: team
+            teamId: team["id"]
         }),
         credentials: 'include'
     });

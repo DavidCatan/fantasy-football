@@ -5,9 +5,14 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE, getMatchup} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups} from '../utils/leagueUtils';
+import {Swiper, SwiperSlide} from 'swiper/react';
+import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
 
-const WEEK_NUM = 1;
+const WEEK_NUM = 10;
 
 const Matchup = () => {
 
@@ -25,6 +30,9 @@ const Matchup = () => {
     const [oppRoster, setOppRoster] = React.useState();
     const [oppLineup, setOppLineup] = React.useState({});
     const [oppTotalPoints, setOppTotalPoints] = React.useState(0.0);
+
+    const [matchups, setMatchups] = React.useState([]);
+    const [teams, setTeams] = React.useState([]);
 
 
       // check session and league
@@ -59,11 +67,11 @@ const Matchup = () => {
             try{
                 // get user data
                 let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t);
+                let r = await getTeamRoster(league, t["data"]["id"]);
                 let l = new Map();
                 let tp = 0.0;
 
-                
+                let allTeams = await getTeams(league);    
 
                 if(r){
                     r.forEach((player) => {
@@ -76,20 +84,32 @@ const Matchup = () => {
                 tp = Math.round((tp + Number.EPSILON) * 100) / 100;
 
                 // get opponent data 
-                let matchup = await getMatchup(league, team, WEEK_NUM);
+                let matchup = await getMatchup(league, t["data"]["id"], WEEK_NUM);
+                console.log(t, matchup);
+                let matchups = await getMatchups(league, WEEK_NUM);
                 var oppR;
+                var oppT;
                 let oppL = new Map();
                 let oppTp = 0.0;
 
+
                 if(matchup["data"]){
-                    if(matchup["data"]["home_team_id"] == t){
-                        setOppTeam(matchup["away_team_id"]);
+                    if(matchup["data"]["home_team_id"] == t["data"]["id"]){
+                        oppT = (matchup["data"]["away_team_id"]);
                         oppR = await getTeamRoster(league, matchup["data"]["away_team_id"]);
                     }
                     else{
-                        setOppTeam(matchup["data"]["home_team_id"]);
+                        oppT = (matchup["data"]["home_team_id"]);
                         oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
                     }
+                }
+
+                if(allTeams["data"]){
+                    allTeams["data"].forEach((team) => {
+                        if(team["id"] == oppT){
+                            setOppTeam(team);
+                        }
+                    })
                 }
 
                 if(oppR){
@@ -103,7 +123,7 @@ const Matchup = () => {
                 oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
 
                 // set user data
-                setTeam(t);
+                setTeam(t["data"]);
                 setRoster(r);
                 setLineup(l);
                 setTotalPoints(tp);
@@ -113,8 +133,11 @@ const Matchup = () => {
                 setOppLineup(oppL);
                 setOppTotalPoints(oppTp);
 
-                console.log(l);
-                console.log(r);
+                setMatchups(matchups["data"]);
+                setTeams(allTeams["data"]);
+                console.log(matchups["data"]);
+                //console.log(l);
+                //console.log(r);
                 setLoading(false);
             } catch(err){
                 console.log(err);
@@ -133,16 +156,48 @@ const Matchup = () => {
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
-            <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                <Lineup className="flex justify-end" team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints}/>
-                <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints}/>
-            </div>
+                {/*<div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                    <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
+                    <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
+                </div>*/}
+
+                <Swiper navigation={true} modules={[Navigation, Pagination, Keyboard]}
+                    keyboard={true}
+                    centeredSlides={true} slidesPerView={1}
+                    loop={true} 
+                    onSlideChange={(swiper) => {
+                        let t = matchups[swiper.realIndex]["home_team_id"];
+                        console.log(t, swiper.realIndex);
+                        teams.forEach((team) => {
+                            if(team["id"] == t){
+                                setOwner(team["owner"]);
+                            }
+                        })                    
+                //    setActiveLeague(userLeagues[swiper.realIndex]);
+                    //  setActiveSlide(swiper.realIndex);
+                    }}
+                    className="mySwiper h-fit">
+                    {matchups.length > 0 ? matchups.map((matchup, index) => {
+                        //if(!matchup.hasOwnProperty(team["id"])){
+                            return(
+                                <SwiperSlide key={league["league_id"]} className="text-center truncate z-10" >
+                                    <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                                        <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
+                                        <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
+                                    </div>
+                                </SwiperSlide>    
+                            );         
+                            
+                        })//})  
+                        : undefined
+                    }
+                    </Swiper>
         </div>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, totalPoints}){
+function Lineup({team, league, roster, lineup, totalPoints, oppPoints}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -157,8 +212,12 @@ function Lineup({team, league, roster, lineup, totalPoints}){
     }
 
     return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 pb-2">{totalPoints}</h2>
+        <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
+            <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
+                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{team["owner"]}</h1>
+                <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
+            </div>
+           
             
             <div className="flex flex-col gap-2">
                 {ROSTER_TEMPLATE.map((slot, index) => {
@@ -284,7 +343,7 @@ async function changeSlots(player1, slot1, player2, slot2, team){
             slot1: slot1,
             player2: player2,
             slot2: slot2,
-            teamId: team
+            teamId: team["id"]
         }),
         credentials: 'include'
     });

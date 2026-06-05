@@ -82,7 +82,7 @@ const Draft = () => {
                         determineSlot(player.player_pos, posCount);
                     })
                 }
-                setTeam(t);
+                setTeam(t["data"]["id"]);
             } catch(err){
                 console.log(err);
                 alert('error getting league data');
@@ -293,7 +293,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
 
     var draftbutton;
-    if (team == curDraftTeam){
+    if (team["id"] == curDraftTeam){
         draftbutton = "px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium";
     }
     else{
@@ -311,7 +311,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             close();
             return;
         }
-        if(team != curDraftTeam){
+        if(team["id"] != curDraftTeam){
             alert('you are not on the clock!');
             close();
             return;
@@ -319,7 +319,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
             let slot = determineSlot(player.position, posCount);  
             console.log(slot);          
-            updateDraftDB(team, league, player, slot);
+            updateDraftDB(team["id"], league, player, slot);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
@@ -342,8 +342,8 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
 
                 <button 
                     onClick={() => 
-                        {if(team == curDraftTeam){
-                            draftPlayer(team, player);
+                        {if(team["id"] == curDraftTeam){
+                            draftPlayer(team["id"], player);
                         }}
                     }
                     className={draftbutton}
