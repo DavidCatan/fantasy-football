@@ -14,7 +14,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
-const MAX_TEAMS = 10;
+const MAX_TEAMS = 4;
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -139,7 +139,11 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
         
         var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
         if(teams.length >= MAX_TEAMS){
-            setMatchups(leagueId, teams, leagueMatchups.get("leagues"));
+            setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
+            //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
+              //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
+            //})
+            //db.prepare('INSERT INTO matchups (l')
         }
 
         return res.status(200).json({message: "Successfully added to league!"});
@@ -213,6 +217,24 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Error switching slots"});
+    }
+});
+
+// api endpoint to get matchup 
+app.get('/api/leagues/:league_id/matchups/:week', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, week} = req.params;
+    if(!league_id || !week || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or week"});
+    }
+
+    try{
+        const matchup = db.prepare('SELECT * FROM matchups WHERE league_id=? AND week=? AND (home_team_id=? OR away_team_id=?)')
+        .get(league_id, week, req.session.activeTeam, req.session.activeTeam);
+        return res.status(200).json({message: 'successfully got matchup data', data: matchup})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting matchup data"});
     }
 });
 

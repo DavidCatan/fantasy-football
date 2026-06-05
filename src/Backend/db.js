@@ -44,7 +44,7 @@ db.exec(`
         away_team_id INTEGER NOT NULL,
         week INTEGER NOT NULL,
 
-        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
         FOREIGN KEY (home_team_id) REFERENCES teams(id) ON DELETE CASCADE,
         FOREIGN KEY (away_team_id) REFERENCES teams(id) ON DELETE CASCADE
     );

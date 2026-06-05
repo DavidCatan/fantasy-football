@@ -5,7 +5,7 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, getMatchup} from '../utils/leagueUtils';
 
 const WEEK_NUM = 1;
 
@@ -16,7 +16,7 @@ const Matchup = () => {
     const [league, setLeague] = React.useState(null);
     const [owner, setOwner] = React.useState();
     const [roster, setRoster] = React.useState();
-    const [lineup, setLineup] = React.useState({});
+    const [lineup, setLineup] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
     const [totalPoints, setTotalPoints] = React.useState(0.0);
@@ -57,10 +57,14 @@ const Matchup = () => {
         }
         const loadTeamData = async () => {
             try{
+                // get user data
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t);
                 let l = new Map();
                 let tp = 0.0;
+
+                
+
                 if(r){
                     r.forEach((player) => {
                         l.set(player["player_slot"], player["player_name"]);
@@ -71,10 +75,44 @@ const Matchup = () => {
                 }
                 tp = Math.round((tp + Number.EPSILON) * 100) / 100;
 
+                // get opponent data 
+                let matchup = await getMatchup(league, team, WEEK_NUM);
+                var oppR;
+                let oppL = new Map();
+                let oppTp = 0.0;
+
+                if(matchup["data"]){
+                    if(matchup["data"]["home_team_id"] == t){
+                        setOppTeam(matchup["away_team_id"]);
+                        oppR = await getTeamRoster(league, matchup["data"]["away_team_id"]);
+                    }
+                    else{
+                        setOppTeam(matchup["data"]["home_team_id"]);
+                        oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
+                    }
+                }
+
+                if(oppR){
+                    oppR.forEach((player) => {
+                        oppL.set(player["player_slot"], player["player_name"]);
+                        if(!player["player_slot"].includes("BN")){
+                            oppTp += calculatePoints(player["player_name"])[WEEK_NUM-1];
+                        }
+                    })
+                }
+                oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
+
+                // set user data
                 setTeam(t);
                 setRoster(r);
                 setLineup(l);
                 setTotalPoints(tp);
+
+                // set opponent data
+                setOppRoster(oppR);
+                setOppLineup(oppL);
+                setOppTotalPoints(oppTp);
+
                 console.log(l);
                 console.log(r);
                 setLoading(false);
@@ -93,10 +131,13 @@ const Matchup = () => {
     }
 
     return(
-        <>
-            <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints}/>
-            <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} oppTotalPoints={oppTotalPoints}/>
-        </>
+        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
+            <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                <Lineup className="flex justify-end" team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints}/>
+                <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints}/>
+            </div>
+        </div>
         
     );
 }
@@ -117,7 +158,6 @@ function Lineup({team, league, roster, lineup, totalPoints}){
 
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
             <h2 className="text-2xl font-bold mb-4 pb-2">{totalPoints}</h2>
             
             <div className="flex flex-col gap-2">
