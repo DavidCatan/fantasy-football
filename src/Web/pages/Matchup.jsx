@@ -16,7 +16,6 @@ const WEEK_NUM = 10;
 
 const Matchup = () => {
 
-
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
     const [owner, setOwner] = React.useState();
@@ -122,6 +121,15 @@ const Matchup = () => {
                 }
                 oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
 
+                // swap matchups so user matchup is first in array and first to display
+                matchups = matchups["data"];
+                for(let i = 0; i < matchups.length; i++){
+                    if(matchups[i]["home_team_id"] == t["data"]["id"] || matchups[i]["away_team_id"] == t["data"]["id"]){
+                        let temp = matchups[0];
+                        matchups[0] = matchups[i];
+                        matchups[i] = temp;
+                    }
+                }
                 // set user data
                 setTeam(t["data"]);
                 setRoster(r);
@@ -133,9 +141,8 @@ const Matchup = () => {
                 setOppLineup(oppL);
                 setOppTotalPoints(oppTp);
 
-                setMatchups(matchups["data"]);
+                setMatchups(matchups);
                 setTeams(allTeams["data"]);
-                console.log(matchups["data"]);
                 //console.log(l);
                 //console.log(r);
                 setLoading(false);
@@ -164,23 +171,20 @@ const Matchup = () => {
                 <Swiper navigation={true} modules={[Navigation, Pagination, Keyboard]}
                     keyboard={true}
                     centeredSlides={true} slidesPerView={1}
-                    loop={true} 
+                    loop={false} 
                     onSlideChange={(swiper) => {
-                        let t = matchups[swiper.realIndex]["home_team_id"];
-                        console.log(t, swiper.realIndex);
+                        let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : 1;
+                        console.log(swiper.realIndex);
                         teams.forEach((team) => {
                             if(team["id"] == t){
                                 setOwner(team["owner"]);
                             }
                         })                    
-                //    setActiveLeague(userLeagues[swiper.realIndex]);
-                    //  setActiveSlide(swiper.realIndex);
                     }}
                     className="mySwiper h-fit">
                     {matchups.length > 0 ? matchups.map((matchup, index) => {
-                        //if(!matchup.hasOwnProperty(team["id"])){
                             return(
-                                <SwiperSlide key={league["league_id"]} className="text-center truncate z-10" >
+                                <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
                                     <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
                                         <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
                                         <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
@@ -188,7 +192,7 @@ const Matchup = () => {
                                 </SwiperSlide>    
                             );         
                             
-                        })//})  
+                        })
                         : undefined
                     }
                     </Swiper>
