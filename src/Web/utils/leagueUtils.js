@@ -1,26 +1,4 @@
-export var teams = [
-    {
-        "id": 1,
-        "name" : "team1",
-        "roster" : []
-    },
-    {
-        "id": 2,
-        "name" : "team2",
-        "roster" : []
-    },
-    {
-        "id": 3,
-        "name" : "team3",
-        "roster" : []
-    },
-    {
-        "id": 4,
-        "name" : "team4",
-        "roster" : []
-    }
-]
-
+import roundrobin from 'roundrobin-tournament-js';
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
@@ -75,14 +53,40 @@ export async function getLeagues(user){
 export async function getTeam(league_id, owner){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${owner}`, {credentials: 'include'});
     const data = await response.json();
-    return data["id"];
+    if(response.ok){
+        return data;
+    }
+    return null;
+    
 }
 
 export async function getTeams(league_id){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
-    return data;
+    if(response.ok){
+        return data
+    }
+    return null;
 }
+
+export async function getMatchup(league_id, team, week){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}/${team}`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data;
+    }
+    return null;
+}
+
+export async function getMatchups(league_id, week){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data;
+    }
+    return null;
+}
+
 
 export async function getDraftOrder(league_id, teams){
     let shuffledArray = [teams.length];
@@ -104,6 +108,60 @@ export function makeId(length) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
+}
+
+export function setMatchups(leagueId, teams, leagueMatchups, db ) { // implement a rival system?????
+    leagueMatchups.set(leagueId , new Map());
+    leagueMatchups.get(leagueId).set("week", new Map());
+    //console.log(leagueMatchups);
+    const schedule = roundrobin(teams);
+    console.log(schedule);
+    //console.log(schedule);
+   // for(let i = 0; i < 9; i++){
+     //   leagueMatchups.get(leagueId).get("week").set(i+1, schedule[i]);
+    schedule.forEach((week, weekNum) => {
+        console.log("week", week);
+        week.forEach((matchup) => {
+            console.log("matchup", matchup);
+            if(matchup){
+                console.log(matchup[0]["id"]);
+                db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)')
+                .run(leagueId, matchup[0]["id"], matchup[1]["id"], weekNum+1);
+            }
+
+        })
+    })
+    
+    //}
+    for(let i = 9; i < 13; i++){
+        //leagueMatchups.get(leagueId).get("week").set(i+1, generateMatchups(teams));
+        let randomMatchups = generateMatchups(teams);
+        console.log(randomMatchups);
+        randomMatchups.forEach((matchup) => {
+                db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)')
+                .run(leagueId, matchup[0]["id"], matchup[1]["id"], i+1);
+        })
+  
+    }
+    //console.log(leagueMatchups.get(leagueId).get("week"));
+    //console.log(leagueMatchups.get(leagueId).get("week").get(1));
+    //console.log(leagueMatchups.get(leagueId).get("week").get(13));
+
+}
+
+
+
+function generateMatchups(teams){
+    shuffle(teams);
+    if(teams.length == 10){
+        return [teams.slice(0,2), teams.slice(2,4), teams.slice(4,6), teams.slice(6,8), teams.slice(8,10)];
+    }
+    else if (teams.length == 4){
+        return [teams.slice(0,2), teams.slice(2,4)];
+    }
+    else{
+        return null;
+    }
 }
 
 function shuffle(array) {

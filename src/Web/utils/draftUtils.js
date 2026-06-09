@@ -1,6 +1,5 @@
 import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json"
-import { teams } from "./leagueUtils";
 
 //console.log(playerData);
 var players = {

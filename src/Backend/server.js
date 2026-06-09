@@ -3,7 +3,7 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams, setMatchups } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
 import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
@@ -14,8 +14,27 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
+const MAX_TEAMS = 4;
 
 var leagueDraftOrders = new Map();
+var leagueMatchups = new Map();
+leagueMatchups.set("leagues", new Map());
+
+/*
+    Leagues : {
+        1234 : {
+            week : {
+                1 : [ [1,2], [3,4] ]
+            }
+        },
+
+        5678 : {
+            week :{
+                1 : 
+            }
+        }
+    }
+*/
 
 // for TESTING!!!!!
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
@@ -110,7 +129,23 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
         if(!league){
             return res.status(404).json({message: "League not found"});
         }
+
+        var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        if(teams.length >= MAX_TEAMS){
+            return res.status(400).json({message: "League is full!"});
+        }
+
         db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        
+        var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        if(teams.length >= MAX_TEAMS){
+            setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
+            //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
+              //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
+            //})
+            //db.prepare('INSERT INTO matchups (l')
+        }
+
         return res.status(200).json({message: "Successfully added to league!"});
     }
     catch(err){
@@ -118,6 +153,7 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
             return res.status(400).json({message: "User already in league!"});
 
         }
+        console.log(err);
         return res.status(400).json({message: "Could not add to league"});
     }
 });
@@ -184,6 +220,42 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     }
 });
 
+// api endpoint to get matchup 
+app.get('/api/leagues/:league_id/matchups/:week/:team_id', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, week, team_id} = req.params;
+    if(!league_id || !week || !team_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or week"});
+    }
+
+    try{
+        const matchup = db.prepare('SELECT * FROM matchups WHERE league_id=? AND week=? AND (home_team_id=? OR away_team_id=?)')
+        .get(league_id, week, team_id, team_id);
+        return res.status(200).json({message: 'successfully got matchup data', data: matchup})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting matchup data"});
+    }
+});
+
+// api endpoint to get all matchups
+app.get('/api/leagues/:league_id/matchups/:week', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, week} = req.params;
+    if(!league_id || !week || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or week"});
+    }
+
+    try{
+        const matchups = db.prepare('SELECT * FROM matchups WHERE league_id=? AND week=?')
+        .all(league_id, week);
+        return res.status(200).json({message: 'successfully got matchup data', data: matchups})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting matchup data"});
+    }
+});
+
 // /api Endpoint to get a team's roster
 app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);
@@ -210,8 +282,14 @@ app.get('/api/leagues/:league_id/teams', sessionAuth, leagueAuth, (req, res) => 
     /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
     }*/
-    const team_ids = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
-    res.json(team_ids);
+   try{
+        const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
+        return res.status(200).json({message: "successfully found teams", data: teams});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error: teams not fuond"});
+    }
 });
 
 // /api Endpoint to get team from league
@@ -220,8 +298,15 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, r
     /*if(isNaN(league_id)){
         return res.status(400).json({ error: "Invalid League ID" });
     }*/
-    const team_id = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
-    res.json(team_id);
+    try{
+        const team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
+        return res.status(200).json({message: "successfully found team", data: team});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error: team not fuond"});
+    }
+   
 });
 
 

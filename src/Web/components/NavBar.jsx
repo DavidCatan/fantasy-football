@@ -44,12 +44,16 @@ const Navbar = () => {
                             <NavLink to="/Roster">
                                 Roster
                             </NavLink>
+                            <NavLink to="/Matchup">
+                                Matchup
+                            </NavLink>
                             <NavLink to="/Draft">
                                 Draft
                             </NavLink>
                             <NavLink to="/Players">
                                 Players
                             </NavLink>
+                            
                         </>
                         : <></>
                     }

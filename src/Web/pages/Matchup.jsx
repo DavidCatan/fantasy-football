@@ -5,17 +5,34 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups} from '../utils/leagueUtils';
+import {Swiper, SwiperSlide} from 'swiper/react';
+import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
 
-const Roster = () => {
+const WEEK_NUM = 10;
+
+const Matchup = () => {
 
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
     const [owner, setOwner] = React.useState();
     const [roster, setRoster] = React.useState();
-    const [lineup, setLineup] = React.useState({});
+    const [lineup, setLineup] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
+    const [totalPoints, setTotalPoints] = React.useState(0.0);
+
+    const [oppTeam, setOppTeam] = React.useState(null);
+    const [oppRoster, setOppRoster] = React.useState();
+    const [oppLineup, setOppLineup] = React.useState({});
+    const [oppTotalPoints, setOppTotalPoints] = React.useState(0.0);
+
+    const [matchups, setMatchups] = React.useState([]);
+    const [teams, setTeams] = React.useState([]);
+
 
       // check session and league
     React.useEffect(() => {
@@ -47,25 +64,87 @@ const Roster = () => {
         }
         const loadTeamData = async () => {
             try{
+                // get user data
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t["data"]["id"]);
                 let l = new Map();
+                let tp = 0.0;
+
+                let allTeams = await getTeams(league);    
+
                 if(r){
                     r.forEach((player) => {
                         l.set(player["player_slot"], player["player_name"]);
+                        if(!player["player_slot"].includes("BN")){
+                            tp += calculatePoints(player["player_name"])[WEEK_NUM-1];
+                        }
                     })
                 }
-                /*ROSTER_TEMPLATE.forEach((slot) => {
-                    if(!l.has(slot["id"])){
-                        l.set(slot["id"], "empty");
-                    }
-                });*/
+                tp = Math.round((tp + Number.EPSILON) * 100) / 100;
 
+                // get opponent data 
+                let matchup = await getMatchup(league, t["data"]["id"], WEEK_NUM);
+                console.log(t, matchup);
+                let matchups = await getMatchups(league, WEEK_NUM);
+                var oppR;
+                var oppT;
+                let oppL = new Map();
+                let oppTp = 0.0;
+
+
+                if(matchup["data"]){
+                    if(matchup["data"]["home_team_id"] == t["data"]["id"]){
+                        oppT = (matchup["data"]["away_team_id"]);
+                        oppR = await getTeamRoster(league, matchup["data"]["away_team_id"]);
+                    }
+                    else{
+                        oppT = (matchup["data"]["home_team_id"]);
+                        oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
+                    }
+                }
+
+                if(allTeams["data"]){
+                    allTeams["data"].forEach((team) => {
+                        if(team["id"] == oppT){
+                            setOppTeam(team);
+                        }
+                    })
+                }
+
+                if(oppR){
+                    oppR.forEach((player) => {
+                        oppL.set(player["player_slot"], player["player_name"]);
+                        if(!player["player_slot"].includes("BN")){
+                            oppTp += calculatePoints(player["player_name"])[WEEK_NUM-1];
+                        }
+                    })
+                }
+                oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
+
+                // swap matchups so user matchup is first in array and first to display
+                matchups = matchups["data"];
+                for(let i = 0; i < matchups.length; i++){
+                    if(matchups[i]["home_team_id"] == t["data"]["id"] || matchups[i]["away_team_id"] == t["data"]["id"]){
+                        let temp = matchups[0];
+                        matchups[0] = matchups[i];
+                        matchups[i] = temp;
+                    }
+                }
+                // set user data
                 setTeam(t["data"]);
                 setRoster(r);
                 setLineup(l);
-                console.log(l);
-                console.log(r);
+                setTotalPoints(tp);
+
+                // set opponent data
+                setOppRoster(oppR);
+                setOppLineup(oppL);
+                setOppTotalPoints(oppTp);
+
+                setMatchups(matchups);
+                setTeams(allTeams["data"]);
+                //console.log(l);
+                //console.log(r);
                 setLoading(false);
             } catch(err){
                 console.log(err);
@@ -82,12 +161,47 @@ const Roster = () => {
     }
 
     return(
-        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
+        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
+                {/*<div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                    <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
+                    <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
+                </div>*/}
+
+                <Swiper navigation={true} modules={[Navigation, Pagination, Keyboard]}
+                    keyboard={true}
+                    centeredSlides={true} slidesPerView={1}
+                    loop={false} 
+                    onSlideChange={(swiper) => {
+                        let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : 1;
+                        console.log(swiper.realIndex);
+                        teams.forEach((team) => {
+                            if(team["id"] == t){
+                                setOwner(team["owner"]);
+                            }
+                        })                    
+                    }}
+                    className="mySwiper h-fit">
+                    {matchups.length > 0 ? matchups.map((matchup, index) => {
+                            return(
+                                <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
+                                    <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                                        <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
+                                        <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
+                                    </div>
+                                </SwiperSlide>    
+                            );         
+                            
+                        })
+                        : undefined
+                    }
+                    </Swiper>
+        </div>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup}){
+function Lineup({team, league, roster, lineup, totalPoints, oppPoints}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -101,68 +215,13 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
         setIsOpen(true);
     }
 
-    const movePlayer = (player, curSlot, index) => {
-        if(moving&&player==movingPlayer){
-            setMoving(false);
-            setMovingPlayer();
-            setMovingSlot();
-            return;
-        }
-
-        if(moving && movingSlot){
-            if(!movingPlayer){ // fill button clicked
-                if(eligibleSlots.length > 0){
-                    if(eligibleSlots.includes(player.position)){
-                        console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
-                    }
-                }
-            }
-            else if(!player){ // move player to empty slot
-                if(eligibleSlots.length > 0){
-                    if(eligibleSlots[index]){
-                        console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
-                    }
-                }
-            }
-            else{ // moving two players
-                if(eligibleSlots.length > 0){
-                    if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
-                        console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
-                    }
-                }
-            }
-            
-            setMoving(false);
-            setMovingPlayer();
-            setMovingSlot();
-            setChangedLineup(!changedLineup);
-        }
-        else{
-            if(player){
-                const eSlots = [ROSTER_TEMPLATE.length];
-                for(let i = 0; i < ROSTER_TEMPLATE.length; i++){
-                if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
-                    eSlots[i] = true;
-                }
-                setEligibleSlots(eSlots);
-                }
-            }
-            else{
-                setEligibleSlots(ROSTER_TEMPLATE[index]["eligiblePositions"]);
-            }
-           
-            setMoving(true);
-            setMovingPlayer(player);
-            setMovingSlot(curSlot);
-        }   
-    }
-
     return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
+        <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
+            <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
+                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{team["owner"]}</h1>
+                <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
+            </div>
+           
             
             <div className="flex flex-col gap-2">
                 {ROSTER_TEMPLATE.map((slot, index) => {
@@ -200,21 +259,8 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                             </div>
                             
                                 
-                            <div>
-                                <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
-                                undefined 
-                                : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
-                                : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
-                                : movePlayer(playerInSlot, slot, index)} 
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                                    ${moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) 
-                                         ? "bg-gray-500 text-black"
-                                         : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
-                                         : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
-                                         :"bg-slate-800 text-white hover:bg-slate-700"}
-                                `}>
-                                    {playerInSlot ? "Move" : "Fill"}
-                                </button>
+                            <div className="p-3">
+                                <span>{playerInSlot ? calculatePoints(playerInSlot.name)[WEEK_NUM-1] : 0.0}</span>
                             </div>
                         </div>
 
@@ -314,4 +360,4 @@ async function changeSlots(player1, slot1, player2, slot2, team){
     }
 }
 
-export default Roster;
+export default Matchup;
