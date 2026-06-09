@@ -114,7 +114,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }
@@ -122,7 +122,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }
@@ -130,7 +130,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }

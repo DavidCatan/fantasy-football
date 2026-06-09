@@ -10,10 +10,7 @@ import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
-//const owner = 'ERIC'; // hardcoded for now, get from post/session or something on login
 
-//const LEAGUE = await getLeagueId(owner);
-//var TEAM = await getTeam(LEAGUE, owner);
 var DRAFT_ORDER;
 const MAX_SLOTS = 13;
 
@@ -74,7 +71,7 @@ const Draft = () => {
         const loadLeagueData = async () => {
             try{
                 let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t);
+                let r = await getTeamRoster(league, t["data"]["id"]);
                 if(r){
                     setRoster(r);
                     console.log(r);

@@ -387,6 +387,42 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
     
 });
 
+// /api Endpoint to draft a player
+app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
+
+    const { teamId, leagueId, playerId, playerName, playerPos, slot } = req.body;
+    if(!teamId || !leagueId || !playerId || !playerName || !playerPos || !slot || teamId != req.session.activeTeam){
+        return res.status(400).json({message: "invalid adding parameters"});
+    }
+
+    // check if roster has empty slot
+    try{
+        const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
+        if(rosteredPlayers.length >= MAX_SLOTS){
+            return res.status(400).json({message: "roster already full"});
+        }
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "could not add player"});
+    }
+
+
+    try{
+        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+            + 'VALUES (?, ?, ?, ?, ?, ?)')
+                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+   
+        //broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        //broadcastUpdate('UPDATE_BOARD', null, leagueId);
+        return res.status(200).json({ success: true, rowId: info.lastInsertRowid });
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error while adding player"});
+    }    
+});
+
 app.post('/api/login', async (req, res) => {
     var { username, password } = req.body;
 
