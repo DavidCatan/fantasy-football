@@ -387,7 +387,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
     
 });
 
-// /api Endpoint to draft a player
+// /api Endpoint to add a player
 app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
 
     const { teamId, leagueId, playerId, playerName, playerPos, slot } = req.body;
@@ -406,8 +406,6 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
         console.log(err);
         return res.status(400).json({message: "could not add player"});
     }
-
-
     try{
         const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
             + 'VALUES (?, ?, ?, ?, ?, ?)')
@@ -421,6 +419,30 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
         console.log(err);
         return res.status(400).json({message: "error while adding player"});
     }    
+});
+
+// /api Endpoint to drop a player
+app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
+    const { teamId, leagueId, playerId } = req.body;
+    console.log(teamId, leagueId, playerId, req.session.activeTeam);
+    if(!teamId || !leagueId || !playerId || teamId != req.session.activeTeam){
+        return res.status(400).json({message: "invalid dropping parameters"});
+    }
+
+    try{
+        const deleted = db.prepare('DELETE FROM roster_slots WHERE league_id=? AND team_id=? AND player_id=?')
+        .run(leagueId, teamId, playerId);
+
+        if(deleted["changes"] === 0){
+            return res.status(404).json({message: "error, player not found on roster"});
+        }
+
+        return res.status(200).json({message: "successfully dropped player" });
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error, could not drop player"});
+    } 
 });
 
 app.post('/api/login', async (req, res) => {

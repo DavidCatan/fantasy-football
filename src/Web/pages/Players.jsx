@@ -7,7 +7,7 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
-import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE} from '../utils/leagueUtils';
+import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
 const MAX_SLOTS = 13;
@@ -283,7 +283,8 @@ function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayer
 
 function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent}) {
     if (!player) return null;
-    const[droppedPlayer, dropPlayer] = React.useState();
+    const[droppedPlayer, setDroppedPlayer] = React.useState();
+    const [updatedSlot, setUpdatedSlot] = React.useState();
     const [open, setOpen] = React.useState(false);
     const handleOpen = () => {
         setOpen(true);
@@ -299,9 +300,23 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
             //let slot = determineSlot(player.position, posCount);
             //console.log(slot);          
             //updatePlayerDB(team["id"], league, player, slot);
-            handleClose();
-            closeParent();
             return;
+        }
+        else if(posCount["total"] >= MAX_SLOTS){
+            // if player is successfully dropped, update lineup before adding new player
+            const response = dropPlayer(team, league, droppedPlayer); 
+            console.log(response);
+            if(response["success"]){
+                alert(response["message"]);
+                posCount[droppedPlayer["pos"]]--;
+                posCount["total"]--;
+            }
+            else{
+                alert(response["message"]);
+                handleClose();
+                closeParent();
+                return;
+            }
         }
         if(rosteredPlayers.includes(player.id)){
             alert('Player is rostered!');
@@ -309,8 +324,9 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
             closeParent();
             return;
         }
-        let slot = determineSlot(player.position, posCount);
-        updatePlayerDB(team, league, player, slot);
+        // add new player if slot is available
+        let newSlot = droppedPlayer ? updatedSlot["id"] : determineSlot(player.position, posCount);
+        updatePlayerDB(team, league, player, newSlot);
         handleClose();
         closeParent();
     }
@@ -353,7 +369,8 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
             </button>
             <Modal isOpen={open} style={modalStyles} onRequestClose={handleClose} closeTimeoutMS={200}
                 >
-                <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player}/>
+                <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player} setDroppedPlayer={setDroppedPlayer} 
+                droppedPlayer={droppedPlayer} setUpdatedSlot={setUpdatedSlot}/>
                 <button 
                     onClick={() => addPlayer(team, player)}
                     className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-slate-700 transition-all font-medium"
@@ -390,10 +407,11 @@ async function updatePlayerDB(teamId, leagueId, player, slot){
 
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, setUpdatedSlot}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
+    const [clicked, setClicked] = React.useState(false);
 
     function openModal(player) {
         if (!player) return;
@@ -442,9 +460,30 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                             
                                 
                             <div>
-                                <button onClick={() =>undefined} 
+                                <button onClick={() => 
+                                    {
+                                        if( playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ){
+                                            setDroppedPlayer(playerInSlot);
+                                            setClicked(true);
+                                            setUpdatedSlot(slot);
+                                        }
+                                        else if(playerInSlot == droppedPlayer){
+                                            setDroppedPlayer(null);
+                                            setClicked(false);
+                                            setUpdatedSlot(null);
+                                        }
+                                        else{
+                                            undefined;
+                                        }
+                                    }
+                                   //</div> playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ? setDroppedPlayer(playerInSlot)
+                                    //</div>: playerInSlot==droppedPlayer ? setDroppedPlayer(null)
+                                   //: undefined
+                                }
+
                                 className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
-                                ${playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
+                                ${clicked&&playerInSlot==droppedPlayer ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
+                                    :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
                                     :!playerInSlot ? "bg-white text-black"
                                     : "bg-black"
                                 } `}>

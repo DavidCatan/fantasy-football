@@ -87,6 +87,28 @@ export async function getMatchups(league_id, week){
     return null;
 }
 
+export async function dropPlayer(team, league_id, player){
+    if(!league_id || !team || !player){
+        return {success: false, message: "something went wrong"};
+    }
+    const response = await fetch ('http://localhost:3001/api/drop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            teamId: team,
+            leagueId: league_id,
+            playerId: player.id,
+        }),
+        credentials: 'include'
+    });
+    const data = await response.json();
+    if(response.ok){
+        return {success: true, message: "successfully dropped player"};
+    }
+    return {success: false, message: "error, could not drop player"};
+}
+
 
 export async function getDraftOrder(league_id, teams){
     let shuffledArray = [teams.length];
