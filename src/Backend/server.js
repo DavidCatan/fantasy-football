@@ -424,7 +424,6 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
 // /api Endpoint to drop a player
 app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
     const { teamId, leagueId, playerId } = req.body;
-    console.log(teamId, leagueId, playerId, req.session.activeTeam);
     if(!teamId || !leagueId || !playerId || teamId != req.session.activeTeam){
         return res.status(400).json({message: "invalid dropping parameters"});
     }
@@ -432,7 +431,6 @@ app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
     try{
         const deleted = db.prepare('DELETE FROM roster_slots WHERE league_id=? AND team_id=? AND player_id=?')
         .run(leagueId, teamId, playerId);
-
         if(deleted["changes"] === 0){
             return res.status(404).json({message: "error, player not found on roster"});
         }

@@ -14,7 +14,9 @@ export const ROSTER_TEMPLATE = [
     { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
     { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
     { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
+    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }//,
+    //{ id: "BN7",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
+
 ];
 
 const API_HOST = "localhost";

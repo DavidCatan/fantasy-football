@@ -22,6 +22,7 @@ const Players = () => {
     const [roster, setRoster] = React.useState([]);
     const [lineup, setLineup] = React.useState({});
     const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
+    const [changedLineup, setChangedLineup] = React.useState(false);
 
     const getRostered = async () => {
         try{
@@ -64,16 +65,18 @@ const Players = () => {
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t["data"]["id"]);
                 let l = new Map();
+                let p = {"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0};
                 if(r){
                     setRoster(r);
                     console.log(r);
                     r.forEach((player) => {
-                        determineSlot(player.player_pos, posCount);
+                        determineSlot(player.player_pos, p);
                         l.set(player["player_slot"], player["player_name"]);
                     })
                 }
                 setLineup(l);
                 setTeam(t["data"]["id"]);
+                setPosCount(p);
             } catch(err){
                 console.log(err);
                 alert('error getting league data');
@@ -82,7 +85,7 @@ const Players = () => {
        
         loadLeagueData();
 
-    },[owner, league]);
+    },[owner, league, changedLineup]);
 
     React.useEffect(() => {
         
@@ -92,7 +95,7 @@ const Players = () => {
       
         getRostered();
 
-    }, [league, team]);
+    }, [league, team, changedLineup]);
 
     
     if(loading){
@@ -112,12 +115,12 @@ const Players = () => {
                 </ButtonGroup>
             </div>
                <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers} team={team} league={league}
-            posCount={posCount} roster={roster} lineup={lineup}/>
+            posCount={posCount} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup}  />
         </div>
     );
 };
 
-function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, posCount, roster, lineup }) {
+function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, posCount, roster, lineup, changedLineup, setChangedLineup }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -195,17 +198,18 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
 
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} rosteredPlayers={rosteredPlayers} 
             setRosteredPlayers={setRosteredPlayers} close={() => setIsOpen(false)} team={team} league={league} 
-            posCount={posCount} roster={roster} lineup={lineup}/>
+            posCount={posCount} roster={roster} lineup={lineup}
+            changedLineup={changedLineup} setChangedLineup={setChangedLineup}/>
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayers, league, team, posCount, roster, lineup}) {
+function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayers, league, team, posCount, roster, lineup, changedLineup, setChangedLineup}) {
     if (!player) return null;
 
     React.useEffect(() => {
         if(rosteredPlayers.includes(Number(player.id)) && isOpen) {
-            alert('player has been drafted! you got sniped!');
+            alert('player has been rostered! you got sniped!');
             close();
         }
 
@@ -254,7 +258,8 @@ function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayer
 
                     <DropModal player={player} rosteredPlayers={rosteredPlayers} 
                     setRosteredPlayers={setRosteredPlayers} team={team} league={league} 
-                    posCount={posCount} roster={roster} lineup={lineup} closeParent={close}/>
+                    posCount={posCount} roster={roster} lineup={lineup} closeParent={close}
+                    setChangedLineup={setChangedLineup} changedLineup={changedLineup}/>
                     
 
                     <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
@@ -281,10 +286,11 @@ function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayer
     );
 }
 
-function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent}) {
+function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup}) {
     if (!player) return null;
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
+    const [emptySlot, setEmptySlot] = React.useState(false);
     const [open, setOpen] = React.useState(false);
     const handleOpen = () => {
         setOpen(true);
@@ -294,47 +300,55 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
     };
 
     function addPlayer(team, player){
-        if(posCount["total"] >= MAX_SLOTS && !droppedPlayer){
-            alert('select player to drop');
-            //return(DropModal(player, isOpen, close, rosteredPlayers, setRosteredPlayers, league, team, posCount));
-            //let slot = determineSlot(player.position, posCount);
-            //console.log(slot);          
-            //updatePlayerDB(team["id"], league, player, slot);
-            return;
-        }
-        else if(posCount["total"] >= MAX_SLOTS){
-            // if player is successfully dropped, update lineup before adding new player
-            const response = dropPlayer(team, league, droppedPlayer); 
-            console.log(response);
-            if(response["success"]){
-                alert(response["message"]);
-                posCount[droppedPlayer["pos"]]--;
-                posCount["total"]--;
-            }
-            else{
-                alert(response["message"]);
-                handleClose();
-                closeParent();
-                return;
-            }
-        }
-        if(rosteredPlayers.includes(player.id)){
+         if(rosteredPlayers.includes(player.id)){
             alert('Player is rostered!');
             handleClose();
             closeParent();
             return;
         }
-        // add new player if slot is available
-        let newSlot = droppedPlayer ? updatedSlot["id"] : determineSlot(player.position, posCount);
-        updatePlayerDB(team, league, player, newSlot);
+        if(!updatedSlot){
+            alert("select slot to add player to!");
+            return;
+        }
+        if(!updatedSlot["eligiblePositions"].includes(player["position"])){
+            alert("positions don't match");
+            return;
+        }
+        else if(droppedPlayer){
+            // if player is successfully dropped, update lineup before adding new player
+            dropPlayer(team, league, droppedPlayer)
+                .then(data => {  
+                    alert(data["message"]);
+                    if(data["success"]){
+                        posCount[droppedPlayer["position"]]--;
+                        posCount[player["position"]]++;
+                    }    
+                    else{
+                        handleClose();
+                        closeParent();
+                        return;
+                    }             
+                })
+                .catch(err => {                   
+                    console.error("Request failed:", err);
+                });
+        }
+        else if(emptySlot){ // update lineup if an open slot is selected
+            posCount[player["position"]]++;
+            posCount["total"]++;
+        }
+       
+        // add new player if slot is open or player is dropped  
+        updatePlayerDB(team, league, player, updatedSlot["id"]);
+        setChangedLineup(!changedLineup);
         handleClose();
         closeParent();
     }
 
     React.useEffect(() => {
-        if(rosteredPlayers.includes(Number(player.id)) && isOpen) {
+        if(rosteredPlayers.includes(Number(player.id)) && open) {
             alert('player has been rostered! you got sniped!');
-            close();
+            handleClose();
         }
 
     }, [rosteredPlayers, open]);
@@ -370,10 +384,10 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
             <Modal isOpen={open} style={modalStyles} onRequestClose={handleClose} closeTimeoutMS={200}
                 >
                 <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player} setDroppedPlayer={setDroppedPlayer} 
-                droppedPlayer={droppedPlayer} setUpdatedSlot={setUpdatedSlot}/>
+                droppedPlayer={droppedPlayer} setUpdatedSlot={setUpdatedSlot} updatedSlot={updatedSlot} setEmptySlot={setEmptySlot}/>
                 <button 
                     onClick={() => addPlayer(team, player)}
-                    className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-slate-700 transition-all font-medium"
+                    className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-all font-medium"
                 >
                 Add Player
                 </button>
@@ -407,7 +421,7 @@ async function updatePlayerDB(teamId, leagueId, player, slot){
 
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, setUpdatedSlot}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
@@ -467,10 +481,16 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                                             setClicked(true);
                                             setUpdatedSlot(slot);
                                         }
-                                        else if(playerInSlot == droppedPlayer){
+                                        else if(slot == updatedSlot){
                                             setDroppedPlayer(null);
                                             setClicked(false);
                                             setUpdatedSlot(null);
+                                        }
+                                        else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
+                                            setEmptySlot(true);
+                                            setDroppedPlayer(null);
+                                            setUpdatedSlot(slot);
+                                            setClicked(true);
                                         }
                                         else{
                                             undefined;
@@ -482,13 +502,14 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                                 }
 
                                 className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
-                                ${clicked&&playerInSlot==droppedPlayer ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
+                                ${clicked&&playerInSlot&&slot==updatedSlot ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
                                     :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
-                                    :!playerInSlot ? "bg-white text-black"
+                                    :!playerInSlot&&clicked&&slot==updatedSlot ? "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
+                                    :!playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
                                     : "bg-black"
                                 } `}>
                                     {playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Drop" 
-                                    :!playerInSlot ? "Open"
+                                    :!playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Open"
                                     : "Locked"}
                                 </button>
                             </div>
