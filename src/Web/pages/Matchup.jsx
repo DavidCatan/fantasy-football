@@ -251,7 +251,7 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints}){
                                         <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
                                         via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
                                         <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
+                                            {playerInSlot.name} <span className="text-slate-400 font-normal">| {playerInSlot.position}</span>
                                         </span>
                                     </button>
                             : <span className="italic text-slate-500" >Empty</span>

@@ -7,6 +7,7 @@ import { getDraftOrder, makeId, getTeams, setMatchups } from '../Web/utils/leagu
 import db from './db.js';
 import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
+import { RiQqFill } from 'react-icons/ri';
 
 const app = express();
 //const db = new Database('fantasy.db');
@@ -70,6 +71,14 @@ app.get('/api/session', (req, res) => {
         return res.status(200).json({logged: true, username: req.session.username});
     }
     return res.status(200).json({logged: false});
+});
+
+// api endpoint to check admin session
+app.get('/api/admin/session', (req, res) => {
+    if(req.session.logged&&req.session.admin){
+        return res.status(200).json({logged: true, username: req.session.username, admin: req.session.admin});
+    }
+    return res.status(200).json({logged: false, admin: false});
 });
 
 // api endpoint to check league
@@ -467,6 +476,25 @@ app.post('/api/login', async (req, res) => {
     }
     else{
         return res.status(400).json({ message: "Error logging in; invalid username or password" });
+    }
+});
+
+app.post('/api/admin/login', async (req, res) => {
+    var { username, password } = req.body;
+
+    username = sanitize(username);
+
+    // validate inputs
+    if (!username || !password){
+        return res.status(400).json({ message: "Invalid username or password" });
+    }
+    
+    if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD){
+        req.session.logged = true;
+        req.session.username = username;
+        req.session.browser = req.headers['user-agent'];
+        req.session.admin = true;
+        return res.status(200).json({message: "Successfully logged in as admin!", success: true});
     }
 });
 

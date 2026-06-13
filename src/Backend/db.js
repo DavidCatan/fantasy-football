@@ -21,7 +21,11 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
         league_id VARCHAR(6) NOT NULL,
         name VARCHAR(50) DEFAULT '',
-        owner VARCHAR(50) NOT NULL
+        owner VARCHAR(50) NOT NULL,
+        wins INTEGER NOT NULL default 0,
+        losses INTEGER NOT NULL default 0,
+        points_for INTEGER NOT NULL default 0,
+        points_against INTEGER NOT NULL default 0
 
     );
 
