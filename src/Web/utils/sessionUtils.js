@@ -69,6 +69,21 @@ export function sessionAuth(req, res, next) {
     next(); 
 };
 
+export function adminAuth(req, res, next) {
+    // 1. Check if logged in 
+    if (!req.session.logged && !req.session.admin) {
+        return res.status(401).json({ message: "Please login first" });
+    }
+
+    // 2. Check User Agent 
+    if (req.session.browser !== req.headers['user-agent']) {
+        req.session.destroy();
+        return res.status(403).json({ message: "Session hijacking detected!" });
+    }
+
+    next(); 
+};
+
 export function leagueAuth(req, res, next){
     // check if user has entered a league
     if(!req.session.activeLeague){

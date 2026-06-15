@@ -3,9 +3,9 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams, setMatchups } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
-import { register_user, login_user, sessionAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 
@@ -65,12 +65,63 @@ app.use(session({
     check if team id matches owner
 */
 
-// api endpoint to check session
-app.get('/api/session', (req, res) => {
-    if(req.session.logged){
-        return res.status(200).json({logged: true, username: req.session.username});
+// api endpoint to update weekly standings
+app.post('/api/admin/process-week', adminAuth, (req, res) => {
+    const { weekNum } = req.body;
+    try{
+        const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(weekNum);
+        matchups.forEach((matchup) => {
+            let team1 = matchup["home_team_id"];
+            let team2 = matchup["away_team_id"];
+            let leagueId = matchup["league_id"];
+            let roster1 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team1);
+            let roster2 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team2);
+
+            let totalPoints1 = 0;
+            let totalPoints2 = 0;
+
+            roster1.forEach((player) => {
+                if(!player["player_slot"].includes("BN")){
+                    totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"]);
+                }
+            })
+            roster2.forEach((player) => {
+                if(!player["player_slot"].includes("BN")){
+                    totalPoints2 += calculateWeeklyPoints(weekNum, player["player_name"]);
+                }
+            })
+
+            let winner = totalPoints1 > totalPoints2 ? team1 : team2;
+    
+            if(winner === team1){
+                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team1);
+                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team1);
+
+                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team2);
+                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team2);
+            }
+            else{
+                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team2);
+                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team2);
+
+                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team1);
+                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team1);
+            }
+            let points1 = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team1);
+            let points2 =  db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team2);
+
+            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
+            .run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, team1);
+            
+            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
+            .run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, team2);
+        })
+        return res.status(200).json({message: "successfully processed week!"})
     }
-    return res.status(200).json({logged: false});
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "error processing week"+err})
+    }
 });
 
 // api endpoint to check admin session
@@ -79,6 +130,14 @@ app.get('/api/admin/session', (req, res) => {
         return res.status(200).json({logged: true, username: req.session.username, admin: req.session.admin});
     }
     return res.status(200).json({logged: false, admin: false});
+});
+
+// api endpoint to check session
+app.get('/api/session', (req, res) => {
+    if(req.session.logged){
+        return res.status(200).json({logged: true, username: req.session.username});
+    }
+    return res.status(200).json({logged: false});
 });
 
 // api endpoint to check league
@@ -226,6 +285,23 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Error switching slots"});
+    }
+});
+
+// apit endpoint to get league standings
+app.get('/api/leagues/:league_id/standings', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id} = req.params;
+    if(!league_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league"});
+    }
+
+    try{
+        const standings = db.prepare('SELECT owner, wins, losses, points_for, points_against FROM teams WHERE league_id=?').all(league_id);
+        return res.status(200).json({message: 'successfully got standings data', data: standings})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting standings data"});
     }
 });
 

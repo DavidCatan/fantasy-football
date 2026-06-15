@@ -1,4 +1,6 @@
 import roundrobin from 'roundrobin-tournament-js';
+import playerStats from "../../Backend/nfl_stats.json" with { type: 'json' };;
+
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
@@ -67,6 +69,15 @@ export async function getTeams(league_id){
     const data = await response.json();
     if(response.ok){
         return data
+    }
+    return null;
+}
+
+export async function getStandings(league_id){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/standings`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data["data"];
     }
     return null;
 }
@@ -171,6 +182,48 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // implement
     //console.log(leagueMatchups.get(leagueId).get("week").get(1));
     //console.log(leagueMatchups.get(leagueId).get("week").get(13));
 
+}
+
+export function calculateWeeklyPoints(week, playerName){
+    var totalPoints = 0;
+
+    const PASSING_MULTIPLIER = 0.04;
+    const RUSHING_MULTIPLIER = 0.1;
+    const RECEIVING_MULTIPLIER = 0.1;
+    const RECEPTION_MULTIPLIER = 1;
+    const PASS_TD_MULTIPLIER = 4;
+    const TD_MULITIPLER = 6;
+    const TURNOVER_MULTIPLIER = -2;
+
+    const statCategories = [
+        "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
+        "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
+        "kickReturnTouchdowns", "puntReturnTouchdowns"
+    ];
+
+    const pointDistr = {
+        "passingYards" : PASSING_MULTIPLIER,
+        "passingTouchdowns" : PASS_TD_MULTIPLIER,
+        "interceptions" : TURNOVER_MULTIPLIER,
+        "rushingYards" : RUSHING_MULTIPLIER,
+        "rushingTouchdowns" : TD_MULITIPLER,
+        "receptions" : RECEPTION_MULTIPLIER,
+        "receivingYards" : RECEIVING_MULTIPLIER,
+        "receivingTouchdowns" : TD_MULITIPLER,
+        "fumbles" :  TURNOVER_MULTIPLIER,
+        "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
+        "puntReturnTouchdowns" : TURNOVER_MULTIPLIER
+    };
+
+    if(playerStats["week"][week].hasOwnProperty(playerName)){
+        for (const stat in pointDistr){
+            if(playerStats["week"][week][playerName].hasOwnProperty(stat)){
+                totalPoints += playerStats["week"][week][playerName][stat] * pointDistr[stat];
+            }
+        }
+    }
+  
+  return totalPoints;
 }
 
 

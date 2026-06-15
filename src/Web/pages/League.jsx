@@ -1,6 +1,6 @@
 import e from "cors";
 import React from "react";
-import {getTeam, getTeamRoster, getTeams} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, getTeams, getStandings} from '../utils/leagueUtils';
 
 const League = () => {
     const [team, setTeam] = React.useState(null);
@@ -9,6 +9,7 @@ const League = () => {
     const [loading, setLoading] = React.useState(true);
 
     const [teams, setTeams] = React.useState([]);
+    const [standings, setStandings] = React.useState();
     
           // check session and league
         React.useEffect(() => {
@@ -41,10 +42,12 @@ const League = () => {
             const loadLeagueData = async () => {
                 try{
                     let t = await getTeam(league, owner); 
-                    let allTeams = await getTeams(league);                                      
+                    let allTeams = await getTeams(league);    
+                    let s = await getStandings(league);                                  
     
                     setTeam(t["data"]);
                     setTeams(allTeams["data"]);
+                    setStandings(s);
                     setLoading(false);
                 } catch(err){
                     console.log(err);
@@ -66,14 +69,14 @@ const League = () => {
                     <h2 className="text-3xl font-bold mb-4 border-b border-gray-700 pb-2">League</h2>
                     <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
                         <h1 className="text-2xl font-bold mb-4 text-slate-800 text-center">Standings</h1>
-                        <Standings teams={teams} />
+                        <Standings teams={teams} standings={standings} />
                     </div>
                 </div>
             </>
         );
 }
 
-function Standings({teams}){
+function Standings({teams, standings}){
     return(
         <>
             <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
@@ -88,13 +91,13 @@ function Standings({teams}){
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {teams.map((team, index) => (
+                        {standings.map((team, index) => (
                             <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
                                 <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
                                 <td className="p-3 font-bold text-slate-800">{team["owner"]}</td>
-                                <td className="p-3 font-bold text-slate-800">1-0-0</td>
-                                <td className="p-3 font-bold text-slate-800">200</td>
-                                <td className="p-3 font-bold text-slate-800">300</td>
+                                <td className="p-3 font-bold text-slate-800">{team["wins"]}-{team["losses"]}</td>
+                                <td className="p-3 font-bold text-slate-800">{team["points_for"]}</td>
+                                <td className="p-3 font-bold text-slate-800">{team["points_against"]}</td>
                             </tr>
                         ))}
                     </tbody>
