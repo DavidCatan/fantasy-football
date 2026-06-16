@@ -77,6 +77,9 @@ const League = () => {
 }
 
 function Standings({teams, standings}){
+    function standingsOrder(team1, team2) {
+        return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
+    }
     return(
         <>
             <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
@@ -91,13 +94,13 @@ function Standings({teams, standings}){
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {standings.map((team, index) => (
+                        {standings.sort(standingsOrder).map((team, index) => (
                             <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
+                                <td className="p-3 text-slate-500 font-medium">{index+1}</td>
                                 <td className="p-3 font-bold text-slate-800">{team["owner"]}</td>
                                 <td className="p-3 font-bold text-slate-800">{team["wins"]}-{team["losses"]}</td>
-                                <td className="p-3 font-bold text-slate-800">{team["points_for"]}</td>
-                                <td className="p-3 font-bold text-slate-800">{team["points_against"]}</td>
+                                <td className="p-3 font-bold text-slate-800">{Math.round((team["points_for"] + Number.EPSILON) * 100) / 100}</td>
+                                <td className="p-3 font-bold text-slate-800">{Math.round((team["points_against"] + Number.EPSILON) * 100) / 100}</td>
                             </tr>
                         ))}
                     </tbody>

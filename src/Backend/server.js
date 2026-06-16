@@ -64,6 +64,23 @@ app.use(session({
     on all: check input for unique identifier
     check if team id matches owner
 */
+/*const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(10);
+matchups.forEach((matchup) => {
+    let team1 = matchup["home_team_id"];
+    let team2 = matchup["away_team_id"];
+
+    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team1);
+
+    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team2);
+    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team2);
+
+    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team1);
+    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
+    .run(0, 0, team1);
+    
+    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
+    .run(0,0, team2);
+})*/
 
 // api endpoint to update weekly standings
 app.post('/api/admin/process-week', adminAuth, (req, res) => {
@@ -73,7 +90,6 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
         matchups.forEach((matchup) => {
             let team1 = matchup["home_team_id"];
             let team2 = matchup["away_team_id"];
-            let leagueId = matchup["league_id"];
             let roster1 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team1);
             let roster2 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team2);
 
@@ -641,7 +657,7 @@ async function sendDraftOrder(ws, league_id){
     var draftOrder;
     const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
     //league_id = JSON.parse(league_id);
-    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[1].length != teams.length){
+    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length){
         draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
     }

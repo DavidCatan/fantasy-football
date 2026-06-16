@@ -207,11 +207,11 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                                 : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
                                 : movePlayer(playerInSlot, slot, index)} 
                                 className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                                    ${moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) 
-                                         ? "bg-gray-500 text-black"
+                                    ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
+                                         :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
                                          : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
                                          : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
-                                         :"bg-slate-800 text-white hover:bg-slate-700"}
+                                         :"bg-slate-800 text-white hover:bg-blue-700"}
                                 `}>
                                     {playerInSlot ? "Move" : "Fill"}
                                 </button>
