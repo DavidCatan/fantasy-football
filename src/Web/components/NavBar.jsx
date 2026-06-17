@@ -53,7 +53,9 @@ const Navbar = () => {
                             <NavLink to="/Players">
                                 Players
                             </NavLink>
-                            
+                            <NavLink to="/League">
+                                League
+                            </NavLink>
                         </>
                         : <></>
                     }

@@ -5,7 +5,7 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
 
 const Roster = () => {
 
@@ -114,7 +114,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }
@@ -122,7 +122,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }
@@ -130,7 +130,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team["id"]);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
                     }
                 }
             }
@@ -207,11 +207,11 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                                 : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
                                 : movePlayer(playerInSlot, slot, index)} 
                                 className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                                    ${moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) 
-                                         ? "bg-gray-500 text-black"
+                                    ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
+                                         :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
                                          : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
                                          : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
-                                         :"bg-slate-800 text-white hover:bg-slate-700"}
+                                         :"bg-slate-800 text-white hover:bg-blue-700"}
                                 `}>
                                     {playerInSlot ? "Move" : "Fill"}
                                 </button>
@@ -221,12 +221,12 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
                     );
                 })}
             </div>
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league} setChangedLineup={setChangedLineup} changedLineup={changedLineup}/>
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, league, team}) {
+function PlayerModal({ player, isOpen, close, league, team, setChangedLineup, changedLineup}) {
     if (!player) return null;
 
     const data = calculatePoints(player.name);
@@ -267,6 +267,25 @@ function PlayerModal({ player, isOpen, close, league, team}) {
                     <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
                     <img src={player.headshot} className={wideimage} alt={player.name} />
                 </div>
+
+                <button 
+                    onClick={() =>{
+                         dropPlayer(team["id"], league, player)
+                            .then(data => {  
+                                alert(data["message"]);
+                                if(data["success"]){
+                                    setChangedLineup(!changedLineup);
+                                }    
+                            })
+                            .catch(err => {                   
+                                console.error("Request failed:", err);
+                            });
+                         close();
+                        }}
+                    className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium"
+                >
+                    Drop
+                </button>
 
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
                     <table className="w-full text-sm text-center border-collapse">

@@ -10,10 +10,7 @@ import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
 
 const SEASON = "2025"; 
-//const owner = 'ERIC'; // hardcoded for now, get from post/session or something on login
 
-//const LEAGUE = await getLeagueId(owner);
-//var TEAM = await getTeam(LEAGUE, owner);
 var DRAFT_ORDER;
 const MAX_SLOTS = 13;
 
@@ -74,7 +71,7 @@ const Draft = () => {
         const loadLeagueData = async () => {
             try{
                 let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t);
+                let r = await getTeamRoster(league, t["data"]["id"]);
                 if(r){
                     setRoster(r);
                     console.log(r);
@@ -293,13 +290,12 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
 
     var draftbutton;
-    if (team["id"] == curDraftTeam){
+    if (team == curDraftTeam){
         draftbutton = "px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium";
     }
     else{
         draftbutton = "px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-gray-400 text-white rounded-full font-medium";
     }
-    
     function draftPlayer(team, player){
         if(posCount["total"] >= MAX_SLOTS){
             alert('Draft is complete!');
@@ -311,7 +307,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             close();
             return;
         }
-        if(team["id"] != curDraftTeam){
+        if(team != curDraftTeam){
             alert('you are not on the clock!');
             close();
             return;
@@ -319,7 +315,7 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
             let slot = determineSlot(player.position, posCount);  
             console.log(slot);          
-            updateDraftDB(team["id"], league, player, slot);
+            updateDraftDB(team, league, player, slot);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
@@ -342,8 +338,8 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
 
                 <button 
                     onClick={() => 
-                        {if(team["id"] == curDraftTeam){
-                            draftPlayer(team["id"], player);
+                        {if(team == curDraftTeam){
+                            draftPlayer(team, player);
                         }}
                     }
                     className={draftbutton}

@@ -8,6 +8,8 @@ import Players from './Web/pages/Players';
 import Roster from './Web/pages/Roster';
 import Register from './Web/pages/Register';
 import Matchup from './Web/pages/Matchup';
+import League from './Web/pages/League';
+import Admin from './Web/pages/Admin'
 import Modal from "react-modal";
 
 Modal.setAppElement('#root');
@@ -23,7 +25,9 @@ function App() {
         <Route path="/Matchup" element={<Matchup />} />
         <Route path="/Draft" element={<Draft />} />
         <Route path="/Players" element={<Players />} />
+        <Route path="/League" element={<League />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </BrowserRouter>
   );

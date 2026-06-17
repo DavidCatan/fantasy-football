@@ -1,4 +1,6 @@
 import roundrobin from 'roundrobin-tournament-js';
+import playerStats from "../../Backend/nfl_stats.json" with { type: 'json' };;
+
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
@@ -14,7 +16,9 @@ export const ROSTER_TEMPLATE = [
     { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
     { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
     { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
+    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }//,
+    //{ id: "BN7",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
+
 ];
 
 const API_HOST = "localhost";
@@ -69,6 +73,15 @@ export async function getTeams(league_id){
     return null;
 }
 
+export async function getStandings(league_id){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/standings`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data["data"];
+    }
+    return null;
+}
+
 export async function getMatchup(league_id, team, week){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}/${team}`, {credentials: 'include'});
     const data = await response.json();
@@ -85,6 +98,28 @@ export async function getMatchups(league_id, week){
         return data;
     }
     return null;
+}
+
+export async function dropPlayer(team, league_id, player){
+    if(!league_id || !team || !player){
+        return {success: false, message: "something went wrong"};
+    }
+    const response = await fetch ('http://localhost:3001/api/drop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            teamId: team,
+            leagueId: league_id,
+            playerId: player.id,
+        }),
+        credentials: 'include'
+    });
+    const data = await response.json();
+    if(response.ok){
+        return {success: true, message: "successfully dropped player"};
+    }
+    return {success: false, message: "error, could not drop player"};
 }
 
 
@@ -147,6 +182,48 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // implement
     //console.log(leagueMatchups.get(leagueId).get("week").get(1));
     //console.log(leagueMatchups.get(leagueId).get("week").get(13));
 
+}
+
+export function calculateWeeklyPoints(week, playerName){
+    var totalPoints = 0;
+
+    const PASSING_MULTIPLIER = 0.04;
+    const RUSHING_MULTIPLIER = 0.1;
+    const RECEIVING_MULTIPLIER = 0.1;
+    const RECEPTION_MULTIPLIER = 1;
+    const PASS_TD_MULTIPLIER = 4;
+    const TD_MULITIPLER = 6;
+    const TURNOVER_MULTIPLIER = -2;
+
+    const statCategories = [
+        "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
+        "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
+        "kickReturnTouchdowns", "puntReturnTouchdowns"
+    ];
+
+    const pointDistr = {
+        "passingYards" : PASSING_MULTIPLIER,
+        "passingTouchdowns" : PASS_TD_MULTIPLIER,
+        "interceptions" : TURNOVER_MULTIPLIER,
+        "rushingYards" : RUSHING_MULTIPLIER,
+        "rushingTouchdowns" : TD_MULITIPLER,
+        "receptions" : RECEPTION_MULTIPLIER,
+        "receivingYards" : RECEIVING_MULTIPLIER,
+        "receivingTouchdowns" : TD_MULITIPLER,
+        "fumbles" :  TURNOVER_MULTIPLIER,
+        "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
+        "puntReturnTouchdowns" : TURNOVER_MULTIPLIER
+    };
+
+    if(playerStats["week"][week].hasOwnProperty(playerName)){
+        for (const stat in pointDistr){
+            if(playerStats["week"][week][playerName].hasOwnProperty(stat)){
+                totalPoints += playerStats["week"][week][playerName][stat] * pointDistr[stat];
+            }
+        }
+    }
+  
+  return totalPoints;
 }
 
 
