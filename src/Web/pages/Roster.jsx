@@ -89,17 +89,45 @@ const Roster = () => {
 
 function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
+    const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
     const [movingPlayer, setMovingPlayer] = React.useState();
     const [movingSlot, setMovingSlot] = React.useState();
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
+
     function openModal(player) {
         if (!player) return;
         setPlayer(player);
         setIsOpen(true);
     }
+
+    const openTradeModal = () => {
+        setTradeOpen(true);
+    }
+
+    const closeTradeModal = () => {
+        setTradeOpen(false);
+    }
+
+    const modalStyles = {
+        content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '16px',
+            border: 'none',
+            padding: '24px',
+            maxWidth: '90%',
+            width: '400px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        },
+        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
+    };
 
     const movePlayer = (player, curSlot, index) => {
         if(moving&&player==movingPlayer){
@@ -162,7 +190,21 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
 
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
+            <div className="flex">
+                <h2 className="flex text-2xl font-bold mb-4 pb-2 mt-4">Roster</h2>
+                <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                border hover:bg-green-600 justify-center" onClick={openTradeModal}>
+                    Trades
+                </button>
+
+                <Modal isOpen={tradeIsOpen} style={modalStyles} onRequestClose={closeTradeModal} closeTimeoutMS={200}
+                    >
+                    <TradeModal />
+                </Modal>
+            </div>
+            <hr className="border-b border-gray-700"></hr>
+            <br></br>
+
             
             <div className="flex flex-col gap-2">
                 {ROSTER_TEMPLATE.map((slot, index) => {
@@ -307,6 +349,12 @@ function PlayerModal({ player, isOpen, close, league, team, setChangedLineup, ch
                 </div>
             </div>
         </Modal>
+    );
+}
+
+function TradeModal() {
+    return(
+        <h1>hey</h1>
     );
 }
 

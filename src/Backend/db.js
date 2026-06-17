@@ -53,6 +53,29 @@ db.exec(`
         FOREIGN KEY (away_team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS trades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id INTEGER NOT NULL,
+        proposer_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        status VARCHAR(10) NOT NULL default 'pending',
+
+        FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
+        FOREIGN KEY (proposer_id) REFERENCES teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS trade_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trade_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+
+        FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_league ON teams (owner, league_id);
 `);
 

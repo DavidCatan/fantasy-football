@@ -24,6 +24,7 @@ const Matchup = () => {
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
     const [totalPoints, setTotalPoints] = React.useState(0.0);
+    const [user, setUser] = React.useState();
 
     const [oppTeam, setOppTeam] = React.useState(null);
     const [oppRoster, setOppRoster] = React.useState();
@@ -41,9 +42,11 @@ const Matchup = () => {
             .then(data => {
                 if(data.logged){
                     setOwner(data['username']);
+                    setUser(data["username"]);
                 }
                 else{
                     setOwner(null);
+                    setUser(null);
                 }
             });
         fetch('http://localhost:3001/api/league', {credentials: 'include'})
@@ -186,8 +189,8 @@ const Matchup = () => {
                             return(
                                 <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
                                     <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                                        <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
-                                        <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
+                                        <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints} user={user}/>
+                                        <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints} user={user}/>
                                     </div>
                                 </SwiperSlide>    
                             );         
@@ -201,7 +204,7 @@ const Matchup = () => {
     );
 }
 
-function Lineup({team, league, roster, lineup, totalPoints, oppPoints}){
+function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -267,12 +270,23 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints}){
                     );
                 })}
             </div>
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league} user={user}/>
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, league, team}) {
+function PlayerModal({ player, isOpen, close, league, team, user}) {
+    const [tradeIsOpen, setTradeOpen] = React.useState(false);
+
+    
+    const openTradeModal = () => {
+        setTradeOpen(true);
+    }
+
+    const closeTradeModal = () => {
+        setTradeOpen(false);
+    }
+    
     if (!player) return null;
 
     const data = calculatePoints(player.name);
@@ -314,6 +328,22 @@ function PlayerModal({ player, isOpen, close, league, team}) {
                     <img src={player.headshot} className={wideimage} alt={player.name} />
                 </div>
 
+                {user!=team["owner"] ?
+                    <div className="flex justify-center">
+                        <button className="w-30 px-6 mb-4 mt-2 flex py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                            border hover:bg-green-600 justify-center text-white" onClick={openTradeModal}>
+                            Trade
+                        </button>
+
+                        <Modal isOpen={tradeIsOpen} style={modalStyles} onRequestClose={closeTradeModal} closeTimeoutMS={200}
+                            >
+                            <TradeModal />
+                        </Modal>
+                    </div>
+                    : undefined
+                }
+                
+
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
                     <table className="w-full text-sm text-center border-collapse">
                         <thead className="bg-slate-50 sticky top-0">
@@ -334,6 +364,14 @@ function PlayerModal({ player, isOpen, close, league, team}) {
                 </div>
             </div>
         </Modal>
+    );
+}
+
+function TradeModal(){
+    return(
+        <>
+            <h1>hey</h1>
+        </>
     );
 }
 
