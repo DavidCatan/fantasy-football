@@ -265,6 +265,42 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     }
 });
 
+// api endpoint to propose a trade
+app.post('/api/trades/propose-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {receiverId, senderId, leagueId, sendPlayers, recvPlayers} = req.body;
+    if (!receiverId || !senderId || !leagueId || !sendPlayers || !recvPlayers || senderId != req.session.activeTeam){
+        return res.status(400).json({message: "Missing trade fields"});
+    }
+    try{
+        const trade = db.prepare('INSERT INTO trades (league_id, proposer_id, receiver_id) VALUES(?,?,?)').run(leagueId, senderId, receiverId);
+        try{
+            // players sent for team proposing the trade
+            sendPlayers.forEach((player) => { 
+                db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)')
+                .run(trade["lastInsertRowid"], leagueId, senderId, receiverId, player.id);
+            });
+
+            // players received for team proposing the trade
+            recvPlayers.forEach((player) => {
+                db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)')
+                .run(trade["lastInsertRowid"], leagueId, receiverId, senderId, player.id);
+            });
+
+            return res.status(200).json({message: "Successfully proposed Trade!"});
+        }
+        catch(err){
+            db.prepare('DELETE FROM trades WHERE id=?').run(trade["lastInsertRowid"]);
+            return res.status(400).json({message: "Could not add trade pieces"});
+        }
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Could not propose trade"});
+    }
+
+});
+
 // api endpoint to update roster slots
 app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     const {player1, slot1, player2, slot2, teamId} = req.body;
@@ -354,6 +390,24 @@ app.get('/api/leagues/:league_id/matchups/:week', sessionAuth, leagueAuth, (req,
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Error getting matchup data"});
+    }
+});
+
+// api endpoint to get team trades 
+app.get('/api/leagues/:league_id/teams/:team_id/trades', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, team_id} = req.params;
+    if(!league_id || !team_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or team"});
+    }
+
+    try{
+        const trades = db.prepare('SELECT * FROM trades WHERE league_id=? AND (proposer_id=? OR receiver_id=?)')
+        .all(league_id, team_id, team_id);
+        return res.status(200).json({message: 'successfully got trade data', data: trades})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting trade data"});
     }
 });
 

@@ -100,6 +100,15 @@ export async function getMatchups(league_id, week){
     return null;
 }
 
+export async function getTrades(league_id, team){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${team}/trades`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data;
+    }
+    return null;
+}
+
 export async function dropPlayer(team, league_id, player){
     if(!league_id || !team || !player){
         return {success: false, message: "something went wrong"};

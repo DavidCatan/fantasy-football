@@ -5,7 +5,7 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer, getTrades} from '../utils/leagueUtils';
 
 const Roster = () => {
 
@@ -16,6 +16,7 @@ const Roster = () => {
     const [lineup, setLineup] = React.useState({});
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
+    const [trades, setTrades] = React.useState([]);
 
       // check session and league
     React.useEffect(() => {
@@ -47,8 +48,10 @@ const Roster = () => {
         }
         const loadTeamData = async () => {
             try{
+                // get team, roster, trades, and lineup
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t["data"]["id"]);
+                let tr = await getTrades(league, t["data"]["id"]);
                 let l = new Map();
                 if(r){
                     r.forEach((player) => {
@@ -64,6 +67,7 @@ const Roster = () => {
                 setTeam(t["data"]);
                 setRoster(r);
                 setLineup(l);
+                setTrades(tr["data"]);
                 console.log(l);
                 console.log(r);
                 setLoading(false);
@@ -82,14 +86,14 @@ const Roster = () => {
     }
 
     return(
-        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
+        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
+        trades={trades}/>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
-    const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
     const [movingPlayer, setMovingPlayer] = React.useState();
@@ -101,14 +105,6 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
         if (!player) return;
         setPlayer(player);
         setIsOpen(true);
-    }
-
-    const openTradeModal = () => {
-        setTradeOpen(true);
-    }
-
-    const closeTradeModal = () => {
-        setTradeOpen(false);
     }
 
     const modalStyles = {
@@ -192,15 +188,9 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <div className="flex">
                 <h2 className="flex text-2xl font-bold mb-4 pb-2 mt-4">Roster</h2>
-                <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
-                border hover:bg-green-600 justify-center" onClick={openTradeModal}>
-                    Trades
-                </button>
 
-                <Modal isOpen={tradeIsOpen} style={modalStyles} onRequestClose={closeTradeModal} closeTimeoutMS={200}
-                    >
-                    <TradeModal />
-                </Modal>
+                <TradeModal trades={trades}/>
+
             </div>
             <hr className="border-b border-gray-700"></hr>
             <br></br>
@@ -352,9 +342,65 @@ function PlayerModal({ player, isOpen, close, league, team, setChangedLineup, ch
     );
 }
 
-function TradeModal() {
+function TradeModal({trades}) {
+    const [tradeIsOpen, setTradeOpen] = React.useState(false);
+    
+    const openTradeModal = () => {
+        setTradeOpen(true);
+    }
+
+    const handleClose = () => {
+        setTradeOpen(false);
+    }
+
+    
+    const modalStyles = {
+        content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '16px',
+            border: 'none',
+            padding: '24px',
+            maxWidth: '90%',
+            width: '400px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        },
+        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
+    };
+
     return(
-        <h1>hey</h1>
+        <>
+          <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                border hover:bg-green-600 justify-center" onClick={openTradeModal}>
+                    Trades
+            </button>
+            <Modal isOpen={tradeIsOpen} style={modalStyles} onRequestClose={handleClose} closeTimeoutMS={200}>
+                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm text-center border-collapse">
+                        <thead className="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Proposing Team</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Receiving Team</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Trade Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {trades.map((trade) => (
+                                <tr key={trade["id"]} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
+                                    <td className="p-3 font-bold text-slate-800">{trade["proposer_id"]}</td>
+                                    <td className="p-3 font-bold text-slate-800">{trade["receiver_id"]}</td>
+                                    <td className="p-3 font-bold text-slate-800">{trade["status"]}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Modal>
+        </>
     );
 }
 
