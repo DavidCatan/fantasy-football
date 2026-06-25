@@ -11,6 +11,7 @@ import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/module
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import { PlayerModal } from "../utils/playerUtils";
 
 const WEEK_NUM = 10;
 
@@ -210,6 +211,7 @@ const Matchup = () => {
 
 function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, userLineup, userTeam}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
+    const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
     const [movingPlayer, setMovingPlayer] = React.useState();
@@ -220,6 +222,14 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
         if (!player) return;
         setPlayer(player);
         setIsOpen(true);
+    }
+
+    const openTradeModal = () => {
+        setTradeOpen(true);
+    }
+
+    const closeTradeModal = () => {
+        setTradeOpen(false);
     }
 
     return(
@@ -274,98 +284,43 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
                     );
                 })}
             </div>
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league} user={user} userLineup={userLineup} userTeam={userTeam}/>
+            {/* Modal that opens after initial click on player */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
+                            button={user!=team["owner"] ? <TradeButton open={openTradeModal} /> : undefined}  
+            />
+            <TradeModal player={curPlayer} /*rosteredPlayers={rosteredPlayers} 
+                    setRosteredPlayers={setRosteredPlayers}*/ team={team} league={league} 
+                    /*roster={roster}*/ lineup={userLineup} closeParent={() => setIsOpen(false)} user={user} userTeam={userTeam}
+                    isOpen={tradeIsOpen} close={closeTradeModal}
+                />
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, league, team, user, userLineup, userTeam}) {
-    if (!player) return null;
-
-    const data = calculatePoints(player.name);
-    
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
-
-    return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-            <div className="relative">
-                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                
-                <div className="text-center mb-4">
-                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                    <img src={player.headshot} className={wideimage} alt={player.name} />
-                </div>
-
-                <TradeModal player={player} /*rosteredPlayers={rosteredPlayers} 
-                    setRosteredPlayers={setRosteredPlayers}*/ team={team} league={league} 
-                    /*roster={roster}*/ lineup={userLineup} closeParent={close} user={user} userTeam={userTeam}
-                />
-                
-
-                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-sm text-center border-collapse">
-                        <thead className="bg-slate-50 sticky top-0">
-                            <tr>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((points, index) => (
-                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-3 font-bold text-slate-800">{points}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </Modal>
-    );
+function TradeButton({open}){
+    return(
+        <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+            border hover:bg-green-600 justify-center text-white" onClick={open}>
+            Trade
+        </button>
+    )
 }
 
-function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam}){
+function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam, isOpen, close}){
    
-    const [tradeIsOpen, setTradeOpen] = React.useState(false);
 
     const[tradePlayers, setTradePlayers] = React.useState([]);
     const [updatedSlots, setUpdatedSlots] = React.useState([]);
     const [emptySlot, setEmptySlot] = React.useState(false);
 
     
-    const openTradeModal = () => {
+    /*const openTradeModal = () => {
         setTradeOpen(true);
     }
 
     const handleClose = () => {
         setTradeOpen(false);
-    }
+    }*/
 
     function sendTrade(recvTeam, sendTeam, players){
        /* if(!rosteredPlayers.includes(player.id)){
@@ -413,7 +368,7 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
         
         // send trade
         updateTradeDB(recvTeam, sendTeam, league, players, [player]);
-        handleClose();
+        close();
         closeParent();
     }
 
@@ -434,19 +389,15 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             backgroundColor: '#1e293b'
         },
-        overlay: { backgroundColor: 'rgba(16, 15, 15, 0.5)', zIndex: 1000 }
+        overlay: { backgroundColor: 'rgba(16, 15, 15, 0.5)', zIndex: 1001 }
     };
 
     return(
         <>
             {user!=team["owner"] ?
                 <div className="flex justify-center">
-                    <button className="w-30 px-6 mb-4 mt-2 flex py-2 rounded-full transition-all font-medium text-lg bg-green-700 
-                        border hover:bg-green-600 justify-center text-white" onClick={openTradeModal}>
-                        Trade
-                    </button>
 
-                    <Modal isOpen={tradeIsOpen} style={modalStyles} onRequestClose={handleClose} closeTimeoutMS={200}>
+                    <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
                         <UserLineup team={team} league={league} roster={roster} lineup={lineup} player={player} setTradePlayers={setTradePlayers} 
                                 tradePlayers={tradePlayers} setUpdatedSlots={setUpdatedSlots} updatedSlots={updatedSlots} setEmptySlot={setEmptySlot} />
                         <button 
@@ -562,73 +513,9 @@ function UserLineup({team, league, roster, lineup, player, setTradePlayers, trad
                     );
                 })}
             </div>
-            <RosterPlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
+            {/* Modal for player data from roster modal */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1002}/>
         </div>
-    );
-}
-
-function RosterPlayerModal({ player, isOpen, close, league, team}) {
-    if (!player) return null;
-
-    const data = calculatePoints(player.name);
-    
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
-
-    return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-            <div className="relative">
-                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                
-                <div className="text-center mb-4">
-                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                    <img src={player.headshot} className={wideimage} alt={player.name} />
-                </div>
-
-                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-sm text-center border-collapse">
-                        <thead className="bg-slate-50 sticky top-0">
-                            <tr>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((points, index) => (
-                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-3 font-bold text-slate-800">{points}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </Modal>
     );
 }
 
@@ -653,26 +540,6 @@ async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlay
     else{
         alert(data.message);
     }
-    /*players.forEach(async (player) => {
-        response = await fetch ('http://localhost:3001/api/trades/trade-details', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body:
-            JSON.stringify({
-                teamId: teamId,
-                leagueId: leagueId,
-                playerId: player.id,
-                playerName: player.name,
-                playerPos: player.position,
-                slot: slot
-            }),
-            credentials: 'include'
-            });
-        data = await response.json();
-        if(!response.ok){
-            alert('error sending trade');
-        }
-    })*/
 }
 
 export default Matchup;
