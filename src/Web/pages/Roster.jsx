@@ -6,7 +6,7 @@ import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer, getTrades} from '../utils/leagueUtils';
-import { PlayerModal } from "../utils/playerUtils";
+import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
 const Roster = () => {
 
@@ -151,11 +151,11 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
             if(player){
                 const eSlots = [ROSTER_TEMPLATE.length];
                 for(let i = 0; i < ROSTER_TEMPLATE.length; i++){
-                if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
-                    eSlots[i] = true;
+                    if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
+                        eSlots[i] = true;
+                    }
                 }
                 setEligibleSlots(eSlots);
-                }
             }
             else{
                 setEligibleSlots(ROSTER_TEMPLATE[index]["eligiblePositions"]);
@@ -178,71 +178,48 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
             <hr className="border-b border-gray-700"></hr>
             <br></br>
 
-            
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
-
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div>
-                                <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
-                                undefined 
-                                : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
-                                : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
-                                : movePlayer(playerInSlot, slot, index)} 
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                                    ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
-                                         :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
-                                         : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
-                                         : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
-                                         :"bg-slate-800 text-white hover:bg-blue-700"}
-                                `}>
-                                    {playerInSlot ? "Move" : "Fill"}
-                                </button>
-                            </div>
-                        </div>
-
-                    );
-                })}
-            </div>
-                <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
-                    button={<DropButton 
-                                team={team} league={league} player={curPlayer} changedLineup={changedLineup}
-                                setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
-                            />} 
-                />
+            {/* Show team lineup */}
+            <RosterSlots lineup={lineup} openModal={openModal}
+                button={({ playerInSlot, slot, index }) => (
+                    <MoveButton 
+                        moving={moving} 
+                        movingSlot={movingSlot} 
+                        movingPlayer={movingPlayer}
+                        movePlayer={movePlayer} 
+                        playerInSlot={playerInSlot}
+                        slot={slot}
+                        index={index}
+                    />
+                )}
+            />
+    
+            {/* Modal to show player data and option to drop */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
+                button={<DropButton 
+                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
+                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                        />} 
+            />
         </div>
+    );
+}
+
+function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index}){
+    return(
+        <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
+            undefined 
+            : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
+            : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
+            : movePlayer(playerInSlot, slot, index)} 
+            className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
+                ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
+                    :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
+                    : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
+                    : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
+                    :"bg-slate-800 text-white hover:bg-blue-700"}
+            `}>
+                {playerInSlot ? "Move" : "Fill"}
+        </button>
     );
 }
 

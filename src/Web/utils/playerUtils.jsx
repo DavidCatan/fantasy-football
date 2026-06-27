@@ -1,5 +1,8 @@
-import { calculatePoints } from "./draftUtils";
 import Modal from 'react-modal';
+import playerData from "../../../nfl_players.json";
+import { ROSTER_TEMPLATE } from "./leagueUtils";
+import { calculatePoints } from "./draftUtils";
+
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
     if (!player) return null;
@@ -65,5 +68,56 @@ export function PlayerModal({ player, isOpen, close, button, zIndex}) {
                 </div>
             </div>
         </Modal>
+    );
+}
+
+export function RosterSlots({lineup, button, points, openModal}) {
+    return(
+        <div className="flex flex-col gap-2">
+            {ROSTER_TEMPLATE.map((slot, index) => {
+                const playerInSlot = playerData[lineup?.get(slot["id"])];
+
+                return(
+                    <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
+                        <div className= 
+                        {
+                            ` px-2 py-1 rounded text-md
+                            ${slot["label"] == "QB" ? 'bg-red-900' 
+                                : slot["label"] == "RB" ? 'bg-blue-900' 
+                                : slot["label"] == "WR" ? 'bg-green-900'
+                                : slot["label"] == "TE" ? 'bg-purple-900'
+                                : slot["label"] == "FLEX" ? 'bg-pink-900'
+                                : 'bg-gray-700'
+                            }`
+                        }>
+                            {slot["label"]}
+                        </div>
+                        <div className='flex-1 items-center justify-between p-3'>
+                        {playerInSlot ? 
+                                <button 
+                                    onClick={() => openModal(playerInSlot)} 
+                                    className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
+                                >
+                                    <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
+                                    via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
+                                    <span className="font-semibold text-white-700">
+                                        {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
+                                    </span>
+                                </button>
+                        : <span className="italic text-slate-500" >Empty</span>
+                        }
+                        </div>
+                        
+                            
+                        <div>
+                            {button ? button({ playerInSlot, slot, index })
+                            : undefined}
+                            {points ? points({playerInSlot}) : undefined}
+                        </div>
+                    </div>
+
+                );
+            })}
+        </div>
     );
 }

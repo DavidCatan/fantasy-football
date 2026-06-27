@@ -11,7 +11,7 @@ import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/module
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
-import { PlayerModal } from "../utils/playerUtils";
+import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
 const WEEK_NUM = 10;
 
@@ -228,9 +228,6 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
         setTradeOpen(true);
     }
 
-    const closeTradeModal = () => {
-        setTradeOpen(false);
-    }
 
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
@@ -239,51 +236,10 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
                 <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
             </div>
            
+           {/* Show team's roster in the matchup list */}
+           <RosterSlots lineup={lineup} openModal={openModal} 
+           points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculatePoints(playerInSlot.name)[WEEK_NUM-1] : 0.0}</span>}/>
             
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
-
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div className="p-3">
-                                <span>{playerInSlot ? calculatePoints(playerInSlot.name)[WEEK_NUM-1] : 0.0}</span>
-                            </div>
-                        </div>
-
-                    );
-                })}
-            </div>
             {/* Modal that opens after initial click on player */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
                             button={user!=team["owner"] ? <TradeButton open={openTradeModal} /> : undefined}  
@@ -291,7 +247,7 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
             <TradeModal player={curPlayer} /*rosteredPlayers={rosteredPlayers} 
                     setRosteredPlayers={setRosteredPlayers}*/ team={team} league={league} 
                     /*roster={roster}*/ lineup={userLineup} closeParent={() => setIsOpen(false)} user={user} userTeam={userTeam}
-                    isOpen={tradeIsOpen} close={closeTradeModal}
+                    isOpen={tradeIsOpen} setIsOpen={setTradeOpen}
                 />
         </div>
     );
@@ -306,7 +262,7 @@ function TradeButton({open}){
     )
 }
 
-function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam, isOpen, close}){
+function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam, isOpen, setIsOpen}){
    
 
     const[tradePlayers, setTradePlayers] = React.useState([]);
@@ -321,6 +277,12 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
     const handleClose = () => {
         setTradeOpen(false);
     }*/
+
+        
+    const close = () => {
+        setIsOpen(false);
+        setTradePlayers([]);
+    }
 
     function sendTrade(recvTeam, sendTeam, players){
        /* if(!rosteredPlayers.includes(player.id)){
@@ -420,7 +382,6 @@ function UserLineup({team, league, roster, lineup, player, setTradePlayers, trad
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
-    const [clicked, setClicked] = React.useState(new Map());
 
     function openModal(player) {
         if (!player) return;
@@ -431,91 +392,57 @@ function UserLineup({team, league, roster, lineup, player, setTradePlayers, trad
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
-            
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
 
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div>
-                                <button onClick={() => 
-                                    {
-                                        if( playerInSlot&&!tradePlayers.includes(playerInSlot) ){
-                                            setTradePlayers((prev) => [...prev, playerInSlot]);
-                                            let c = clicked;
-                                            c.set(playerInSlot, true);
-                                            setClicked(c);
-                                            setUpdatedSlots((prev) => [...prev, slot]);
-                                        }
-                                        else if(tradePlayers.includes(playerInSlot)){
-                                            let p = tradePlayers;
-                                            p.splice(p.indexOf(playerInSlot), 1);
-                                            setTradePlayers((prev) => prev.filter(player => player != playerInSlot));
-                                            setUpdatedSlots((prev) => prev.filter(s => s != slot));
-                                            //setUpdatedSlot(null);
-                                        }
-                                        /*else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
-                                            setEmptySlot(true);
-                                            setDroppedPlayer(null);
-                                            setUpdatedSlot(slot);
-                                            setClicked(true);
-                                        }*/
-                                        else{
-                                            undefined;
-                                        }
-                                    }
-                                   //</div> playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ? setDroppedPlayer(playerInSlot)
-                                    //</div>: playerInSlot==droppedPlayer ? setDroppedPlayer(null)
-                                   //: undefined
-                                }
-
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
-                                   ${playerInSlot&&tradePlayers.includes(playerInSlot) ?  "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
-                                    : "bg-green-400 text-black hover:bg-green-600 hover:text-white"
-                                    } 
-                                `}>
-                                   {playerInSlot ? "Trade" : "Locked"}
-                                </button>
-                            </div>
-                        </div>
-
-                    );
-                })}
-            </div>
+            {/* Show user roster when proposing trade */}
+            <RosterSlots lineup={lineup} openModal={openModal}
+                button={({ playerInSlot, slot }) => (
+                    <TradeTransactionButton 
+                        tradePlayers={tradePlayers} 
+                        setTradePlayers={setTradePlayers} 
+                        setUpdatedSlots={setUpdatedSlots}
+                        playerInSlot={playerInSlot}
+                        slot={slot}
+                    />
+                )}
+            />
             {/* Modal for player data from roster modal */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1002}/>
         </div>
+    );
+}
+
+function TradeTransactionButton({playerInSlot, slot, tradePlayers, setTradePlayers, setUpdatedSlots}){
+    //const [clicked, setClicked] = React.useState(new Map());
+    return(
+        <button onClick={() => 
+            {
+                if( playerInSlot&&!tradePlayers.includes(playerInSlot) ){
+                    setTradePlayers((prev) => [...prev, playerInSlot]);
+                    //let c = clicked;
+                    //c.set(playerInSlot, true);
+                    //setClicked(c);
+                    setUpdatedSlots((prev) => [...prev, slot]);
+                }
+                else if(tradePlayers.includes(playerInSlot)){
+                    let p = tradePlayers;
+                    p.splice(p.indexOf(playerInSlot), 1);
+                    setTradePlayers((prev) => prev.filter(player => player != playerInSlot));
+                    setUpdatedSlots((prev) => prev.filter(s => s != slot));
+                }
+                else{
+                    undefined;
+                }
+            }
+        }
+
+        className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
+            ${playerInSlot&&tradePlayers.includes(playerInSlot) ?  "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
+            : playerInSlot? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
+            : "bg-black"
+            } 
+        `}>
+            {playerInSlot ? "Trade" : "Locked"}
+        </button>
     );
 }
 

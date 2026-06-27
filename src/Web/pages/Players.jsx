@@ -8,7 +8,7 @@ import { Button, ButtonGroup, TextField } from "@mui/material";
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
-import { PlayerModal } from "../utils/playerUtils";
+import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
 const SEASON = "2025"; 
 const MAX_SLOTS = 13;
@@ -329,6 +329,84 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
     );
 }
 
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
+    const [modalIsOpen, setIsOpen] = React.useState(false);
+    const [curPlayer, setPlayer] = React.useState("");
+    const [eligibleSlots, setEligibleSlots] = React.useState([]);
+
+    function openModal(player) {
+        if (!player) return;
+        setPlayer(player);
+        setIsOpen(true);
+    }
+
+    return(
+        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
+
+            {/* Show user's roster when processing free agency transaction */}
+            <RosterSlots lineup={lineup} openModal={openModal}
+                button={({ playerInSlot, slot }) => (
+                    <AddTransactionButton 
+                        droppedPlayer={droppedPlayer} 
+                        setDroppedPlayer={setDroppedPlayer} 
+                        updatedSlot={updatedSlot}
+                        setUpdatedSlot={setUpdatedSlot}
+                        setEmptySlot={setEmptySlot} 
+                        player={player}
+                        playerInSlot={playerInSlot}
+                        slot={slot}
+                    />
+                )}
+            />
+            
+            {/* Modal for player data from roster modal */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1002}/>
+        </div>
+    );
+}
+
+function AddTransactionButton({playerInSlot, slot, setDroppedPlayer, setUpdatedSlot, player, droppedPlayer, updatedSlot, setEmptySlot}){
+    const [clicked, setClicked] = React.useState(false);
+    return(
+        <button onClick={() => 
+            {
+                if( playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ){
+                    setDroppedPlayer(playerInSlot);
+                    setClicked(true);
+                    setUpdatedSlot(slot);
+                }
+                else if(slot == updatedSlot){
+                    setDroppedPlayer(null);
+                    setClicked(false);
+                    setUpdatedSlot(null);
+                }
+                else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
+                    setEmptySlot(true);
+                    setDroppedPlayer(null);
+                    setUpdatedSlot(slot);
+                    setClicked(true);
+                }
+                else{
+                    undefined;
+                }
+            }
+        }
+
+        className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
+        ${clicked&&playerInSlot&&slot==updatedSlot ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
+            :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
+            :!playerInSlot&&clicked&&slot==updatedSlot ? "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
+            :!playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
+            : "bg-black"
+        } `}>
+            {playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Drop" 
+            :!playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Open"
+            : "Locked"}
+        </button>
+    );
+}
+
 async function updatePlayerDB(teamId, leagueId, player, slot){
     const response = await fetch ('http://localhost:3001/api/add', {
         method: 'POST',
@@ -352,109 +430,6 @@ async function updatePlayerDB(teamId, leagueId, player, slot){
         alert(data["message"]);
     }
 
-}
-
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
-    const [modalIsOpen, setIsOpen] = React.useState(false);
-    const [curPlayer, setPlayer] = React.useState("");
-    const [eligibleSlots, setEligibleSlots] = React.useState([]);
-    const [clicked, setClicked] = React.useState(false);
-
-    function openModal(player) {
-        if (!player) return;
-        setPlayer(player);
-        setIsOpen(true);
-    }
-
-    return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
-            
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
-
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div>
-                                <button onClick={() => 
-                                    {
-                                        if( playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ){
-                                            setDroppedPlayer(playerInSlot);
-                                            setClicked(true);
-                                            setUpdatedSlot(slot);
-                                        }
-                                        else if(slot == updatedSlot){
-                                            setDroppedPlayer(null);
-                                            setClicked(false);
-                                            setUpdatedSlot(null);
-                                        }
-                                        else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
-                                            setEmptySlot(true);
-                                            setDroppedPlayer(null);
-                                            setUpdatedSlot(slot);
-                                            setClicked(true);
-                                        }
-                                        else{
-                                            undefined;
-                                        }
-                                    }
-                                   //</div> playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ? setDroppedPlayer(playerInSlot)
-                                    //</div>: playerInSlot==droppedPlayer ? setDroppedPlayer(null)
-                                   //: undefined
-                                }
-
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
-                                ${clicked&&playerInSlot&&slot==updatedSlot ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
-                                    :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
-                                    :!playerInSlot&&clicked&&slot==updatedSlot ? "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
-                                    :!playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
-                                    : "bg-black"
-                                } `}>
-                                    {playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Drop" 
-                                    :!playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Open"
-                                    : "Locked"}
-                                </button>
-                            </div>
-                        </div>
-
-                    );
-                })}
-            </div>
-            {/* Modal for player data from roster modal */}
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1002}/>
-        </div>
-    );
 }
 
 export default Players;
