@@ -301,6 +301,25 @@ app.post('/api/trades/propose-trade', sessionAuth, leagueAuth, (req, res) => {
 
 });
 
+// api endpoint to change display name
+app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
+    const {displayName} = req.body;
+    sanitize(displayName);
+    if (!displayName){
+        return res.status(400).json({message: "Missing name field"});
+    }
+    try{
+       db.prepare('UPDATE teams SET name=? WHERE id=?').run(displayName, req.session.activeTeam);
+       return res.status(200).json({message: "Succesfully updated name!"})
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Team or name invalid"});
+    }
+
+});
+
 // api endpoint to update roster slots
 app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     const {player1, slot1, player2, slot2, teamId} = req.body;
@@ -418,6 +437,7 @@ app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
 });
 
 
+
 // /api Endpoint to get league team is in
 app.get('/api/:owner', sessionAuth, (req, res) => {
     try{
@@ -459,7 +479,7 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, r
     }
     catch(err){
         console.log(err);
-        return res.status(400).json({message: "error: team not fuond"});
+        return res.status(400).json({message: "error: team not found"});
     }
    
 });

@@ -68,7 +68,7 @@ export async function getTeams(league_id){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
-        return data
+        return data["data"];
     }
     return null;
 }
