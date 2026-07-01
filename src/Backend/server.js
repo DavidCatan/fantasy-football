@@ -422,7 +422,20 @@ app.get('/api/leagues/:league_id/teams/:team_id/trades', sessionAuth, leagueAuth
     try{
         const trades = db.prepare('SELECT * FROM trades WHERE league_id=? AND (proposer_id=? OR receiver_id=?)')
         .all(league_id, team_id, team_id);
-        return res.status(200).json({message: 'successfully got trade data', data: trades})
+
+        const itemsStmt =  db.prepare('SELECT sender_id, receiver_id, player_id FROM trade_items WHERE trade_id=?');
+
+        const tradeDetails = trades.map((trade) => {
+            const items = itemsStmt.all(trade["id"]);
+            return(
+                {
+                    ...trade,
+                    items: items
+                }
+            );
+        });
+
+        return res.status(200).json({message: 'successfully got trade data', data: tradeDetails})
     }   
     catch(err){
         console.log(err);

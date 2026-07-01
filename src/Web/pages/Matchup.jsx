@@ -108,9 +108,8 @@ const Matchup = () => {
                         oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
                     }
                 }
-
-                if(allTeams["data"]){
-                    allTeams["data"].forEach((team) => {
+                if(allTeams){
+                    allTeams.forEach((team) => {
                         if(team["id"] == oppT){
                             setOppTeam(team);
                         }
@@ -150,7 +149,7 @@ const Matchup = () => {
                 setOppTotalPoints(oppTp);
 
                 setMatchups(matchups);
-                setTeams(allTeams["data"]);
+                setTeams(allTeams);
                 //console.log(l);
                 //console.log(r);
                 setLoading(false);
@@ -232,7 +231,7 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
             <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
-                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{team["owner"]}</h1>
+                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{team["name"] ? team["name"] : team["owner"]}</h1>
                 <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
             </div>
            

@@ -263,7 +263,7 @@ function DropButton({team, league, player, changedLineup, setChangedLineup, clos
                 ;
                 close();
             }}
-            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium"
+            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium hover:cursor-pointer"
             >
             Drop
         </button>
@@ -310,7 +310,7 @@ function ProfileModal({name}){
     return(
         <>
             <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-blue-700 
-                border hover:bg-blue-600 justify-center" onClick={openProfileModal}>
+                border hover:bg-blue-600 justify-center hover:cursor-pointer" onClick={openProfileModal}>
                     Profile
             </button>
             <Modal isOpen={profileIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
@@ -335,7 +335,7 @@ function ProfileModal({name}){
                         <div>
                         <button
                             type="submit"
-                            className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                            className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 hover:cursor-pointer"
                         >
                             Change Name
                         </button>
@@ -356,15 +356,12 @@ function TradeModal({trades, teams}) {
 
     const handleClose = () => {
         setTradeOpen(false);
-    }
-
-    console.log(teams);
-    
+    }    
 
     return(
         <>
             <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
-                border hover:bg-green-600 justify-center" onClick={openTradeModal}>
+                border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={openTradeModal}>
                     Trades
             </button>
             <Modal isOpen={tradeIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
@@ -384,17 +381,99 @@ function TradeModal({trades, teams}) {
                                 proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
                                 receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                 return(
-                                    <tr key={trade["id"]} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 truncate">
-                                        <td title={proposerName} className="p-3 font-bold text-slate-800 truncate">{proposerName}</td>
-                                        <td title={receiverName} className="p-3 font-bold text-slate-800 truncate">{receiverName}</td>
-                                        <td className="p-3 font-bold text-slate-800">{trade["status"]}</td>
-                                    </tr>
+                                    <TradeRow key={trade["id"]} trade={trade} proposerName={proposerName} receiverName={receiverName}/> 
                                 );
                                 
                             })}
                         </tbody>
                     </table>
                 </div>
+            </Modal>
+        </>
+    );
+}
+
+function TradeRow({trade, proposerName, receiverName}) {
+    const [isOpen, setIsOpen] = React.useState(false);
+        
+    const handleClose = () => {
+        setIsOpen(false);
+    }   
+    
+    const sender = trade["items"][0]?.sender_id;
+    const receiver = trade["items"][0]?.receiver_id;
+
+    return(
+        <>
+            <tr onClick={() => setIsOpen(true)} 
+            className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                <td title={proposerName} className="p-3 font-bold text-slate-800 truncate" >{proposerName}</td>
+                <td title={receiverName} className="p-3 font-bold text-slate-800 truncate">{receiverName}</td>
+                <td className="p-3 font-bold text-slate-800">{trade["status"]}</td>
+            </tr>
+
+            <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
+                <div className="grid grid-cols-2 gap-8 justify-items-center m-auto">
+                    <table className="w-full text-sm text-center border-collapse table-fixed">
+                            <thead className="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">{sender} Sends</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {trade["items"].map((tradeItem, index) => {
+                                    const playerName = playerNames.get(tradeItem["player_id"]);
+                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
+                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
+                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
+                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
+                                    if(tradeItem["sender_id"] == sender){
+                                        return(
+                                            <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                                                <td >{playerName}</td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                            </tbody>
+                        </table>
+                        <table className="w-full text-sm text-center border-collapse table-fixed">
+                            <thead className="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">{sender} Receives</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {trade["items"].map((tradeItem, index) => {
+                                    const playerName = playerNames.get(tradeItem["player_id"]);
+                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
+                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
+                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
+                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
+                                    if(tradeItem["receiver_id"] == sender){
+                                        return(
+                                        <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                                                <td >{playerName}</td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="grid grid-cols-2">
+                        <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                            border hover:bg-green-600 justify-center hover:cursor-pointer">
+                                Accept
+                        </button>
+                         <div className="flex justify-self-end">
+                        <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
+                            border hover:bg-red-600 justify-center hover:cursor-pointer">
+                                Decline
+                        </button>
+                    </div>
+                    </div>
+                   
             </Modal>
         </>
     );
