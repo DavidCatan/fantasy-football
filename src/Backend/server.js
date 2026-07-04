@@ -140,6 +140,37 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
     }
 });
 
+// api endpoint to process trades
+app.post('/api/admin/process-trades', (req, res) => {
+    try{
+        const trades = db.prepare('SELECT * FROM trades').all();
+        const deleteTrade = db.prepare('DELETE FROM trades WHERE id=?');
+        const getItems = db.prepare('SELECT * FROM trade_items WHERE trade_id=?');
+        const updateRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)');
+        const deleteFromRoster = db.prepare('DELETE FROM roster_slots WHERE team_id=? AND player_id=?');
+        const getPlayer = db.prepare('SELECT player_name, player_pos FROM roster_slots WHERE team_id=? AND player_id=?'); 
+        trades.forEach((trade) => {
+            if(trade["status"] == "accepted"){
+                let items = getItems.all(trade["id"]);
+                items.forEach((item) => {
+                    let player = getPlayer.get(item["sender_id"], item["player_id"]);
+                    deleteFromRoster.run(item["sender_id"], item["player_id"]);
+                    console.log(player);
+                    updateRoster.run(item["receiver_id"], trade["league_id"], item["player_id"], player["player_name"], player["player_pos"], "pending");
+                });
+                deleteTrade.run(trade["id"]);
+            }
+        });
+        return res.status(200).json({message: "Successfully Processed trades!"});  
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to process trades"});
+    }
+
+});
+
 // api endpoint to check admin session
 app.get('/api/admin/session', (req, res) => {
     if(req.session.logged&&req.session.admin){
@@ -297,6 +328,40 @@ app.post('/api/trades/propose-trade', sessionAuth, leagueAuth, (req, res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Could not propose trade"});
+    }
+
+});
+
+// api endpoint to decline a trade
+app.post('/api/trades/decline-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {trade} = req.body;
+    if (!trade || (trade["proposer_id"] != req.session.activeTeam && trade["receiver_id"] != req.session.activeTeam)){
+        return res.status(400).json({message: "Team not part of trade"});
+    }
+    try{
+        db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        return res.status(200).json({message: "Successfully declined trade!"});  
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to delete selected trade"});
+    }
+
+});
+
+// api endpoint to accept a trade
+app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {trade} = req.body;
+    if (!trade || (trade["proposer_id"] != req.session.activeTeam && trade["receiver_id"] != req.session.activeTeam)){
+        return res.status(400).json({message: "Team not part of trade"});
+    }
+    try{
+        db.prepare('UPDATE trades SET status=? WHERE id=?').run("accepted", trade["id"]);
+        return res.status(200).json({message: "Successfully accepted trade!"});  
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to accept selected trade"});
     }
 
 });

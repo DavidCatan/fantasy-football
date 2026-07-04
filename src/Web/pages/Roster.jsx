@@ -195,7 +195,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
 
                 <h2 className="flex text-2xl font-bold mb-4 pb-2 mt-4">Roster</h2>
 
-                <TradeModal trades={trades}  teams={teams}/>
+                <TradeModal trades={trades}  teams={teams} team={team["id"]}/>
 
             </div>
             <hr className="border-b border-gray-700"></hr>
@@ -347,7 +347,7 @@ function ProfileModal({name}){
     );
 }
 
-function TradeModal({trades, teams}) {
+function TradeModal({trades, teams, team}) {
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     
     const openTradeModal = () => {
@@ -375,13 +375,14 @@ function TradeModal({trades, teams}) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {trades.map((trade) => {
+                            {trades.map((trade, index) => {
                                 var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
                                 var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
                                 proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
                                 receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                 return(
-                                    <TradeRow key={trade["id"]} trade={trade} proposerName={proposerName} receiverName={receiverName}/> 
+                                    <TradeRow key={trade["id"]} trade={trade} proposerName={proposerName} receiverName={receiverName}
+                                    trades={trades} index={index} closeParent={handleClose} team={team}/> 
                                 );
                                 
                             })}
@@ -393,23 +394,35 @@ function TradeModal({trades, teams}) {
     );
 }
 
-function TradeRow({trade, proposerName, receiverName}) {
+function TradeRow({trades, trade, index, proposerName, receiverName, closeParent, team}) {
     const [isOpen, setIsOpen] = React.useState(false);
         
     const handleClose = () => {
         setIsOpen(false);
     }   
+
+    const handleAcceptTrade = () => {
+        acceptTrade(trades, trade, index);
+        handleClose();
+        closeParent();
+    }
+
+    const handleDeclineTrade = () => {
+        declineTrade(trades, trade, index);  
+        handleClose(); 
+        closeParent();     
+    }
     
     const sender = trade["items"][0]?.sender_id;
     const receiver = trade["items"][0]?.receiver_id;
-
     return(
         <>
             <tr onClick={() => setIsOpen(true)} 
             className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
                 <td title={proposerName} className="p-3 font-bold text-slate-800 truncate" >{proposerName}</td>
                 <td title={receiverName} className="p-3 font-bold text-slate-800 truncate">{receiverName}</td>
-                <td className="p-3 font-bold text-slate-800">{trade["status"]}</td>
+                <td className={`p-3 font-bold text-slate-800 ${trade["status"] == "accepted" ? 'bg-green-500/50' : 'bg-yellow-400/50'} `}>
+                {trade["status"]}</td>
             </tr>
 
             <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
@@ -461,19 +474,28 @@ function TradeRow({trade, proposerName, receiverName}) {
                             </tbody>
                         </table>
                     </div>
-                    <div className="grid grid-cols-2">
-                        <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
-                            border hover:bg-green-600 justify-center hover:cursor-pointer">
-                                Accept
-                        </button>
-                         <div className="flex justify-self-end">
-                        <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
-                            border hover:bg-red-600 justify-center hover:cursor-pointer">
-                                Decline
-                        </button>
-                    </div>
-                    </div>
-                   
+                        {team == trade["receiver_id"] ?
+                            <div className="grid grid-cols-2">
+                                <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                                border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={handleAcceptTrade}>
+                                    Accept
+                                </button>
+                                <div className="flex justify-self-end">
+                                    <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
+                                        border hover:bg-red-600 justify-center hover:cursor-pointer" onClick={handleDeclineTrade}>
+                                            Decline
+                                    </button>
+                                </div>
+                            </div>
+                        :   <>
+                                <div className="flex justify-self-center">
+                                    <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
+                                        border hover:bg-red-600 justify-center hover:cursor-pointer" onClick={handleDeclineTrade}>
+                                            Cancel Trade
+                                    </button>
+                                </div>
+                            </>
+                        }                   
             </Modal>
         </>
     );
@@ -500,6 +522,46 @@ async function changeSlots(player1, slot1, player2, slot2, team){
     else{
         alert(data.message);
     }
+}
+
+async function declineTrade(trades, trade, index){
+    const response = await fetch ('http://localhost:3001/api/trades/decline-trade', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            trade: trade
+        }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if(response.ok){
+            alert(data.message);
+            trades.splice(index, 1);
+        }
+        else{
+            alert(data.message);
+        }
+}
+
+async function acceptTrade(trades, trade, index){
+    const response = await fetch ('http://localhost:3001/api/trades/accept-trade', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            trade: trade
+        }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if(response.ok){
+            alert(data.message);
+            trades[index]["status"] = "accepted";
+        }
+        else{
+            alert(data.message);
+        }
 }
 
 export default Roster;
