@@ -3,7 +3,7 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
 import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
@@ -146,23 +146,50 @@ app.post('/api/admin/process-trades', (req, res) => {
         const trades = db.prepare('SELECT * FROM trades').all();
         const deleteTrade = db.prepare('DELETE FROM trades WHERE id=?');
         const getItems = db.prepare('SELECT * FROM trade_items WHERE trade_id=?');
-        const updateRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+        const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
                 + 'VALUES (?, ?, ?, ?, ?, ?)');
         const deleteFromRoster = db.prepare('DELETE FROM roster_slots WHERE team_id=? AND player_id=?');
         const getPlayer = db.prepare('SELECT player_name, player_pos FROM roster_slots WHERE team_id=? AND player_id=?'); 
+        const updateRoster = db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?');
         trades.forEach((trade) => {
             if(trade["status"] == "accepted"){
                 let items = getItems.all(trade["id"]);
-                items.forEach((item) => {
+
+                // remove and add players to respective rosters
+                /*items.forEach((item) => {
                     let player = getPlayer.get(item["sender_id"], item["player_id"]);
                     deleteFromRoster.run(item["sender_id"], item["player_id"]);
-                    console.log(player);
-                    updateRoster.run(item["receiver_id"], trade["league_id"], item["player_id"], player["player_name"], player["player_pos"], "pending");
+                    addToRoster.run(item["receiver_id"], trade["league_id"], item["player_id"], player["player_name"], player["player_pos"], "pending");
+                });*/
+
+                // update slots after players have been moved successfully
+                let slotAllocation = {};
+                slotAllocation[trade["proposer_id"]] = {"open_slots" : getEmptySlots(trade["proposer_id"]), "overflow_slot" : 7};
+                slotAllocation[trade["receiver_id"]] = {"open_slots" : getEmptySlots(trade["receiver_id"]), "overflow_slot" : 7};
+                items.forEach((item) => {
+                    var slot;
+                    let player = getPlayer.get(item["receiver_id"], item["player_id"]);
+                    let openIndex = slotAllocation[item["receiver_id"]]["open_slots"].findIndex((slot) => 
+                        slot["eligiblePositions"].includes(player["player_pos"]));
+                    if(openIndex > -1){
+                        slot = slotAllocation[item["receiver_id"]]["open_slots"].splice(openIndex, 1)[0]["id"];
+                    }
+                    else{
+                        slot = "BN"+slotAllocation[item["receiver_id"]]["overflow_slot"]++;
+                    }
+                    updateRoster.run(slot, item["receiver_id"], item["player_id"]);
                 });
                 deleteTrade.run(trade["id"]);
             }
         });
         return res.status(200).json({message: "Successfully Processed trades!"});  
+
+        function getEmptySlots(team){
+            let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
+            slots = new Set(slots.map((row) => row["player_slot"]));
+            let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
+            return openSlots;
+        }
     }
     catch(err){
         console.log(err);

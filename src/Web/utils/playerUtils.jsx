@@ -72,6 +72,20 @@ export function PlayerModal({ player, isOpen, close, button, zIndex}) {
 }
 
 export function RosterSlots({lineup, button, points, openModal}) {
+    var overloadPlayers = new Array();
+    if (lineup.size > 13){
+        lineup.forEach((player, slot) => {
+            let pos = slot.slice(0,2);
+            let num = slot.slice(2);
+            if(pos == "BN" && num > 6){
+                overloadPlayers.push(player);
+            }
+        });
+        let len = ROSTER_TEMPLATE.length;
+        for(let i = len; i < len + overloadPlayers.length; i++){
+            ROSTER_TEMPLATE.push({ id: "BN"+(i-6),  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
+        }
+    }
     return(
         <div className="flex flex-col gap-2">
             {ROSTER_TEMPLATE.map((slot, index) => {
