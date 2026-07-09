@@ -37,6 +37,7 @@ const Roster = () => {
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
     const [trades, setTrades] = React.useState([]);
+    const [isLegal, setIsLegal] = React.useState();
 
       // check session and league
     React.useEffect(() => {
@@ -45,6 +46,7 @@ const Roster = () => {
             .then(data => {
                 if(data.logged){
                     setOwner(data['username']);
+                    setIsLegal(data["legalRoster"]);
                 }
                 else{
                     setOwner(null);
@@ -109,12 +111,12 @@ const Roster = () => {
 
     return(
         <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
-        trades={trades} teams={teams}/>
+        trades={trades} teams={teams} isLegal={isLegal}/>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades, teams}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades, teams, isLegal}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -122,7 +124,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
     const [movingSlot, setMovingSlot] = React.useState();
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
-
+    console.log(isLegal);
     function openModal(player) {
         if (!player) return;
         setPlayer(player);
@@ -212,6 +214,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                         playerInSlot={playerInSlot}
                         slot={slot}
                         index={index}
+                        isLegal={isLegal}
                     />
                 )}
             />
@@ -227,7 +230,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
     );
 }
 
-function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index}){
+function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index, isLegal}){
     return(
         <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
             undefined 
@@ -235,8 +238,10 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
             : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
             : movePlayer(playerInSlot, slot, index)} 
             className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
-                    :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
+                ${!isLegal&&moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
+                    : !isLegal&&moving&&playerInSlot&&movingPlayer ? "bg-gray-500 text-black"
+                    : moving&&slot==movingSlot ? "bg-blue-700 hover:bg-blue-500"
+                    : moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
                     : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
                     : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
                     :"bg-slate-800 text-white hover:bg-blue-700"}

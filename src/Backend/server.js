@@ -156,11 +156,11 @@ app.post('/api/admin/process-trades', (req, res) => {
                 let items = getItems.all(trade["id"]);
 
                 // remove and add players to respective rosters
-                /*items.forEach((item) => {
+                items.forEach((item) => {
                     let player = getPlayer.get(item["sender_id"], item["player_id"]);
                     deleteFromRoster.run(item["sender_id"], item["player_id"]);
                     addToRoster.run(item["receiver_id"], trade["league_id"], item["player_id"], player["player_name"], player["player_pos"], "pending");
-                });*/
+                });
 
                 // update slots after players have been moved successfully
                 let slotAllocation = {};
@@ -209,6 +209,11 @@ app.get('/api/admin/session', (req, res) => {
 // api endpoint to check session
 app.get('/api/session', (req, res) => {
     if(req.session.logged){
+        if(req.session.activeTeam){
+            const isLegal = checkRosterLegality(req.session.activeTeam);
+            req.session.legalRoster = isLegal;
+            return res.status(200).json({logged: true, username: req.session.username, legalRoster: isLegal});
+        }
         return res.status(200).json({logged: true, username: req.session.username});
     }
     return res.status(200).json({logged: false});
@@ -419,6 +424,8 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
         return res.status(400).json({message: "Invalid slots to change"});
     }
     try{
+        req.session.legalRoster = checkRosterLegality(teamId);
+
         if(!player1){ // fill button clicked on empty position
             if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
                 return res.status(400).json({message: "Invalid positions to change"});
@@ -436,6 +443,10 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
         }
 
         // move two players
+        if(!req.session.legalRoster){ // do not let user switch players if roster is illegal
+            return res.status(400).json({message: "Too many players! Drop a player or add to an empty slot"});
+        }
+
         if(!slot1.eligiblePositions.includes(player1.position) || !slot1.eligiblePositions.includes(player2.position) 
         || !slot2.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player2.position)) {
             return res.status(400).json({message: "Invalid positions to change"});
@@ -801,6 +812,11 @@ app.post('/api/register', async (req, res) => {
     }
 
 });
+
+function checkRosterLegality(team){
+    const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
+    return roster.length <= ROSTER_TEMPLATE.length;
+}
 
 wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;

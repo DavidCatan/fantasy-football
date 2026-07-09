@@ -73,26 +73,26 @@ export function PlayerModal({ player, isOpen, close, button, zIndex}) {
 
 export function RosterSlots({lineup, button, points, openModal}) {
     var overloadPlayers = new Array();
-    if (lineup.size > 13){
-        lineup.forEach((player, slot) => {
-            let pos = slot.slice(0,2);
-            let num = slot.slice(2);
-            if(pos == "BN" && num > 6){
-                overloadPlayers.push(player);
-            }
-        });
-        let len = ROSTER_TEMPLATE.length;
-        for(let i = len; i < len + overloadPlayers.length; i++){
-            ROSTER_TEMPLATE.push({ id: "BN"+(i-6),  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
+    var roster = ROSTER_TEMPLATE.slice();
+    lineup.forEach((player, slot) => {
+        let pos = slot.slice(0,2);
+        let num = slot.slice(2);
+        if(pos == "BN" && num > 6){
+            overloadPlayers.push(player);
         }
+    });
+    let len = roster.length;
+    for(let i = len; i < len + overloadPlayers.length; i++){
+        roster.push({ id: "BN"+(i-6),  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
     }
     return(
         <div className="flex flex-col gap-2">
-            {ROSTER_TEMPLATE.map((slot, index) => {
+            {roster.map((slot, index) => {
                 const playerInSlot = playerData[lineup?.get(slot["id"])];
 
                 return(
-                    <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
+                    <div key={slot["id"]} className={`flex items-center justify-between pl-3 rounded-md border 
+                    ${index>ROSTER_TEMPLATE.length-1 ? 'border-red-500' : undefined}`}>
                         <div className= 
                         {
                             ` px-2 py-1 rounded text-md
@@ -110,7 +110,7 @@ export function RosterSlots({lineup, button, points, openModal}) {
                         {playerInSlot ? 
                                 <button 
                                     onClick={() => openModal(playerInSlot)} 
-                                    className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
+                                    className="w-full flex items-center gap-4 text-left hover:bg-yellow-500 hover:text-slate-700 transition-colors rounded-md"
                                 >
                                     <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
                                     via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
