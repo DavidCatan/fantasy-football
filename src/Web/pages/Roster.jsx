@@ -479,7 +479,7 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                             </tbody>
                         </table>
                     </div>
-                        {team == trade["receiver_id"] ?
+                        {trade["status"]!="accepted" ? team == trade["receiver_id"] ?
                             <div className="grid grid-cols-2">
                                 <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
                                 border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={handleAcceptTrade}>
@@ -500,7 +500,7 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                                     </button>
                                 </div>
                             </>
-                        }                   
+                        : undefined}                   
             </Modal>
         </>
     );

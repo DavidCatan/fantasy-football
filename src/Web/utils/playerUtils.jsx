@@ -72,19 +72,14 @@ export function PlayerModal({ player, isOpen, close, button, zIndex}) {
 }
 
 export function RosterSlots({lineup, button, points, openModal}) {
-    var overloadPlayers = new Array();
     var roster = ROSTER_TEMPLATE.slice();
     lineup.forEach((player, slot) => {
         let pos = slot.slice(0,2);
         let num = slot.slice(2);
         if(pos == "BN" && num > 6){
-            overloadPlayers.push(player);
+            roster.push({ id: "BN"+num,  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
         }
     });
-    let len = roster.length;
-    for(let i = len; i < len + overloadPlayers.length; i++){
-        roster.push({ id: "BN"+(i-6),  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
-    }
     return(
         <div className="flex flex-col gap-2">
             {roster.map((slot, index) => {
@@ -96,11 +91,11 @@ export function RosterSlots({lineup, button, points, openModal}) {
                         <div className= 
                         {
                             ` px-2 py-1 rounded text-md
-                            ${slot["label"] == "QB" ? 'bg-red-900' 
-                                : slot["label"] == "RB" ? 'bg-blue-900' 
-                                : slot["label"] == "WR" ? 'bg-green-900'
-                                : slot["label"] == "TE" ? 'bg-purple-900'
-                                : slot["label"] == "FLEX" ? 'bg-pink-900'
+                            ${slot["label"] == "QB" ? 'bg-red-900'// mr-6' 
+                                : slot["label"] == "RB" ? 'bg-blue-900'// mr-7' 
+                                : slot["label"] == "WR" ? 'bg-green-900'// mr-6'
+                                : slot["label"] == "TE" ? 'bg-purple-900'// mr-8'
+                                : slot["label"] == "FLEX" ? 'bg-pink-900'// mr-4'
                                 : 'bg-gray-700'
                             }`
                         }>

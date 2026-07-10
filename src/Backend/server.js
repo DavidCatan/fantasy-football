@@ -152,8 +152,22 @@ app.post('/api/admin/process-trades', (req, res) => {
         const getPlayer = db.prepare('SELECT player_name, player_pos FROM roster_slots WHERE team_id=? AND player_id=?'); 
         const updateRoster = db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?');
         trades.forEach((trade) => {
+            let notRostered = false;
             if(trade["status"] == "accepted"){
                 let items = getItems.all(trade["id"]);
+
+                // check if players in trade are still on the respective rosters
+                items.forEach((item) => {
+                    let player = getPlayer.get(item["sender_id"], item["player_id"]);
+                    if(!player){
+                        deleteTrade.run(trade["id"]);
+                        notRostered = true;
+                        return;
+                    }
+                })
+                if(notRostered){
+                    return;
+                }
 
                 // remove and add players to respective rosters
                 items.forEach((item) => {
@@ -337,23 +351,33 @@ app.post('/api/trades/propose-trade', sessionAuth, leagueAuth, (req, res) => {
     try{
         const trade = db.prepare('INSERT INTO trades (league_id, proposer_id, receiver_id) VALUES(?,?,?)').run(leagueId, senderId, receiverId);
         try{
+            const insertItem = db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)');
+            const checkPlayer = db.prepare('SELECT * FROM roster_slots WHERE team_id=? AND player_id=?');
+
             // players sent for team proposing the trade
             sendPlayers.forEach((player) => { 
-                db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)')
-                .run(trade["lastInsertRowid"], leagueId, senderId, receiverId, player.id);
+                let check = checkPlayer.get(senderId, player.id);
+                if(check.length == 0){ // throws error
+                    return res.status(400).json({message: "Trade pieces not rostered on team"});
+                }
+                insertItem.run(trade["lastInsertRowid"], leagueId, senderId, receiverId, player.id);
             });
 
             // players received for team proposing the trade
             recvPlayers.forEach((player) => {
-                db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)')
-                .run(trade["lastInsertRowid"], leagueId, receiverId, senderId, player.id);
+                let check = checkPlayer.get(receiverId, player.id);
+                if(check.length == 0){ // throws error
+                    return res.status(400).json({message: "Trade pieces not rostered on team"});
+                }
+                insertItem.run(trade["lastInsertRowid"], leagueId, receiverId, senderId, player.id);
             });
 
             return res.status(200).json({message: "Successfully proposed Trade!"});
         }
         catch(err){
+            console.log(err);
             db.prepare('DELETE FROM trades WHERE id=?').run(trade["lastInsertRowid"]);
-            return res.status(400).json({message: "Could not add trade pieces"});
+            return res.status(400).json({message: "Could not add trade pieces; players involved may not be rostered"});
         }
 
     }
