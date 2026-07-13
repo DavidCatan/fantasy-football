@@ -82,6 +82,38 @@ matchups.forEach((matchup) => {
     .run(0,0, team2);
 })*/
 
+// api endpoint to set playoff matchups
+app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
+    const {leagueId, weekNum} = req.body;
+    try{
+        if(weekNum == 14){ // first week of the playoffs
+            const standings = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+            standings.sort(standingsOrder);
+            const playoffTeams = standings.slice(0,4);
+            const consolationTeams = standings.slice(4,);
+            const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)');
+
+            // add playoff matchups
+            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum);  
+            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum);    
+            
+            // add consolation matchups
+            while(consolationTeams.length > 0){
+                addMatchup.run(leagueId, consolationTeams.splice(0,1)["id"], consolationTeams.splice(consolationTeams.length-1,1)["id"], weekNum);
+            }
+        }
+        
+        return res.status(200).json({message : "successfully set playoff matchups!"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "failed to set playoff matchtups"});
+    }
+     function standingsOrder(team1, team2) {
+        return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
+    }
+});
+
 // api endpoint to update weekly standings
 app.post('/api/admin/process-week', adminAuth, (req, res) => {
     const { weekNum } = req.body;
@@ -494,7 +526,7 @@ app.get('/api/leagues/:league_id/standings', sessionAuth, leagueAuth, (req, res)
     }
 
     try{
-        const standings = db.prepare('SELECT owner, wins, losses, points_for, points_against FROM teams WHERE league_id=?').all(league_id);
+        const standings = db.prepare('SELECT owner, name, wins, losses, points_for, points_against FROM teams WHERE league_id=?').all(league_id);
         return res.status(200).json({message: 'successfully got standings data', data: standings})
     }   
     catch(err){

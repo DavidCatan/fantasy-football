@@ -1,7 +1,7 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { playerNames, calculatePoints } from "../utils/draftUtils";
+import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
@@ -187,7 +187,7 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
         <div className="space-y-4">
             <Autocomplete
                 disablePortal
-                options={playerNames}
+                options={nameArray}
                 noOptionsText="No Players"
                 filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {

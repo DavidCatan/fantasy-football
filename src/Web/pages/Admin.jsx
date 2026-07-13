@@ -64,6 +64,23 @@ const Admin = () => {
         }
     }
 
+    const handlePlayoffMatchups = async () => {
+       const response = await fetch('http://localhost:3001/api/admin/set-playoffs', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({leagueId: '6vU6Be', weekNum: 14}),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
     // check admin sesison auth
     React.useEffect(() => {
         fetch('http://localhost:3001/api/admin/session', {credentials: 'include'})
@@ -98,6 +115,10 @@ const Admin = () => {
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
                     transition-all font-medium" onClick={handleProcessTrades}>
                   Process Trades
+                  </button>
+                  <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handlePlayoffMatchups}>
+                  Set Playoff Matchups
                   </button>
                 </div>
               </div>

@@ -11,6 +11,7 @@ var players = {
 };
 export var playerNames = new Map();
 export var nameSet = new Set();
+export var nameArray = new Array();
 
 // add isRostered field, add into players only if not rostered
 for (const player in playerData) {
@@ -23,7 +24,7 @@ for (const player in playerData) {
     players["all"].push(newPlayer);
     players[playerData[player]["position"]].push(newPlayer);
     playerNames.set(Number(newPlayer["id"]), newPlayer["name"]);
-    //playerNames.push(playerData[player]["name"]);
+    nameArray.push(playerData[player]["name"]);
     nameSet.add(playerData[player]["name"]);
     //playerData[player]["available"] = true;
 }

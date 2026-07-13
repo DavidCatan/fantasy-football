@@ -1,7 +1,7 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { playerNames, calculatePoints } from "../utils/draftUtils";
+import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
@@ -9,6 +9,7 @@ import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { useMemo } from "react";
 
 const SEASON = "2025"; 
 const MAX_SLOTS = 13;
@@ -141,6 +142,10 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
     const closeDropModal = () => {
         setDropOpen(false);
     };
+
+    const rosteredNameSet = useMemo(() => {
+        return new Set(roster.map(player => player["player_name"]));
+    }, [roster]);
     
     /*
         TODO for autocomplete: 
@@ -152,13 +157,11 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
         <div className="space-y-4">
             <Autocomplete
                 disablePortal
-                options={playerNames}
+                options={nameArray}
                 noOptionsText="No Players"
                 filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {
                     const { key, ...optionProps } = props;
-                    const isAvailable = !rosteredPlayers.includes(Number(playerData[option].id));
-                    if (isAvailable){
                         return (
                             <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
                                 <img src={playerData[option].headshot} className="w-12 h-12 rounded-full border border-slate-200 
@@ -166,7 +169,6 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                                 <div className="font-bold text-slate-700">{option}</div>
                             </li>
                         );
-                    }
                 }}
                 renderInput={(params) => <TextField {...params} label="Search for a player" />}
                 onChange={(event, player) => openModal(playerData[player])}
@@ -208,7 +210,12 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
 
             {/* Modal that opens after initial click on player */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} 
-                button={<AddButton open={openDropModal} zIndex={1000}/>} 
+                button={!rosteredNameSet.has(curPlayer["name"]) ? 
+                        <AddButton open={openDropModal} zIndex={1000}/>  
+                     :  <DropButton 
+                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
+                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                        />} 
             />
 
             <DropModal player={curPlayer} rosteredPlayers={rosteredPlayers}
@@ -229,6 +236,30 @@ function AddButton({open}) {
             Add
         </button>
     )
+}
+
+function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
+    return(
+        <button 
+            onClick={() =>{
+                dropPlayer(team, league, player)
+                .then(data => {  
+                    alert(data["message"]);
+                    if(data["success"]){
+                        setChangedLineup(!changedLineup);
+                    }    
+                })
+                .catch(err => {                   
+                    console.error("Request failed:", err);
+                });
+                ;
+                close();
+            }}
+            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium hover:cursor-pointer"
+            >
+            Drop
+        </button>
+    );
 }
 
 function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup, close, isOpen}) {

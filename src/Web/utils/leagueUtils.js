@@ -177,7 +177,7 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // implement
     })
     
     //}
-    for(let i = 9; i < 13; i++){
+    for(let i = 9; i < 13; i++){ // weeks 10 to 13
         //leagueMatchups.get(leagueId).get("week").set(i+1, generateMatchups(teams));
         let randomMatchups = generateMatchups(teams);
         console.log(randomMatchups);

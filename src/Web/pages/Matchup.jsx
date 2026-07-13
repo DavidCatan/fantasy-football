@@ -13,7 +13,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
-const WEEK_NUM = 10;
+const WEEK_NUM = 14;
 
 const Matchup = () => {
 
@@ -231,7 +231,7 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
             <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
-                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{team["name"] ? team["name"] : team["owner"]}</h1>
+                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center w-100 truncate">{team["name"] ? team["name"] : team["owner"]}</h1>
                 <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
             </div>
            
