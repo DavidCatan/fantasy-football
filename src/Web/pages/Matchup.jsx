@@ -13,7 +13,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
-const WEEK_NUM = 14;
+const WEEK_NUM = 10;
 
 const Matchup = () => {
 
@@ -96,7 +96,6 @@ const Matchup = () => {
                 var oppT;
                 let oppL = new Map();
                 let oppTp = 0.0;
-
 
                 if(matchup["data"]){
                     if(matchup["data"]["home_team_id"] == t["data"]["id"]){

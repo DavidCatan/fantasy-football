@@ -91,15 +91,15 @@ app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
             standings.sort(standingsOrder);
             const playoffTeams = standings.slice(0,4);
             const consolationTeams = standings.slice(4,);
-            const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)');
+            const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week, playoff_round) VALUES (?,?,?,?,?)');
 
             // add playoff matchups
-            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum);  
-            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum);    
+            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum, "semifinals");  
+            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum, "semifinals");    
             
             // add consolation matchups
             while(consolationTeams.length > 0){
-                addMatchup.run(leagueId, consolationTeams.splice(0,1)["id"], consolationTeams.splice(consolationTeams.length-1,1)["id"], weekNum);
+                addMatchup.run(leagueId, consolationTeams.splice(0,1)["id"], consolationTeams.splice(consolationTeams.length-1,1)["id"], weekNum, "consolation");
             }
         }
         
@@ -119,11 +119,25 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
     const { weekNum } = req.body;
     try{
         const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(weekNum);
+
+        const getRoster = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?');
+
+        const updateMatchupPoints = db.prepare('UPDATE matchups SET home_points=?, away_points=? WHERE id=?');
+
+        const getWins = db.prepare('SELECT wins FROM teams WHERE id=?');
+        const updateWins = db.prepare('UPDATE teams SET wins=? WHERE id=?');
+
+        const getLosses =  db.prepare('SELECT losses FROM teams WHERE id=?');
+        const updateLosses = db.prepare('UPDATE teams SET losses=? WHERE id=?');
+
+        const getPoints = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?');
+        const setPoints = db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?');
+
         matchups.forEach((matchup) => {
             let team1 = matchup["home_team_id"];
             let team2 = matchup["away_team_id"];
-            let roster1 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team1);
-            let roster2 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team2);
+            let roster1 = getRoster.all(team1);
+            let roster2 = getRoster.all(team2);
 
             let totalPoints1 = 0;
             let totalPoints2 = 0;
@@ -132,37 +146,36 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
                 if(!player["player_slot"].includes("BN")){
                     totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"]);
                 }
-            })
+            });
             roster2.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
                     totalPoints2 += calculateWeeklyPoints(weekNum, player["player_name"]);
                 }
-            })
+            });
+
+            updateMatchupPoints.run(totalPoints1, totalPoints2, matchup["id"]);
 
             let winner = totalPoints1 > totalPoints2 ? team1 : team2;
     
             if(winner === team1){
-                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team1);
-                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team1);
+                let wins = getWins.get(team1);
+                updateWins.run(wins["wins"]+1, team1);
 
-                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team2);
-                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team2);
+                let losses = getLosses.get(team2);
+                updateLosses.run(losses["losses"]+1, team2);
             }
             else{
-                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team2);
-                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team2);
+                let wins = getWins.get(team2);
+                updateWins.run(wins["wins"]+1, team2);
 
-                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team1);
-                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team1);
+                let losses = getLosses.get(team1);
+                updateLosses.run(losses["losses"]+1, team1);
             }
-            let points1 = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team1);
-            let points2 =  db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team2);
+            let points1 = getPoints.get(team1);
+            let points2 =  getPoints.get(team2);
 
-            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-            .run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, team1);
-            
-            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-            .run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, team2);
+            setPoints.run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, team1);
+            setPoints.run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, team2);
         })
         return res.status(200).json({message: "successfully processed week!"})
     }

@@ -22,10 +22,10 @@ db.exec(`
         league_id VARCHAR(6) NOT NULL,
         name VARCHAR(50) DEFAULT '',
         owner VARCHAR(50) NOT NULL,
-        wins INTEGER NOT NULL default 0,
-        losses INTEGER NOT NULL default 0,
-        points_for INTEGER NOT NULL default 0,
-        points_against INTEGER NOT NULL default 0
+        wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0,
+        points_for INTEGER NOT NULL DEFAULT 0,
+        points_against INTEGER NOT NULL DEFAULT 0
 
     );
 
@@ -46,7 +46,10 @@ db.exec(`
         league_id VARCHAR(6) NOT NULL,
         home_team_id INTEGER NOT NULL,
         away_team_id INTEGER NOT NULL,
+        home_points REAL NOT NULL DEFAULT 0.0,
+        away_points REAL NOT NULL DEFAULT 0.0,
         week INTEGER NOT NULL,
+        playoff_round VARCHAR(20) DEFAULT NULL,
 
         FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
         FOREIGN KEY (home_team_id) REFERENCES teams(id) ON DELETE CASCADE,
@@ -58,7 +61,7 @@ db.exec(`
         league_id INTEGER NOT NULL,
         proposer_id INTEGER NOT NULL,
         receiver_id INTEGER NOT NULL,
-        status VARCHAR(10) NOT NULL default 'pending',
+        status VARCHAR(10) NOT NULL DEFAULT 'pending',
 
         FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
         FOREIGN KEY (proposer_id) REFERENCES teams(id) ON DELETE CASCADE,
