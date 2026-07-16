@@ -82,25 +82,126 @@ matchups.forEach((matchup) => {
     .run(0,0, team2);
 })*/
 
+// api endpoint to process the end of the season
+app.post('/api/admin/process-season-end', adminAuth, (req, res) => {
+    const {weekNum} = req.body;
+    try{
+        if(!weekNum || weekNum != 18){
+            return res.status(400).json({message : "non playoff week given"});
+        }
+
+        const leagues = db.prepare('SELECT league_id FROM leagues WHERE completed=?').all(0);
+
+        const getMatchups = db.prepare('SELECT * from matchups WHERE week=? AND league_id=?');
+        const setFinalRank = db.prepare('UPDATE teams SET final_rank=? WHERE id=?');
+
+        const setComplete = db.prepare('UPDATE leagues SET completed=? WHERE league_id=?');
+
+        leagues.forEach((leagueId) => {
+            let matchups = getMatchups.all(weekNum-1, leagueId["league_id"]);
+
+            matchups.forEach((matchup) => {
+                let winner = matchup["home_team_id"];
+                let loser = matchup["away_team_id"];
+                let playoffRound = matchup["playoff_round"];
+
+                if(matchup["away_points"] > matchup["home_points"]){
+                    winner = matchup["away_team_id"];
+                    loser = matchup["home_team_id"];
+                }
+
+                if(playoffRound == "championship"){
+                    setFinalRank.run(1, winner);
+                    setFinalRank.run(2, loser);
+                }
+                else if(playoffRound == "third_place"){
+                    setFinalRank.run(3, winner);
+                    setFinalRank.run(4, loser);
+                }
+                else{ // consolation game
+                    // TODO: change placeholder and order rank of consolation games
+                    setFinalRank.run(5, winner);
+                    setFinalRank.run(6, loser);
+                }
+            });
+
+            setComplete.run(1, leagueId["league_id"]); // set the league as completed
+        });
+
+        return res.status(200).json({message: "successfully processed end of season rankings"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "failure to process end of season rankings"});
+    }
+});
+
+// TODO: iterate through leagues on backend 
 // api endpoint to set playoff matchups
 app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
     const {leagueId, weekNum} = req.body;
+    
     try{
-        if(weekNum == 14){ // first week of the playoffs
-            const standings = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        if(!weekNum || !leagueId || weekNum < 14 || weekNum > 17){
+            return res.status(400).json({message : "non playoff week given"});
+        }
+
+        const getTeam = db.prepare('SELECT * FROM teams WHERE id=?');
+        const standings = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week, playoff_round) VALUES (?,?,?,?,?)');
+
+        if(weekNum == 14 || weekNum == 15){ // first round
             standings.sort(standingsOrder);
             const playoffTeams = standings.slice(0,4);
             const consolationTeams = standings.slice(4,);
-            const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week, playoff_round) VALUES (?,?,?,?,?)');
 
             // add playoff matchups
-            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum, "semifinals");  
-            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum, "semifinals");    
+            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum, 'semifinals');  
+            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum, 'semifinals');    
             
             // add consolation matchups
             while(consolationTeams.length > 0){
-                addMatchup.run(leagueId, consolationTeams.splice(0,1)["id"], consolationTeams.splice(consolationTeams.length-1,1)["id"], weekNum, "consolation");
+                addMatchup.run(leagueId, consolationTeams.shift()["id"], consolationTeams.pop()["id"], weekNum, "consolation");
             }
+        }
+        else if (weekNum == 16 || weekNum == 17){ // second round
+            const matchups = db.prepare('SELECT * FROM matchups WHERE week=? AND league_id=?').all(15, leagueId);
+            let winners = new Array();
+            let losers = new Array();
+
+            matchups.forEach((matchup) => {
+                let winner = matchup["home_team_id"];
+                let loser = matchup["away_team_id"];
+                if(matchup["away_points"] > matchup["home_points"]){
+                    winner = matchup["away_team_id"];
+                    loser = matchup["home_team_id"];
+                }
+                winners.push(getTeam.get(winner));
+                losers.push(getTeam.get(loser));
+               
+            });
+
+            // sort in standings order to get original seeding
+            winners.sort(standingsOrder);
+            losers.sort(standingsOrder);
+
+            addMatchup.run(leagueId, winners.shift()["id"], winners.shift()["id"], weekNum, "championship");
+            addMatchup.run(leagueId, losers.shift()["id"], losers.shift()["id"], weekNum, "third_place");
+
+            while(winners.length > 1){
+                addMatchup.run(leagueId, winners.shift()["id"], winners.pop()["id"], weekNum, "consolation");
+            }
+
+            while(losers.length > 1){
+                addMatchup.run(leagueId, losers.shift()["id"], losers.pop()["id"], weekNum, "consolation");
+            }
+
+            // add leftover matchup
+            if(winners.length == 1 && losers.length == 1){
+                addMatchup.run(leagueId, winners.pop()["id"], losers.pop()["id"], weekNum, "consolation");
+            }
+
+
         }
         
         return res.status(200).json({message : "successfully set playoff matchups!"});
@@ -109,7 +210,7 @@ app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
         console.log(err);
         return res.status(400).json({message: "failed to set playoff matchtups"});
     }
-     function standingsOrder(team1, team2) {
+    function standingsOrder(team1, team2) {
         return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
     }
 });
@@ -118,6 +219,10 @@ app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
 app.post('/api/admin/process-week', adminAuth, (req, res) => {
     const { weekNum } = req.body;
     try{
+        if(!weekNum){
+            return res.status(400).json({message : "no week to process"});
+        }
+
         const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(weekNum);
 
         const getRoster = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?');
@@ -133,15 +238,21 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
         const getPoints = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?');
         const setPoints = db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?');
 
+        const getHomePoints = db.prepare('SELECT home_points FROM matchups WHERE week=? AND home_team_id=?');
+        const getAwayPoints = db.prepare('SELECT away_points FROM matchups WHERE week=? AND away_team_id=?');
+
+
         matchups.forEach((matchup) => {
-            let team1 = matchup["home_team_id"];
-            let team2 = matchup["away_team_id"];
-            let roster1 = getRoster.all(team1);
-            let roster2 = getRoster.all(team2);
+
+            let homeTeam = matchup["home_team_id"];
+            let awayTeam = matchup["away_team_id"];
+            let roster1 = getRoster.all(homeTeam);
+            let roster2 = getRoster.all(awayTeam);
 
             let totalPoints1 = 0;
             let totalPoints2 = 0;
 
+        
             roster1.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
                     totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"]);
@@ -153,30 +264,42 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
                 }
             });
 
+            // add points to last week if in second round of playoffs
+      
+            weekNum == 15 || weekNum == 17 ? totalPoints1 += getHomePoints.get(weekNum-1, homeTeam)["home_points"] : undefined;
+            weekNum == 15 || weekNum == 17 ? totalPoints2 += getAwayPoints.get(weekNum-1, awayTeam)["away_points"] : undefined;
+
+            // store matchup points, total for second week of playoff matchup
             updateMatchupPoints.run(totalPoints1, totalPoints2, matchup["id"]);
 
-            let winner = totalPoints1 > totalPoints2 ? team1 : team2;
-    
-            if(winner === team1){
-                let wins = getWins.get(team1);
-                updateWins.run(wins["wins"]+1, team1);
+            // update the standings if in regular season
+            if(!matchup["playoff_round"]){    
 
-                let losses = getLosses.get(team2);
-                updateLosses.run(losses["losses"]+1, team2);
-            }
-            else{
-                let wins = getWins.get(team2);
-                updateWins.run(wins["wins"]+1, team2);
+                let winner = totalPoints1 > totalPoints2 ? homeTeam : awayTeam;
+        
+                if(winner === homeTeam){
+                    let wins = getWins.get(homeTeam);
+                    updateWins.run(wins["wins"]+1, homeTeam);
 
-                let losses = getLosses.get(team1);
-                updateLosses.run(losses["losses"]+1, team1);
-            }
-            let points1 = getPoints.get(team1);
-            let points2 =  getPoints.get(team2);
+                    let losses = getLosses.get(awayTeam);
+                    updateLosses.run(losses["losses"]+1, awayTeam);
+                }
+                else{
+                    let wins = getWins.get(awayTeam);
+                    updateWins.run(wins["wins"]+1, awayTeam);
 
-            setPoints.run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, team1);
-            setPoints.run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, team2);
-        })
+                    let losses = getLosses.get(homeTeam);
+                    updateLosses.run(losses["losses"]+1, homeTeam);
+                }
+
+                 // update points for and points against
+                let points1 = getPoints.get(homeTeam);
+                let points2 =  getPoints.get(awayTeam);
+
+                setPoints.run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, homeTeam);
+                setPoints.run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, awayTeam); 
+            }            
+        });
         return res.status(200).json({message: "successfully processed week!"})
     }
     catch(err){

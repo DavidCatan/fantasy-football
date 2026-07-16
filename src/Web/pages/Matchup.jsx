@@ -74,7 +74,7 @@ const Matchup = () => {
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t["data"]["id"]);
                 let l = new Map();
-                let tp = 0.0;
+                let tp = 0.0; 
 
                 let allTeams = await getTeams(league);    
 
@@ -86,25 +86,38 @@ const Matchup = () => {
                         }
                     })
                 }
-                tp = Math.round((tp + Number.EPSILON) * 100) / 100;
 
                 // get opponent data 
                 let matchup = await getMatchup(league, t["data"]["id"], WEEK_NUM);
+                // get previous matchup if in second week of matchup
+                let prevMatchup = WEEK_NUM == 15 || WEEK_NUM == 17 ? await getMatchup(league, t["data"]["id"], WEEK_NUM-1) : undefined;
                 console.log(t, matchup);
-                let matchups = await getMatchups(league, WEEK_NUM);
+                let matches = await getMatchups(league, WEEK_NUM);
                 var oppR;
                 var oppT;
                 let oppL = new Map();
                 let oppTp = 0.0;
 
                 if(matchup["data"]){
-                    if(matchup["data"]["home_team_id"] == t["data"]["id"]){
+                    if(matchup["data"]["home_team_id"] == t["data"]["id"]){ // opponent is away team
                         oppT = (matchup["data"]["away_team_id"]);
                         oppR = await getTeamRoster(league, matchup["data"]["away_team_id"]);
+
+                         // if in second week of matchup, add previous points to total
+                        if(prevMatchup){
+                            tp += prevMatchup["data"]["home_points"];
+                            oppTp += prevMatchup["data"]["away_points"];
+                        }
                     }
-                    else{
+                    else{ // opponent is home team
                         oppT = (matchup["data"]["home_team_id"]);
                         oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
+
+                        // if in second week of matchup, add previous points to total
+                        if(prevMatchup){
+                            tp += prevMatchup["data"]["away_points"];
+                            oppTp += prevMatchup["data"]["home_points"];
+                        }
                     }
                 }
                 if(allTeams){
@@ -123,15 +136,17 @@ const Matchup = () => {
                         }
                     })
                 }
+
+                tp = Math.round((tp + Number.EPSILON) * 100) / 100;
                 oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
 
-                // swap matchups so user matchup is first in array and first to display
-                matchups = matchups["data"];
-                for(let i = 0; i < matchups.length; i++){
-                    if(matchups[i]["home_team_id"] == t["data"]["id"] || matchups[i]["away_team_id"] == t["data"]["id"]){
-                        let temp = matchups[0];
-                        matchups[0] = matchups[i];
-                        matchups[i] = temp;
+                // swap matches so user matchup is first in array and first to display
+                matches = matches["data"];
+                for(let i = 0; i < matches.length; i++){
+                    if(matches[i]["home_team_id"] == t["data"]["id"] || matches[i]["away_team_id"] == t["data"]["id"]){
+                        let temp = matches[0];
+                        matches[0] = matches[i];
+                        matches[i] = temp;
                     }
                 }
                 // set user data
@@ -147,7 +162,7 @@ const Matchup = () => {
                 setOppLineup(oppL);
                 setOppTotalPoints(oppTp);
 
-                setMatchups(matchups);
+                setMatchups(matches);
                 setTeams(allTeams);
                 //console.log(l);
                 //console.log(r);
@@ -179,8 +194,8 @@ const Matchup = () => {
                     centeredSlides={true} slidesPerView={1}
                     loop={false} 
                     onSlideChange={(swiper) => {
-                        let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : 1;
-                        console.log(swiper.realIndex);
+                        let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : userTeam["id"];
+                        console.log(swiper.realIndex, userTeam["id"]);
                         teams.forEach((team) => {
                             if(team["id"] == t){
                                 setOwner(team["owner"]);

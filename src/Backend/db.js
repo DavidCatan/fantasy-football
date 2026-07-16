@@ -14,7 +14,8 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         league_id VARCHAR(6) UNIQUE,
         league_name VARCHAR(100) NOT NULL,
-        league_owner VARCHAR(50) NOT NULL
+        league_owner VARCHAR(50) NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS teams (
@@ -24,8 +25,9 @@ db.exec(`
         owner VARCHAR(50) NOT NULL,
         wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0,
-        points_for INTEGER NOT NULL DEFAULT 0,
-        points_against INTEGER NOT NULL DEFAULT 0
+        points_for REAL NOT NULL DEFAULT 0,
+        points_against REAL NOT NULL DEFAULT 0,
+        final_rank INTEGER DEFAULT NULL
 
     );
 
