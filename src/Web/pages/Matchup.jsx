@@ -13,7 +13,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 
-const WEEK_NUM = 10;
+const WEEK_NUM = 17;
 
 const Matchup = () => {
 

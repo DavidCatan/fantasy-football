@@ -81,6 +81,16 @@ db.exec(`
         FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS players (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id VARCHAR(6) NOT NULL,
+        player_id INTEGER NOT NULL,
+        player_name VARCHAR(100) NOT NULL,
+        player_pos VARCHAR(2) NOT NULL,
+        drafted INTEGER NOT NULL DEFAULT 0
+
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_league ON teams (owner, league_id);
 `);
 

@@ -110,8 +110,11 @@ const Roster = () => {
     }
 
     return(
-        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
-        trades={trades} teams={teams} isLegal={isLegal}/>
+        <>
+            <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
+            trades={trades} teams={teams} isLegal={isLegal}/>
+            {team["final_rank"] ? <FinalResultsModal team={team}/> : undefined}
+        </>
         
     );
 }
@@ -503,6 +506,17 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                         : undefined}                   
             </Modal>
         </>
+    );
+}
+
+// TODO: make final results better!!!!!
+function FinalResultsModal({team}){
+    const [isOpen, setIsOpen] = React.useState(true);
+
+    return(
+        <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={() => setIsOpen(false)} closeTimeoutMS={200}>
+            <h1>{team["final_rank"]}</h1>
+        </Modal>
     );
 }
 

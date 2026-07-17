@@ -15,7 +15,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
-const MAX_TEAMS = 4;
+const MAX_TEAMS = 10;
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -1055,6 +1055,27 @@ async function sendDraftOrder(ws, league_id){
     broadcastUpdate('UPDATE_DRAFTER', draftOrder[leagueDraftOrders.get(league_id)[1]], league_id);
 }
 
+function autoDraft(leagueId, teamId){
+    try{
+        const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
+        if(rosteredPlayers.length >= MAX_SLOTS){
+            return;
+        }
+        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+            + 'VALUES (?, ?, ?, ?, ?, ?)')
+                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+        draftIndex = (draftIndex + 1) % draftOrder.length;
+        const nextDrafter = draftOrder[draftIndex];
+        leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        broadcastUpdate('UPDATE_BOARD', null, leagueId);
+    }
+    catch(err){
+        console.log(err);
+        return;
+    }
+}
+
 function broadcastUpdate(type, data, league_id){
     wss.clients.forEach(client =>
     {
@@ -1062,6 +1083,10 @@ function broadcastUpdate(type, data, league_id){
             client.send(JSON.stringify({'type' : type, 'data': data}));
         }
     });
+    let draftOrder = leagueDraftOrders.get(league_id)[0];
+    let draftIndex = leagueDraftOrders.get(league_id)[1];
+
+    autoDraft(league_id, draftOrder[draftIndex]);
 }
 
 server.listen(3001, () => console.log('Backend running on port 3001'));
