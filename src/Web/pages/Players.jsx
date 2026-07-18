@@ -1,13 +1,15 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { playerNames, calculatePoints } from "../utils/draftUtils";
+import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
+import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { useMemo } from "react";
 
 const SEASON = "2025"; 
 const MAX_SLOTS = 13;
@@ -124,6 +126,7 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
+    const [dropIsOpen, setDropOpen] = React.useState(false);
 
     const displayedPlayers = isExpanded ? players[pos] : players[pos].slice(0, 30);
 
@@ -132,6 +135,18 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
         setPlayer(player);
         setIsOpen(true);
     }
+
+    const openDropModal = () => {
+        setDropOpen(true);
+    };
+    const closeDropModal = () => {
+        setDropOpen(false);
+    };
+
+    const rosteredNameSet = useMemo(() => {
+        return new Set(roster.map(player => player["player_name"]));
+    }, [roster]);
+    
     /*
         TODO for autocomplete: 
             make search bar clear after player selected
@@ -142,13 +157,11 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
         <div className="space-y-4">
             <Autocomplete
                 disablePortal
-                options={playerNames}
+                options={nameArray}
                 noOptionsText="No Players"
                 filterOptions={createFilterOptions({ limit: 20 })}
                 renderOption={(props, option) => {
                     const { key, ...optionProps } = props;
-                    const isAvailable = !rosteredPlayers.includes(Number(playerData[option].id));
-                    if (isAvailable){
                         return (
                             <li key={key} {...optionProps} className="flex items-center gap-3 p-2 hover:bg-slate-100 cursor-pointer">
                                 <img src={playerData[option].headshot} className="w-12 h-12 rounded-full border border-slate-200 
@@ -156,7 +169,6 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                                 <div className="font-bold text-slate-700">{option}</div>
                             </li>
                         );
-                    }
                 }}
                 renderInput={(params) => <TextField {...params} label="Search for a player" />}
                 onChange={(event, player) => openModal(playerData[player])}
@@ -196,108 +208,65 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                 </button>
             )}
 
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} rosteredPlayers={rosteredPlayers} 
-            setRosteredPlayers={setRosteredPlayers} close={() => setIsOpen(false)} team={team} league={league} 
-            posCount={posCount} roster={roster} lineup={lineup}
-            changedLineup={changedLineup} setChangedLineup={setChangedLineup}/>
+            {/* Modal that opens after initial click on player */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} 
+                button={!rosteredNameSet.has(curPlayer["name"]) ? 
+                        <AddButton open={openDropModal} zIndex={1000}/>  
+                     :  <DropButton 
+                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
+                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                        />} 
+            />
+
+            <DropModal player={curPlayer} rosteredPlayers={rosteredPlayers}
+                setRosteredPlayers={setRosteredPlayers} team={team} league={league} isOpen={dropIsOpen}
+                posCount={posCount} roster={roster} lineup={lineup} closeParent={() => setIsOpen(false)}
+                setChangedLineup={setChangedLineup} changedLineup={changedLineup} close={closeDropModal}/>
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, rosteredPlayers, setRosteredPlayers, league, team, posCount, roster, lineup, changedLineup, setChangedLineup}) {
-    if (!player) return null;
 
-    React.useEffect(() => {
-        if(rosteredPlayers.includes(Number(player.id)) && isOpen) {
-            alert('player has been rostered! you got sniped!');
-            close();
-        }
+function AddButton({open}) {
+    return(
+        <button 
+            onClick={open}
+            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium"
+        >
+            Add
+        </button>
+    )
+}
 
-    }, [rosteredPlayers, isOpen]);
-
-    const data = calculatePoints(player.name);
-    
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
-    
-
-    return (
-        <>
-            <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-                <div className="relative">
-                    <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                    
-                    <div className="text-center mb-4">
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                        <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                        <img src={player.headshot} className={wideimage} alt={player.name} />
-                    </div>
-
-                    <DropModal player={player} rosteredPlayers={rosteredPlayers} 
-                    setRosteredPlayers={setRosteredPlayers} team={team} league={league} 
-                    posCount={posCount} roster={roster} lineup={lineup} closeParent={close}
-                    setChangedLineup={setChangedLineup} changedLineup={changedLineup}/>
-                    
-
-                    <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                        <table className="w-full text-sm text-center border-collapse">
-                            <thead className="bg-slate-50 sticky top-0">
-                                <tr>
-                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {data.map((points, index) => (
-                                    <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                        <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                        <td className="p-3 font-bold text-slate-800">{points}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </Modal>
-        </>
+function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
+    return(
+        <button 
+            onClick={() =>{
+                dropPlayer(team, league, player)
+                .then(data => {  
+                    alert(data["message"]);
+                    if(data["success"]){
+                        setChangedLineup(!changedLineup);
+                    }    
+                })
+                .catch(err => {                   
+                    console.error("Request failed:", err);
+                });
+                ;
+                close();
+            }}
+            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium hover:cursor-pointer"
+            >
+            Drop
+        </button>
     );
 }
 
-function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup}) {
+function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup, close, isOpen}) {
     if (!player) return null;
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
     const [emptySlot, setEmptySlot] = React.useState(false);
-    const [open, setOpen] = React.useState(false);
-    const handleOpen = () => {
-        setOpen(true);
-    };
-    const handleClose = () => {
-        setOpen(false);
-    };
 
     function addPlayer(team, player){
          if(rosteredPlayers.includes(player.id)){
@@ -341,17 +310,17 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
         // add new player if slot is open or player is dropped  
         updatePlayerDB(team, league, player, updatedSlot["id"]);
         setChangedLineup(!changedLineup);
-        handleClose();
+        close();
         closeParent();
     }
 
     React.useEffect(() => {
-        if(rosteredPlayers.includes(Number(player.id)) && open) {
+        if(rosteredPlayers.includes(Number(player.id)) && isOpen) {
             alert('player has been rostered! you got sniped!');
-            handleClose();
+            close();
         }
 
-    }, [rosteredPlayers, open]);
+    }, [rosteredPlayers, isOpen]);
     
     const modalStyles = {
         content: {
@@ -370,18 +339,13 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             backgroundColor: '#1e293b'
         },
-        overlay: { backgroundColor: 'rgba(16, 15, 15, 0.5)', zIndex: 1000 }
+        overlay: { backgroundColor: 'rgba(16, 15, 15, 0.5)', zIndex: 1001 }
     };
 
     return (
         <>
-            <button 
-                onClick={handleOpen}
-                className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-slate-800 text-white rounded-full hover:bg-slate-700 transition-all font-medium"
-            >
-                Add
-            </button>
-            <Modal isOpen={open} style={modalStyles} onRequestClose={handleClose} closeTimeoutMS={200}
+            
+            <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}
                 >
                 <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player} setDroppedPlayer={setDroppedPlayer} 
                 droppedPlayer={droppedPlayer} setUpdatedSlot={setUpdatedSlot} updatedSlot={updatedSlot} setEmptySlot={setEmptySlot}/>
@@ -393,6 +357,84 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
                 </button>
             </Modal>
         </>
+    );
+}
+
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
+    const [modalIsOpen, setIsOpen] = React.useState(false);
+    const [curPlayer, setPlayer] = React.useState("");
+    const [eligibleSlots, setEligibleSlots] = React.useState([]);
+
+    function openModal(player) {
+        if (!player) return;
+        setPlayer(player);
+        setIsOpen(true);
+    }
+
+    return(
+        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
+
+            {/* Show user's roster when processing free agency transaction */}
+            <RosterSlots lineup={lineup} openModal={openModal}
+                button={({ playerInSlot, slot }) => (
+                    <AddTransactionButton 
+                        droppedPlayer={droppedPlayer} 
+                        setDroppedPlayer={setDroppedPlayer} 
+                        updatedSlot={updatedSlot}
+                        setUpdatedSlot={setUpdatedSlot}
+                        setEmptySlot={setEmptySlot} 
+                        player={player}
+                        playerInSlot={playerInSlot}
+                        slot={slot}
+                    />
+                )}
+            />
+            
+            {/* Modal for player data from roster modal */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1002}/>
+        </div>
+    );
+}
+
+function AddTransactionButton({playerInSlot, slot, setDroppedPlayer, setUpdatedSlot, player, droppedPlayer, updatedSlot, setEmptySlot}){
+    const [clicked, setClicked] = React.useState(false);
+    return(
+        <button onClick={() => 
+            {
+                if( playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ){
+                    setDroppedPlayer(playerInSlot);
+                    setClicked(true);
+                    setUpdatedSlot(slot);
+                }
+                else if(slot == updatedSlot){
+                    setDroppedPlayer(null);
+                    setClicked(false);
+                    setUpdatedSlot(null);
+                }
+                else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
+                    setEmptySlot(true);
+                    setDroppedPlayer(null);
+                    setUpdatedSlot(slot);
+                    setClicked(true);
+                }
+                else{
+                    undefined;
+                }
+            }
+        }
+
+        className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
+        ${clicked&&playerInSlot&&slot==updatedSlot ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
+            :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
+            :!playerInSlot&&clicked&&slot==updatedSlot ? "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
+            :!playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
+            : "bg-black"
+        } `}>
+            {playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Drop" 
+            :!playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Open"
+            : "Locked"}
+        </button>
     );
 }
 
@@ -419,173 +461,6 @@ async function updatePlayerDB(teamId, leagueId, player, slot){
         alert(data["message"]);
     }
 
-}
-
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
-    const [modalIsOpen, setIsOpen] = React.useState(false);
-    const [curPlayer, setPlayer] = React.useState("");
-    const [eligibleSlots, setEligibleSlots] = React.useState([]);
-    const [clicked, setClicked] = React.useState(false);
-
-    function openModal(player) {
-        if (!player) return;
-        setPlayer(player);
-        setIsOpen(true);
-    }
-
-    return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
-            
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
-
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div>
-                                <button onClick={() => 
-                                    {
-                                        if( playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ){
-                                            setDroppedPlayer(playerInSlot);
-                                            setClicked(true);
-                                            setUpdatedSlot(slot);
-                                        }
-                                        else if(slot == updatedSlot){
-                                            setDroppedPlayer(null);
-                                            setClicked(false);
-                                            setUpdatedSlot(null);
-                                        }
-                                        else if(!playerInSlot&&slot["eligiblePositions"].includes(player["position"])){
-                                            setEmptySlot(true);
-                                            setDroppedPlayer(null);
-                                            setUpdatedSlot(slot);
-                                            setClicked(true);
-                                        }
-                                        else{
-                                            undefined;
-                                        }
-                                    }
-                                   //</div> playerInSlot&&slot["eligiblePositions"].includes(player["position"])&&!droppedPlayer ? setDroppedPlayer(playerInSlot)
-                                    //</div>: playerInSlot==droppedPlayer ? setDroppedPlayer(null)
-                                   //: undefined
-                                }
-
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full border transition-all font-medium 
-                                ${clicked&&playerInSlot&&slot==updatedSlot ? "bg-red-700 text-white border-10 border-red-900 hover:bg-red-300 hover:text-black"
-                                    :playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-red-300 text-black hover:bg-red-700 hover:text-white"
-                                    :!playerInSlot&&clicked&&slot==updatedSlot ? "bg-green-600 text-white border-10 border-green-900 hover:bg-green-400 hover:text-black"
-                                    :!playerInSlot&&slot["eligiblePositions"].includes(player["position"]) ? "bg-green-400 text-black hover:bg-green-600 hover:text-white"
-                                    : "bg-black"
-                                } `}>
-                                    {playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Drop" 
-                                    :!playerInSlot&&slot["eligiblePositions"].includes(player.position) ? "Open"
-                                    : "Locked"}
-                                </button>
-                            </div>
-                        </div>
-
-                    );
-                })}
-            </div>
-            <RosterPlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league}/>
-        </div>
-    );
-}
-
-function RosterPlayerModal({ player, isOpen, close, league, team}) {
-    if (!player) return null;
-
-    const data = calculatePoints(player.name);
-    
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
-
-    return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-            <div className="relative">
-                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                
-                <div className="text-center mb-4">
-                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                    <img src={player.headshot} className={wideimage} alt={player.name} />
-                </div>
-
-                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-sm text-center border-collapse">
-                        <thead className="bg-slate-50 sticky top-0">
-                            <tr>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((points, index) => (
-                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-3 font-bold text-slate-800">{points}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </Modal>
-    );
 }
 
 export default Players;

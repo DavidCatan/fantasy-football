@@ -15,6 +15,7 @@ const Home = () => {
     const [loading, setLoading] = React.useState(true);
     const [newLeague, setNewLeague] = React.useState();
     const [leagueName, setLeagueName] = React.useState();
+    const [joinId, setJoinId] = React.useState();
     const [userLeagues, setUserLeagues] = React.useState([]);
     const [activeLeague, setActiveLeague] = React.useState("");
     const [activeSlide, setActiveSlide] = React.useState(0);
@@ -31,7 +32,7 @@ const Home = () => {
 
         const data = await response.json();
         if (data.success) {
-            alert(data.message);
+            //alert(data.message);
             location.reload();
 
         } else {
@@ -54,7 +55,7 @@ const Home = () => {
         const data = await response.json();
         if (response.ok) {
           setNewLeague(data["league_id"]);
-          alert(data.message);
+          //alert(data.message);
 
         } else {
             alert("Create league failed: " + data.message);
@@ -67,13 +68,13 @@ const Home = () => {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leagueId: newLeague, owner: user }),
+            body: JSON.stringify({ leagueId: joinId, owner: user }),
       });
 
       const data = await response.json();
       if (response.ok) {
           alert(data.message);
-
+          setNewLeague(joinId)
       } else {
           alert("Join failed: " + data.message);
       }
@@ -89,7 +90,7 @@ const Home = () => {
 
       const data = await response.json();
       if (response.ok) {
-          alert(data.message);
+         // alert(data.message);
           navigate("/roster");
 
       } else {
@@ -215,7 +216,7 @@ const Home = () => {
                   name="league_id"
                   type="text"
                   placeholder="Enter 6 Digit ID"
-                  onChange={(e) => setNewLeague(e.target.value)}
+                  onChange={(e) => setJoinId(e.target.value)}
                   required
                   className="appearance-none block w-full bg-gray-200 text-gray-700 border border-green-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
                 />

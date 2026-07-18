@@ -47,6 +47,57 @@ const Admin = () => {
         }
     }
 
+    const handleProcessTrades = async () => {
+       const response = await fetch('http://localhost:3001/api/admin/process-trades', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
+    const handlePlayoffMatchups = async () => {
+       const response = await fetch('http://localhost:3001/api/admin/set-playoffs', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({leagueId: 'ciJNFG', weekNum: 17}),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
+    const handleEndSeason = async () => {
+       const response = await fetch('http://localhost:3001/api/admin/process-season-end', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({weekNum : 18}),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
     // check admin sesison auth
     React.useEffect(() => {
         fetch('http://localhost:3001/api/admin/session', {credentials: 'include'})
@@ -75,8 +126,20 @@ const Admin = () => {
                 <h2 className="text-3xl font-bold mb-4 border-b border-gray-700 pb-2">Admin Dashboard</h2>
                   <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
-                    transition-all font-medium" onClick={() => handleWeek(10)}>
+                    transition-all font-medium" onClick={() => handleWeek(17)}>
                   Lock in Week
+                  </button>
+                  <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handleProcessTrades}>
+                  Process Trades
+                  </button>
+                  <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handlePlayoffMatchups}>
+                  Set Playoff Matchups
+                  </button>
+                  <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handleEndSeason}>
+                  End Season
                   </button>
                 </div>
               </div>

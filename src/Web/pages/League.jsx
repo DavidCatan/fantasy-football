@@ -83,11 +83,11 @@ function Standings({teams, standings}){
     return(
         <>
             <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                <table className="w-full text-sm text-center border-collapse">
+                <table className="w-full text-sm text-center border-collapse table-fixed">
                     <thead className="bg-slate-50 sticky top-0">
                         <tr>
                             <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Rank</th>
-                            <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Team</th>
+                            <th className="p-3 border-b border-slate-200 font-bold text-slate-600 w-1/2">Team</th>
                             <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Record</th>
                             <th className="p-3 border-b border-slate-200 font-bold text-slate-600">PF</th>
                             <th className="p-3 border-b border-slate-200 font-bold text-slate-600">PA</th>
@@ -97,7 +97,7 @@ function Standings({teams, standings}){
                         {standings.sort(standingsOrder).map((team, index) => (
                             <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
                                 <td className="p-3 text-slate-500 font-medium">{index+1}</td>
-                                <td className="p-3 font-bold text-slate-800">{team["owner"]}</td>
+                                <td className="p-3 font-bold text-slate-800 truncate">{team["name"] ? team["name"] : team["owner"]}</td>
                                 <td className="p-3 font-bold text-slate-800">{team["wins"]}-{team["losses"]}</td>
                                 <td className="p-3 font-bold text-slate-800">{Math.round((team["points_for"] + Number.EPSILON) * 100) / 100}</td>
                                 <td className="p-3 font-bold text-slate-800">{Math.round((team["points_against"] + Number.EPSILON) * 100) / 100}</td>

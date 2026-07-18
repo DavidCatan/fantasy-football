@@ -5,17 +5,39 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
+import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
+import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+
+const MODAL_STYLES = {
+        content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)',
+            borderRadius: '16px',
+            border: 'none',
+            padding: '24px',
+            maxWidth: '90%',
+            width: '700px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        },
+        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
+    };
 
 const Roster = () => {
 
     const [team, setTeam] = React.useState(null);
+    const [teams, setTeams] = React.useState([]);
     const [league, setLeague] = React.useState(null);
     const [owner, setOwner] = React.useState();
     const [roster, setRoster] = React.useState();
     const [lineup, setLineup] = React.useState({});
     const [loading, setLoading] = React.useState(true);
     const [changedLineup, setChangedLineup] = React.useState(false);
+    const [trades, setTrades] = React.useState([]);
+    const [isLegal, setIsLegal] = React.useState();
 
       // check session and league
     React.useEffect(() => {
@@ -24,6 +46,7 @@ const Roster = () => {
             .then(data => {
                 if(data.logged){
                     setOwner(data['username']);
+                    setIsLegal(data["legalRoster"]);
                 }
                 else{
                     setOwner(null);
@@ -47,8 +70,11 @@ const Roster = () => {
         }
         const loadTeamData = async () => {
             try{
+                // get team, roster, trades, and lineup
                 let t = await getTeam(league, owner);
                 let r = await getTeamRoster(league, t["data"]["id"]);
+                let tr = await getTrades(league, t["data"]["id"]);
+                let allTeams = await getTeams(league); // subject to change
                 let l = new Map();
                 if(r){
                     r.forEach((player) => {
@@ -64,6 +90,8 @@ const Roster = () => {
                 setTeam(t["data"]);
                 setRoster(r);
                 setLineup(l);
+                setTrades(tr["data"]);
+                setTeams(allTeams);
                 console.log(l);
                 console.log(r);
                 setLoading(false);
@@ -82,12 +110,16 @@ const Roster = () => {
     }
 
     return(
-        <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
+        <>
+            <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
+            trades={trades} teams={teams} isLegal={isLegal}/>
+            {team["final_rank"] ? <FinalResultsModal team={team}/> : undefined}
+        </>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup}){
+function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades, teams, isLegal}){
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -95,6 +127,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
     const [movingSlot, setMovingSlot] = React.useState();
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
+    console.log(isLegal);
     function openModal(player) {
         if (!player) return;
         setPlayer(player);
@@ -144,11 +177,11 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
             if(player){
                 const eSlots = [ROSTER_TEMPLATE.length];
                 for(let i = 0; i < ROSTER_TEMPLATE.length; i++){
-                if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
-                    eSlots[i] = true;
+                    if(ROSTER_TEMPLATE[i].eligiblePositions.includes(player.position)){
+                        eSlots[i] = true;
+                    }
                 }
                 setEligibleSlots(eSlots);
-                }
             }
             else{
                 setEligibleSlots(ROSTER_TEMPLATE[index]["eligiblePositions"]);
@@ -162,150 +195,327 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup})
 
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
-            
-            <div className="flex flex-col gap-2">
-                {ROSTER_TEMPLATE.map((slot, index) => {
-                    const playerInSlot = playerData[lineup?.get(slot["id"])];
+            <div className="flex">
+                <ProfileModal name={team["name"]}/>
 
-                    return(
-                        <div key={slot["id"]} className='flex items-center justify-between pl-3 rounded-md border'>
-                            <div className= 
-                            {
-                                ` px-2 py-1 rounded text-md
-                                ${slot["label"] == "QB" ? 'bg-red-900' 
-                                    : slot["label"] == "RB" ? 'bg-blue-900' 
-                                    : slot["label"] == "WR" ? 'bg-green-900'
-                                    : slot["label"] == "TE" ? 'bg-purple-900'
-                                    : slot["label"] == "FLEX" ? 'bg-pink-900'
-                                    : 'bg-gray-700'
-                                }`
-                            }>
-                                {slot["label"]}
-                            </div>
-                            <div className='flex-1 items-center justify-between p-3'>
-                            {playerInSlot ? 
-                                    <button 
-                                        onClick={() => openModal(playerInSlot)} 
-                                        className="w-full flex items-center gap-4 text-left hover:bg-slate-50 hover:text-slate-700 transition-colors rounded-md"
-                                    >
-                                        <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                        via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
-                                        <span className="font-semibold text-white-700">
-                                            {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
-                                        </span>
-                                    </button>
-                            : <span className="italic text-slate-500" >Empty</span>
-                            }
-                            </div>
-                            
-                                
-                            <div>
-                                <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
-                                undefined 
-                                : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
-                                : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
-                                : movePlayer(playerInSlot, slot, index)} 
-                                className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
-                                    ${moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
-                                         :moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
-                                         : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
-                                         : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
-                                         :"bg-slate-800 text-white hover:bg-blue-700"}
-                                `}>
-                                    {playerInSlot ? "Move" : "Fill"}
-                                </button>
-                            </div>
-                        </div>
+                <h2 className="flex text-2xl font-bold mb-4 pb-2 mt-4">Roster</h2>
 
-                    );
-                })}
+                <TradeModal trades={trades}  teams={teams} team={team["id"]}/>
+
             </div>
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} team={team} league={league} setChangedLineup={setChangedLineup} changedLineup={changedLineup}/>
+            <hr className="border-b border-gray-700"></hr>
+            <br></br>
+
+            {/* Show team lineup */}
+            <RosterSlots lineup={lineup} openModal={openModal}
+                button={({ playerInSlot, slot, index }) => (
+                    <MoveButton 
+                        moving={moving} 
+                        movingSlot={movingSlot} 
+                        movingPlayer={movingPlayer}
+                        movePlayer={movePlayer} 
+                        playerInSlot={playerInSlot}
+                        slot={slot}
+                        index={index}
+                        isLegal={isLegal}
+                    />
+                )}
+            />
+    
+            {/* Modal to show player data and option to drop */}
+            <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
+                button={<DropButton 
+                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
+                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                        />} 
+            />
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, league, team, setChangedLineup, changedLineup}) {
-    if (!player) return null;
+function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index, isLegal}){
+    return(
+        <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
+            undefined 
+            : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
+            : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
+            : movePlayer(playerInSlot, slot, index)} 
+            className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
+                ${!isLegal&&moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
+                    : !isLegal&&moving&&playerInSlot&&movingPlayer ? "bg-gray-500 text-black"
+                    : moving&&slot==movingSlot ? "bg-blue-700 hover:bg-blue-500"
+                    : moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ? "bg-gray-500 text-black"
+                    : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
+                    : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
+                    :"bg-slate-800 text-white hover:bg-blue-700"}
+            `}>
+                {playerInSlot ? "Move" : "Fill"}
+        </button>
+    );
+}
 
-    const data = calculatePoints(player.name);
+function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
+    return(
+        <button 
+            onClick={() =>{
+                dropPlayer(team["id"], league, player)
+                .then(data => {  
+                    alert(data["message"]);
+                    if(data["success"]){
+                        setChangedLineup(!changedLineup);
+                    }    
+                })
+                .catch(err => {                   
+                    console.error("Request failed:", err);
+                });
+                ;
+                close();
+            }}
+            className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium hover:cursor-pointer"
+            >
+            Drop
+        </button>
+    );
+}
+
+function ProfileModal({name}){
+    const [profileIsOpen, setProfileOpen] = React.useState(false);
+    const [displayName, setDisplayName] = React.useState(name);
     
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
+    const openProfileModal = () => {
+        setProfileOpen(true);
     }
 
-    return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-            <div className="relative">
-                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                
-                <div className="text-center mb-4">
-                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                    <img src={player.headshot} className={wideimage} alt={player.name} />
-                </div>
+    const handleClose = () => {
+        setProfileOpen(false);
+    }
 
-                <button 
-                    onClick={() =>{
-                         dropPlayer(team["id"], league, player)
-                            .then(data => {  
-                                alert(data["message"]);
-                                if(data["success"]){
-                                    setChangedLineup(!changedLineup);
-                                }    
-                            })
-                            .catch(err => {                   
-                                console.error("Request failed:", err);
-                            });
-                         close();
-                        }}
-                    className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all font-medium"
-                >
-                    Drop
-                </button>
+    const handleDisplayName = async (e) => {
+        e.preventDefault(); 
 
+        if(!displayName){
+            return(alert("Please enter a name!"));
+        }
+
+        const response = await fetch('http://localhost:3001/api/teams/change-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ displayName })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert(data.message);
+            handleClose();
+            location.reload(); // maybe put displayName in an earlier react state instead
+        } else {
+            alert("Could not change display name: " + data.message);
+        }
+    };
+
+
+    return(
+        <>
+            <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-blue-700 
+                border hover:bg-blue-600 justify-center hover:cursor-pointer" onClick={openProfileModal}>
+                    Profile
+            </button>
+            <Modal isOpen={profileIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-sm text-center border-collapse">
+                    <form onSubmit={handleDisplayName} className="space-y-6 ">
+                        <div className="text-black">
+                            <label className="block text-sm/6 font-medium">
+                                Display Name
+                            </label>
+                            <div className="mt-2">
+                                <input
+                                id="displayName"
+                                name="displayName"
+                                type="text"
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                required
+                                    placeholder={displayName}
+                                className="block w-full rounded-md bg-gray-200 px-3 py-1.5 text-base outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                        <button
+                            type="submit"
+                            className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 hover:cursor-pointer"
+                        >
+                            Change Name
+                        </button>
+                        </div>
+                    </form>
+                </div>
+            </Modal>
+        </>
+    );
+}
+
+function TradeModal({trades, teams, team}) {
+    const [tradeIsOpen, setTradeOpen] = React.useState(false);
+    
+    const openTradeModal = () => {
+        setTradeOpen(true);
+    }
+
+    const handleClose = () => {
+        setTradeOpen(false);
+    }    
+
+    return(
+        <>
+            <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={openTradeModal}>
+                    Trades
+            </button>
+            <Modal isOpen={tradeIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
+                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm text-center border-collapse table-fixed">
                         <thead className="bg-slate-50 sticky top-0">
                             <tr>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Proposing Team</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Receiving Team</th>
+                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Trade Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {data.map((points, index) => (
-                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-3 font-bold text-slate-800">{points}</td>
-                                </tr>
-                            ))}
+                            {trades.map((trade, index) => {
+                                var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
+                                var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
+                                proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
+                                receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
+                                return(
+                                    <TradeRow key={trade["id"]} trade={trade} proposerName={proposerName} receiverName={receiverName}
+                                    trades={trades} index={index} closeParent={handleClose} team={team}/> 
+                                );
+                                
+                            })}
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </Modal>
+        </>
+    );
+}
+
+function TradeRow({trades, trade, index, proposerName, receiverName, closeParent, team}) {
+    const [isOpen, setIsOpen] = React.useState(false);
+        
+    const handleClose = () => {
+        setIsOpen(false);
+    }   
+
+    const handleAcceptTrade = () => {
+        acceptTrade(trades, trade, index);
+        handleClose();
+        closeParent();
+    }
+
+    const handleDeclineTrade = () => {
+        declineTrade(trades, trade, index);  
+        handleClose(); 
+        closeParent();     
+    }
+    
+    const sender = trade["items"][0]?.sender_id;
+    const receiver = trade["items"][0]?.receiver_id;
+    return(
+        <>
+            <tr onClick={() => setIsOpen(true)} 
+            className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                <td title={proposerName} className="p-3 font-bold text-slate-800 truncate" >{proposerName}</td>
+                <td title={receiverName} className="p-3 font-bold text-slate-800 truncate">{receiverName}</td>
+                <td className={`p-3 font-bold text-slate-800 ${trade["status"] == "accepted" ? 'bg-green-500/50' : 'bg-yellow-400/50'} `}>
+                {trade["status"]}</td>
+            </tr>
+
+            <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
+                <div className="grid grid-cols-2 gap-8 justify-items-center m-auto">
+                    <table className="w-full text-sm text-center border-collapse table-fixed">
+                            <thead className="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">{sender} Sends</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {trade["items"].map((tradeItem, index) => {
+                                    const playerName = playerNames.get(tradeItem["player_id"]);
+                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
+                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
+                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
+                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
+                                    if(tradeItem["sender_id"] == sender){
+                                        return(
+                                            <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                                                <td >{playerName}</td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                            </tbody>
+                        </table>
+                        <table className="w-full text-sm text-center border-collapse table-fixed">
+                            <thead className="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b border-slate-200 font-bold text-slate-600">{sender} Receives</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {trade["items"].map((tradeItem, index) => {
+                                    const playerName = playerNames.get(tradeItem["player_id"]);
+                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
+                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
+                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
+                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
+                                    if(tradeItem["receiver_id"] == sender){
+                                        return(
+                                        <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
+                                                <td >{playerName}</td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                        {trade["status"]!="accepted" ? team == trade["receiver_id"] ?
+                            <div className="grid grid-cols-2">
+                                <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
+                                border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={handleAcceptTrade}>
+                                    Accept
+                                </button>
+                                <div className="flex justify-self-end">
+                                    <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
+                                        border hover:bg-red-600 justify-center hover:cursor-pointer" onClick={handleDeclineTrade}>
+                                            Decline
+                                    </button>
+                                </div>
+                            </div>
+                        :   <>
+                                <div className="flex justify-self-center">
+                                    <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-red-700 
+                                        border hover:bg-red-600 justify-center hover:cursor-pointer" onClick={handleDeclineTrade}>
+                                            Cancel Trade
+                                    </button>
+                                </div>
+                            </>
+                        : undefined}                   
+            </Modal>
+        </>
+    );
+}
+
+// TODO: make final results better!!!!!
+function FinalResultsModal({team}){
+    const [isOpen, setIsOpen] = React.useState(true);
+
+    return(
+        <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={() => setIsOpen(false)} closeTimeoutMS={200}>
+            <h1>{team["final_rank"]}</h1>
         </Modal>
     );
 }
@@ -331,6 +541,46 @@ async function changeSlots(player1, slot1, player2, slot2, team){
     else{
         alert(data.message);
     }
+}
+
+async function declineTrade(trades, trade, index){
+    const response = await fetch ('http://localhost:3001/api/trades/decline-trade', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            trade: trade
+        }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if(response.ok){
+            alert(data.message);
+            trades.splice(index, 1);
+        }
+        else{
+            alert(data.message);
+        }
+}
+
+async function acceptTrade(trades, trade, index){
+    const response = await fetch ('http://localhost:3001/api/trades/accept-trade', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:
+        JSON.stringify({
+            trade: trade
+        }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if(response.ok){
+            alert(data.message);
+            trades[index]["status"] = "accepted";
+        }
+        else{
+            alert(data.message);
+        }
 }
 
 export default Roster;

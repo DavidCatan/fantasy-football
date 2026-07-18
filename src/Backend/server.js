@@ -3,7 +3,7 @@ import 'dotenv/config'
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
 import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
@@ -15,7 +15,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
-const MAX_TEAMS = 4;
+const MAX_TEAMS = 10;
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -82,62 +82,302 @@ matchups.forEach((matchup) => {
     .run(0,0, team2);
 })*/
 
+// api endpoint to process the end of the season
+app.post('/api/admin/process-season-end', adminAuth, (req, res) => {
+    const {weekNum} = req.body;
+    try{
+        if(!weekNum || weekNum != 18){
+            return res.status(400).json({message : "non playoff week given"});
+        }
+
+        const leagues = db.prepare('SELECT league_id FROM leagues WHERE completed=?').all(0);
+
+        const getMatchups = db.prepare('SELECT * from matchups WHERE week=? AND league_id=?');
+        const setFinalRank = db.prepare('UPDATE teams SET final_rank=? WHERE id=?');
+
+        const setComplete = db.prepare('UPDATE leagues SET completed=? WHERE league_id=?');
+
+        leagues.forEach((leagueId) => {
+            let matchups = getMatchups.all(weekNum-1, leagueId["league_id"]);
+
+            matchups.forEach((matchup) => {
+                let winner = matchup["home_team_id"];
+                let loser = matchup["away_team_id"];
+                let playoffRound = matchup["playoff_round"];
+
+                if(matchup["away_points"] > matchup["home_points"]){
+                    winner = matchup["away_team_id"];
+                    loser = matchup["home_team_id"];
+                }
+
+                if(playoffRound == "championship"){
+                    setFinalRank.run(1, winner);
+                    setFinalRank.run(2, loser);
+                }
+                else if(playoffRound == "third_place"){
+                    setFinalRank.run(3, winner);
+                    setFinalRank.run(4, loser);
+                }
+                else{ // consolation game
+                    // TODO: change placeholder and order rank of consolation games
+                    setFinalRank.run(5, winner);
+                    setFinalRank.run(6, loser);
+                }
+            });
+
+            setComplete.run(1, leagueId["league_id"]); // set the league as completed
+        });
+
+        return res.status(200).json({message: "successfully processed end of season rankings"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "failure to process end of season rankings"});
+    }
+});
+
+// TODO: iterate through leagues on backend 
+// api endpoint to set playoff matchups
+app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
+    const {leagueId, weekNum} = req.body;
+    
+    try{
+        if(!weekNum || !leagueId || weekNum < 14 || weekNum > 17){
+            return res.status(400).json({message : "non playoff week given"});
+        }
+
+        const getTeam = db.prepare('SELECT * FROM teams WHERE id=?');
+        const standings = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+        const addMatchup =  db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week, playoff_round) VALUES (?,?,?,?,?)');
+
+        if(weekNum == 14 || weekNum == 15){ // first round
+            standings.sort(standingsOrder);
+            const playoffTeams = standings.slice(0,4);
+            const consolationTeams = standings.slice(4,);
+
+            // add playoff matchups
+            addMatchup.run(leagueId, playoffTeams[0]["id"], playoffTeams[3]["id"], weekNum, 'semifinals');  
+            addMatchup.run(leagueId, playoffTeams[1]["id"], playoffTeams[2]["id"], weekNum, 'semifinals');    
+            
+            // add consolation matchups
+            while(consolationTeams.length > 0){
+                addMatchup.run(leagueId, consolationTeams.shift()["id"], consolationTeams.pop()["id"], weekNum, "consolation");
+            }
+        }
+        else if (weekNum == 16 || weekNum == 17){ // second round
+            const matchups = db.prepare('SELECT * FROM matchups WHERE week=? AND league_id=?').all(15, leagueId);
+            let winners = new Array();
+            let losers = new Array();
+
+            matchups.forEach((matchup) => {
+                let winner = matchup["home_team_id"];
+                let loser = matchup["away_team_id"];
+                if(matchup["away_points"] > matchup["home_points"]){
+                    winner = matchup["away_team_id"];
+                    loser = matchup["home_team_id"];
+                }
+                winners.push(getTeam.get(winner));
+                losers.push(getTeam.get(loser));
+               
+            });
+
+            // sort in standings order to get original seeding
+            winners.sort(standingsOrder);
+            losers.sort(standingsOrder);
+
+            addMatchup.run(leagueId, winners.shift()["id"], winners.shift()["id"], weekNum, "championship");
+            addMatchup.run(leagueId, losers.shift()["id"], losers.shift()["id"], weekNum, "third_place");
+
+            while(winners.length > 1){
+                addMatchup.run(leagueId, winners.shift()["id"], winners.pop()["id"], weekNum, "consolation");
+            }
+
+            while(losers.length > 1){
+                addMatchup.run(leagueId, losers.shift()["id"], losers.pop()["id"], weekNum, "consolation");
+            }
+
+            // add leftover matchup
+            if(winners.length == 1 && losers.length == 1){
+                addMatchup.run(leagueId, winners.pop()["id"], losers.pop()["id"], weekNum, "consolation");
+            }
+
+
+        }
+        
+        return res.status(200).json({message : "successfully set playoff matchups!"});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "failed to set playoff matchtups"});
+    }
+    function standingsOrder(team1, team2) {
+        return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
+    }
+});
+
 // api endpoint to update weekly standings
 app.post('/api/admin/process-week', adminAuth, (req, res) => {
     const { weekNum } = req.body;
     try{
+        if(!weekNum){
+            return res.status(400).json({message : "no week to process"});
+        }
+
         const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(weekNum);
+
+        const getRoster = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?');
+
+        const updateMatchupPoints = db.prepare('UPDATE matchups SET home_points=?, away_points=? WHERE id=?');
+
+        const getWins = db.prepare('SELECT wins FROM teams WHERE id=?');
+        const updateWins = db.prepare('UPDATE teams SET wins=? WHERE id=?');
+
+        const getLosses =  db.prepare('SELECT losses FROM teams WHERE id=?');
+        const updateLosses = db.prepare('UPDATE teams SET losses=? WHERE id=?');
+
+        const getPoints = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?');
+        const setPoints = db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?');
+
+        const getHomePoints = db.prepare('SELECT home_points FROM matchups WHERE week=? AND home_team_id=?');
+        const getAwayPoints = db.prepare('SELECT away_points FROM matchups WHERE week=? AND away_team_id=?');
+
+
         matchups.forEach((matchup) => {
-            let team1 = matchup["home_team_id"];
-            let team2 = matchup["away_team_id"];
-            let roster1 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team1);
-            let roster2 = db.prepare('SELECT player_name, player_slot from roster_slots WHERE team_id=?').all(team2);
+
+            let homeTeam = matchup["home_team_id"];
+            let awayTeam = matchup["away_team_id"];
+            let roster1 = getRoster.all(homeTeam);
+            let roster2 = getRoster.all(awayTeam);
 
             let totalPoints1 = 0;
             let totalPoints2 = 0;
 
+        
             roster1.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
                     totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"]);
                 }
-            })
+            });
             roster2.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
                     totalPoints2 += calculateWeeklyPoints(weekNum, player["player_name"]);
                 }
-            })
+            });
 
-            let winner = totalPoints1 > totalPoints2 ? team1 : team2;
-    
-            if(winner === team1){
-                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team1);
-                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team1);
+            // add points to last week if in second round of playoffs
+      
+            weekNum == 15 || weekNum == 17 ? totalPoints1 += getHomePoints.get(weekNum-1, homeTeam)["home_points"] : undefined;
+            weekNum == 15 || weekNum == 17 ? totalPoints2 += getAwayPoints.get(weekNum-1, awayTeam)["away_points"] : undefined;
 
-                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team2);
-                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team2);
-            }
-            else{
-                let wins = db.prepare('SELECT wins FROM teams WHERE id=?').get(team2);
-                db.prepare('UPDATE teams SET wins=? WHERE id=?').run(wins["wins"]+1, team2);
+            // store matchup points, total for second week of playoff matchup
+            updateMatchupPoints.run(totalPoints1, totalPoints2, matchup["id"]);
 
-                let losses = db.prepare('SELECT losses FROM teams WHERE id=?').get(team1);
-                db.prepare('UPDATE teams SET losses=? WHERE id=?').run(losses["losses"]+1, team1);
-            }
-            let points1 = db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team1);
-            let points2 =  db.prepare('SELECT points_for, points_against FROM teams WHERE id=?').get(team2);
+            // update the standings if in regular season
+            if(!matchup["playoff_round"]){    
 
-            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-            .run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, team1);
-            
-            db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-            .run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, team2);
-        })
+                let winner = totalPoints1 > totalPoints2 ? homeTeam : awayTeam;
+        
+                if(winner === homeTeam){
+                    let wins = getWins.get(homeTeam);
+                    updateWins.run(wins["wins"]+1, homeTeam);
+
+                    let losses = getLosses.get(awayTeam);
+                    updateLosses.run(losses["losses"]+1, awayTeam);
+                }
+                else{
+                    let wins = getWins.get(awayTeam);
+                    updateWins.run(wins["wins"]+1, awayTeam);
+
+                    let losses = getLosses.get(homeTeam);
+                    updateLosses.run(losses["losses"]+1, homeTeam);
+                }
+
+                 // update points for and points against
+                let points1 = getPoints.get(homeTeam);
+                let points2 =  getPoints.get(awayTeam);
+
+                setPoints.run(points1["points_for"]+totalPoints1, points1["points_against"]+totalPoints2, homeTeam);
+                setPoints.run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, awayTeam); 
+            }            
+        });
         return res.status(200).json({message: "successfully processed week!"})
     }
     catch(err){
         console.log(err);
         return res.status(400).json({message: "error processing week"+err})
     }
+});
+
+// api endpoint to process trades
+app.post('/api/admin/process-trades', (req, res) => {
+    try{
+        const trades = db.prepare('SELECT * FROM trades').all();
+        const deleteTrade = db.prepare('DELETE FROM trades WHERE id=?');
+        const getItems = db.prepare('SELECT * FROM trade_items WHERE trade_id=?');
+        const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)');
+        const deleteFromRoster = db.prepare('DELETE FROM roster_slots WHERE team_id=? AND player_id=?');
+        const getPlayer = db.prepare('SELECT player_name, player_pos FROM roster_slots WHERE team_id=? AND player_id=?'); 
+        const updateRoster = db.prepare('UPDATE roster_slots SET player_slot=? WHERE team_id=? AND player_id=?');
+        trades.forEach((trade) => {
+            let notRostered = false;
+            if(trade["status"] == "accepted"){
+                let items = getItems.all(trade["id"]);
+
+                // check if players in trade are still on the respective rosters
+                items.forEach((item) => {
+                    let player = getPlayer.get(item["sender_id"], item["player_id"]);
+                    if(!player){
+                        deleteTrade.run(trade["id"]);
+                        notRostered = true;
+                        return;
+                    }
+                })
+                if(notRostered){
+                    return;
+                }
+
+                // remove and add players to respective rosters
+                items.forEach((item) => {
+                    let player = getPlayer.get(item["sender_id"], item["player_id"]);
+                    deleteFromRoster.run(item["sender_id"], item["player_id"]);
+                    addToRoster.run(item["receiver_id"], trade["league_id"], item["player_id"], player["player_name"], player["player_pos"], "pending");
+                });
+
+                // update slots after players have been moved successfully
+                let slotAllocation = {};
+                slotAllocation[trade["proposer_id"]] = {"open_slots" : getEmptySlots(trade["proposer_id"]), "overflow_slot" : 7};
+                slotAllocation[trade["receiver_id"]] = {"open_slots" : getEmptySlots(trade["receiver_id"]), "overflow_slot" : 7};
+                items.forEach((item) => {
+                    var slot;
+                    let player = getPlayer.get(item["receiver_id"], item["player_id"]);
+                    let openIndex = slotAllocation[item["receiver_id"]]["open_slots"].findIndex((slot) => 
+                        slot["eligiblePositions"].includes(player["player_pos"]));
+                    if(openIndex > -1){
+                        slot = slotAllocation[item["receiver_id"]]["open_slots"].splice(openIndex, 1)[0]["id"];
+                    }
+                    else{
+                        slot = "BN"+slotAllocation[item["receiver_id"]]["overflow_slot"]++;
+                    }
+                    updateRoster.run(slot, item["receiver_id"], item["player_id"]);
+                });
+                deleteTrade.run(trade["id"]);
+            }
+        });
+        return res.status(200).json({message: "Successfully Processed trades!"});  
+
+        function getEmptySlots(team){
+            let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
+            slots = new Set(slots.map((row) => row["player_slot"]));
+            let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
+            return openSlots;
+        }
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to process trades"});
+    }
+
 });
 
 // api endpoint to check admin session
@@ -151,6 +391,11 @@ app.get('/api/admin/session', (req, res) => {
 // api endpoint to check session
 app.get('/api/session', (req, res) => {
     if(req.session.logged){
+        if(req.session.activeTeam){
+            const isLegal = checkRosterLegality(req.session.activeTeam);
+            req.session.legalRoster = isLegal;
+            return res.status(200).json({logged: true, username: req.session.username, legalRoster: isLegal});
+        }
         return res.status(200).json({logged: true, username: req.session.username});
     }
     return res.status(200).json({logged: false});
@@ -265,6 +510,105 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     }
 });
 
+// api endpoint to propose a trade
+app.post('/api/trades/propose-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {receiverId, senderId, leagueId, sendPlayers, recvPlayers} = req.body;
+    if (!receiverId || !senderId || !leagueId || !sendPlayers || !recvPlayers || senderId != req.session.activeTeam){
+        return res.status(400).json({message: "Missing trade fields"});
+    }
+    try{
+        const trade = db.prepare('INSERT INTO trades (league_id, proposer_id, receiver_id) VALUES(?,?,?)').run(leagueId, senderId, receiverId);
+        try{
+            const insertItem = db.prepare('INSERT INTO trade_items (trade_id, league_id, sender_id, receiver_id, player_id) VALUES (?,?,?,?,?)');
+            const checkPlayer = db.prepare('SELECT * FROM roster_slots WHERE team_id=? AND player_id=?');
+
+            // players sent for team proposing the trade
+            sendPlayers.forEach((player) => { 
+                let check = checkPlayer.get(senderId, player.id);
+                if(check.length == 0){ // throws error
+                    return res.status(400).json({message: "Trade pieces not rostered on team"});
+                }
+                insertItem.run(trade["lastInsertRowid"], leagueId, senderId, receiverId, player.id);
+            });
+
+            // players received for team proposing the trade
+            recvPlayers.forEach((player) => {
+                let check = checkPlayer.get(receiverId, player.id);
+                if(check.length == 0){ // throws error
+                    return res.status(400).json({message: "Trade pieces not rostered on team"});
+                }
+                insertItem.run(trade["lastInsertRowid"], leagueId, receiverId, senderId, player.id);
+            });
+
+            return res.status(200).json({message: "Successfully proposed Trade!"});
+        }
+        catch(err){
+            console.log(err);
+            db.prepare('DELETE FROM trades WHERE id=?').run(trade["lastInsertRowid"]);
+            return res.status(400).json({message: "Could not add trade pieces; players involved may not be rostered"});
+        }
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Could not propose trade"});
+    }
+
+});
+
+// api endpoint to decline a trade
+app.post('/api/trades/decline-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {trade} = req.body;
+    if (!trade || (trade["proposer_id"] != req.session.activeTeam && trade["receiver_id"] != req.session.activeTeam)){
+        return res.status(400).json({message: "Team not part of trade"});
+    }
+    try{
+        db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        return res.status(200).json({message: "Successfully declined trade!"});  
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to delete selected trade"});
+    }
+
+});
+
+// api endpoint to accept a trade
+app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
+    const {trade} = req.body;
+    if (!trade || (trade["proposer_id"] != req.session.activeTeam && trade["receiver_id"] != req.session.activeTeam)){
+        return res.status(400).json({message: "Team not part of trade"});
+    }
+    try{
+        db.prepare('UPDATE trades SET status=? WHERE id=?').run("accepted", trade["id"]);
+        return res.status(200).json({message: "Successfully accepted trade!"});  
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to accept selected trade"});
+    }
+
+});
+
+// api endpoint to change display name
+app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
+    const {displayName} = req.body;
+    sanitize(displayName);
+    if (!displayName){
+        return res.status(400).json({message: "Missing name field"});
+    }
+    try{
+       db.prepare('UPDATE teams SET name=? WHERE id=?').run(displayName, req.session.activeTeam);
+       return res.status(200).json({message: "Succesfully updated name!"})
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Team or name invalid"});
+    }
+
+});
+
 // api endpoint to update roster slots
 app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     const {player1, slot1, player2, slot2, teamId} = req.body;
@@ -272,6 +616,8 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
         return res.status(400).json({message: "Invalid slots to change"});
     }
     try{
+        req.session.legalRoster = checkRosterLegality(teamId);
+
         if(!player1){ // fill button clicked on empty position
             if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
                 return res.status(400).json({message: "Invalid positions to change"});
@@ -289,6 +635,10 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
         }
 
         // move two players
+        if(!req.session.legalRoster){ // do not let user switch players if roster is illegal
+            return res.status(400).json({message: "Too many players! Drop a player or add to an empty slot"});
+        }
+
         if(!slot1.eligiblePositions.includes(player1.position) || !slot1.eligiblePositions.includes(player2.position) 
         || !slot2.eligiblePositions.includes(player1.position) || !slot2.eligiblePositions.includes(player2.position)) {
             return res.status(400).json({message: "Invalid positions to change"});
@@ -312,7 +662,7 @@ app.get('/api/leagues/:league_id/standings', sessionAuth, leagueAuth, (req, res)
     }
 
     try{
-        const standings = db.prepare('SELECT owner, wins, losses, points_for, points_against FROM teams WHERE league_id=?').all(league_id);
+        const standings = db.prepare('SELECT owner, name, wins, losses, points_for, points_against FROM teams WHERE league_id=?').all(league_id);
         return res.status(200).json({message: 'successfully got standings data', data: standings})
     }   
     catch(err){
@@ -357,11 +707,43 @@ app.get('/api/leagues/:league_id/matchups/:week', sessionAuth, leagueAuth, (req,
     }
 });
 
+// api endpoint to get team trades 
+app.get('/api/leagues/:league_id/teams/:team_id/trades', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id, team_id} = req.params;
+    if(!league_id || !team_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or team"});
+    }
+
+    try{
+        const trades = db.prepare('SELECT * FROM trades WHERE league_id=? AND (proposer_id=? OR receiver_id=?)')
+        .all(league_id, team_id, team_id);
+
+        const itemsStmt =  db.prepare('SELECT sender_id, receiver_id, player_id FROM trade_items WHERE trade_id=?');
+
+        const tradeDetails = trades.map((trade) => {
+            const items = itemsStmt.all(trade["id"]);
+            return(
+                {
+                    ...trade,
+                    items: items
+                }
+            );
+        });
+
+        return res.status(200).json({message: 'successfully got trade data', data: tradeDetails})
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error getting trade data"});
+    }
+});
+
 // /api Endpoint to get a team's roster
 app.get('/api/team/:id', sessionAuth, leagueAuth, (req, res) => {
     const players = db.prepare('SELECT * FROM roster_slots WHERE team_id = ?').all(req.params.id);
     res.json(players);
 });
+
 
 
 // /api Endpoint to get league team is in
@@ -405,7 +787,7 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, r
     }
     catch(err){
         console.log(err);
-        return res.status(400).json({message: "error: team not fuond"});
+        return res.status(400).json({message: "error: team not found"});
     }
    
 });
@@ -623,6 +1005,11 @@ app.post('/api/register', async (req, res) => {
 
 });
 
+function checkRosterLegality(team){
+    const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
+    return roster.length <= ROSTER_TEMPLATE.length;
+}
+
 wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;
     const parameters = new URL(url);
@@ -668,6 +1055,27 @@ async function sendDraftOrder(ws, league_id){
     broadcastUpdate('UPDATE_DRAFTER', draftOrder[leagueDraftOrders.get(league_id)[1]], league_id);
 }
 
+function autoDraft(leagueId, teamId){
+    try{
+        const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
+        if(rosteredPlayers.length >= MAX_SLOTS){
+            return;
+        }
+        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+            + 'VALUES (?, ?, ?, ?, ?, ?)')
+                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+        draftIndex = (draftIndex + 1) % draftOrder.length;
+        const nextDrafter = draftOrder[draftIndex];
+        leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        broadcastUpdate('UPDATE_BOARD', null, leagueId);
+    }
+    catch(err){
+        console.log(err);
+        return;
+    }
+}
+
 function broadcastUpdate(type, data, league_id){
     wss.clients.forEach(client =>
     {
@@ -675,6 +1083,10 @@ function broadcastUpdate(type, data, league_id){
             client.send(JSON.stringify({'type' : type, 'data': data}));
         }
     });
+    let draftOrder = leagueDraftOrders.get(league_id)[0];
+    let draftIndex = leagueDraftOrders.get(league_id)[1];
+
+    autoDraft(league_id, draftOrder[draftIndex]);
 }
 
 server.listen(3001, () => console.log('Backend running on port 3001'));
