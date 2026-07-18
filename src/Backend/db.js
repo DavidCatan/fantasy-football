@@ -87,7 +87,8 @@ db.exec(`
         player_id INTEGER NOT NULL,
         player_name VARCHAR(100) NOT NULL,
         player_pos VARCHAR(2) NOT NULL,
-        drafted INTEGER NOT NULL DEFAULT 0
+        drafted INTEGER NOT NULL DEFAULT 0,
+        projected_points REAL NOT NULL DEFAULT 0.0
 
     );
 

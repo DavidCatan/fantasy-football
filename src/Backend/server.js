@@ -8,6 +8,9 @@ import db from './db.js';
 import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
+import players from '../Web/utils/draftUtils.js';
+import bcrypt from 'bcrypt';
+
 
 const app = express();
 //const db = new Database('fantasy.db');
@@ -39,6 +42,24 @@ leagueMatchups.set("leagues", new Map());
 
 // for TESTING!!!!!
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
+//const SALT_ROUNDS = 10;
+//const password = 'Test!1234';
+//const hash = await bcrypt.hash(password, SALT_ROUNDS);
+//db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
+//for(let i = 2; i < 11; i++){
+  //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
+  //  db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run('hQYLsm', 'test'+i);
+        
+       
+//}
+//var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all('hQYLsm');
+//if(teams.length >= MAX_TEAMS){
+  //  setMatchups('hQYLsm', teams, leagueMatchups.get("leagues"), db);
+    //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
+        //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
+    //})
+    //db.prepare('INSERT INTO matchups (l')
+//}
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -366,12 +387,6 @@ app.post('/api/admin/process-trades', (req, res) => {
         });
         return res.status(200).json({message: "Successfully Processed trades!"});  
 
-        function getEmptySlots(team){
-            let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
-            slots = new Set(slots.map((row) => row["player_slot"]));
-            let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
-            return openSlots;
-        }
     }
     catch(err){
         console.log(err);
@@ -434,8 +449,18 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
         db.prepare('INSERT INTO leagues (league_id, league_name, league_owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
         try{
             db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+            const insertPlayer = db.prepare('INSERT INTO players (league_id, player_id, player_name, player_pos, drafted, projected_points)'
+                +  'VALUES (?,?,?,?,?,?)');
+            const insertAllPlayers = db.transaction((players) => {
+                players.forEach((player) => {
+                    insertPlayer.run(leagueId, player["id"], player["name"], player["position"], 0, player["points"]);
+                });
+            });
+            insertAllPlayers(players["all"]);
+           
         }
         catch(err){
+            console.log(err);
             db.prepare('DELETE FROM leagues WHERE league_id=?').run(leagueId);
             return res.status(400).json({message: "Error adding user to league"});
         }
@@ -853,6 +878,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
                 + 'VALUES (?, ?, ?, ?, ?, ?)')
                    .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+            db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
             draftIndex = (draftIndex + 1) % draftOrder.length;
             const nextDrafter = draftOrder[draftIndex];
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
@@ -1061,9 +1087,30 @@ function autoDraft(leagueId, teamId){
         if(rosteredPlayers.length >= MAX_SLOTS){
             return;
         }
-        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+
+        const bestPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
+                            .get(leagueId, 0);
+
+        // determine the slot to autodraft to
+        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
+        var slot;
+        let openIndex = slotAllocation["open_slots"].findIndex((slot) => 
+            slot["eligiblePositions"].includes(bestPlayer["player_pos"]));
+        if(openIndex > -1){
+            slot = slotAllocation["open_slots"].splice(openIndex, 1)[0]["id"];
+        }
+        else{
+            slot = "BN"+slotAllocation["overflow_slot"]++;
+        }   
+
+        const draftPlayer = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
             + 'VALUES (?, ?, ?, ?, ?, ?)')
-                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+                .run(teamId, leagueId, bestPlayer["player_id"], bestPlayer["player_name"], bestPlayer["player_pos"], slot);
+        db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, bestPlayer["player_id"]);
+
+        const draftOrder = leagueDraftOrders.get(leagueId)[0];
+        let draftIndex = leagueDraftOrders.get(leagueId)[1];
+        
         draftIndex = (draftIndex + 1) % draftOrder.length;
         const nextDrafter = draftOrder[draftIndex];
         leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
@@ -1074,6 +1121,13 @@ function autoDraft(leagueId, teamId){
         console.log(err);
         return;
     }
+}
+
+function getEmptySlots(team){
+    let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
+    slots = new Set(slots.map((row) => row["player_slot"]));
+    let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
+    return openSlots;
 }
 
 function broadcastUpdate(type, data, league_id){
