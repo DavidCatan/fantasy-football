@@ -17,12 +17,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
-const MAX_SLOTS = 14;
+const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
+var draftTimers = new Map();
 
 /*
     Leagues : {
@@ -41,25 +42,25 @@ leagueMatchups.set("leagues", new Map());
 */
 
 // for TESTING!!!!!
+const leagueId = '6IHOiv';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
-//for(let i = 2; i < 11; i++){
+/*for(let i = 2; i < 11; i++){
   //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
-  //  db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run('hQYLsm', 'test'+i);
+    db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
        
-//}
-//var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all('hQYLsm');
-//if(teams.length >= MAX_TEAMS){
-  //  setMatchups('hQYLsm', teams, leagueMatchups.get("leagues"), db);
-    //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
-        //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
-    //})
-    //db.prepare('INSERT INTO matchups (l')
-//}
+}
+var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+if(teams.length >= MAX_TEAMS){
+    setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
+}*/
+
+//db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
+//db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -884,6 +885,9 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
             broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
             broadcastUpdate('UPDATE_BOARD', null, leagueId);
+            clearTimeout(draftTimers.get(teamId));
+            draftTimers.delete(teamId);
+            startDraftTimer(leagueId, draftOrder[draftIndex]);
             return res.json({ success: true, rowId: info.lastInsertRowid });
         }
         catch(err){
@@ -1073,6 +1077,7 @@ async function sendDraftOrder(ws, league_id){
     if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length){
         draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
+        startDraftTimer(league_id, leagueDraftOrders.get(league_id)[0][0]); // start initial draft timer
     }
     else{
         draftOrder = leagueDraftOrders.get(league_id)[0];
@@ -1088,11 +1093,31 @@ function autoDraft(leagueId, teamId){
             return;
         }
 
-        const bestPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
-                            .get(leagueId, 0);
+        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
+
+        // determine open position if any
+        var pos;
+        if(slotAllocation["open_slots"].find((slot) => slot["label"] == "RB")){
+            pos = "RB";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "WR")){
+            pos = "WR";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "QB")){
+            pos = "QB";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "TE")){
+            pos = "TE";
+        }
+
+        
+
+        const bestPlayer = !pos ? db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
+                            .get(leagueId, 0)
+                        : db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? AND player_pos=? ORDER BY projected_points DESC LIMIT 1')
+                            .get(leagueId, 0, pos);
 
         // determine the slot to autodraft to
-        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
         var slot;
         let openIndex = slotAllocation["open_slots"].findIndex((slot) => 
             slot["eligiblePositions"].includes(bestPlayer["player_pos"]));
@@ -1116,11 +1141,17 @@ function autoDraft(leagueId, teamId){
         leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
         broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
         broadcastUpdate('UPDATE_BOARD', null, leagueId);
+        draftTimers.delete(teamId);
+        startDraftTimer(leagueId, draftOrder[draftIndex]);
     }
     catch(err){
         console.log(err);
         return;
     }
+}
+
+async function startDraftTimer(leagueId, teamId){
+    draftTimers.set(teamId, setTimeout(autoDraft, 5000, leagueId, teamId));
 }
 
 function getEmptySlots(team){
@@ -1137,10 +1168,7 @@ function broadcastUpdate(type, data, league_id){
             client.send(JSON.stringify({'type' : type, 'data': data}));
         }
     });
-    let draftOrder = leagueDraftOrders.get(league_id)[0];
-    let draftIndex = leagueDraftOrders.get(league_id)[1];
-
-    autoDraft(league_id, draftOrder[draftIndex]);
+    
 }
 
 server.listen(3001, () => console.log('Backend running on port 3001'));
