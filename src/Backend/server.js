@@ -42,14 +42,14 @@ var draftTimers = new Map();
 */
 
 // for TESTING!!!!!
-const leagueId = '6IHOiv';
-//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
+const leagueId = '1ybxKK';
+//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
 /*for(let i = 2; i < 11; i++){
-  //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
+    //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
        
@@ -59,8 +59,9 @@ if(teams.length >= MAX_TEAMS){
     setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
 }*/
 
-//db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
-//db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
+db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
+db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
+db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_STARTED', leagueId);
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -420,7 +421,7 @@ app.get('/api/session', (req, res) => {
 // api endpoint to check league
 app.get('/api/league', (req, res) => {
     if(req.session.activeLeague){
-        return res.status(200).json({activeLeague: req.session.activeLeague});
+        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner});
     }
     return res.status(200).json({activeLeague: null});
 });
@@ -450,6 +451,7 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
         db.prepare('INSERT INTO leagues (league_id, league_name, league_owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
         try{
             db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+            
             const insertPlayer = db.prepare('INSERT INTO players (league_id, player_id, player_name, player_pos, drafted, projected_points)'
                 +  'VALUES (?,?,?,?,?,?)');
             const insertAllPlayers = db.transaction((players) => {
@@ -522,7 +524,9 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     try{
         const teamId = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
         if(teamId){
+            const leagueOwner = db.prepare('SELECT league_owner FROM leagues WHERE league_id=?').get(leagueId);
             req.session.activeLeague = leagueId;
+            req.session.leagueOwner = leagueOwner["league_owner"];
             req.session.activeTeam = teamId["id"];
             return res.status(200).json({message: "successfully entered league"});
         }
@@ -533,6 +537,29 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "User not in valid league"});
+    }
+});
+
+// api endpoint to start the draft
+app.post('/api/leagues/start-draft', sessionAuth, leagueAuth, (req, res) => {
+    const {teamId, leagueId} = req.body;
+    if(!teamId || !leagueId || teamId != req.session.activeTeam || req.session.username != req.session.leagueOwner || leagueId != req.session.activeLeague){
+        return res.status(400).json({message: "Not league owner, cannot start draft"});
+    }
+    try{
+        db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=? AND league_owner=?').run('IN_PROGRESS', leagueId, req.session.username);
+        broadcastUpdate('UPDATE_DRAFT_STATUS', 'IN_PROGRESS', leagueId);
+        wss.clients.forEach(client =>
+        {
+            if(client.readyState == 1 && client.leagueId == leagueId){
+                sendDraftOrder(client, leagueId);
+            }
+        });
+        return res.status(200).json({message : "Draft has begun!"});
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error while trying to start draft"});
     }
 });
 
@@ -694,6 +721,18 @@ app.get('/api/leagues/:league_id/standings', sessionAuth, leagueAuth, (req, res)
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Error getting standings data"});
+    }
+});
+
+// api endpoint to get draft status
+app.get('/api/leagues/draft-status', sessionAuth, leagueAuth, (req, res) => {
+    try{
+        const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(req.session.activeLeague);
+        return res.status(200).json({message : "got draft status", data: draftStatus});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message : "could not determine the draft status"})
     }
 });
 
@@ -1071,6 +1110,10 @@ wss.on('connection', (ws, req) => {
 });
 
 async function sendDraftOrder(ws, league_id){
+    const draft_status = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(league_id);
+    if(draft_status["draft_status"] != "IN_PROGRESS"){
+        return;
+    }
     var draftOrder;
     const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
     //league_id = JSON.parse(league_id);

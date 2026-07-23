@@ -21,12 +21,14 @@ const Draft = () => {
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
+    const [leagueOwner, setLeagueOwner] = React.useState(null);
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
     const [curDraftTeam, setDraftTeam] = React.useState();
     const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
     const [roster, setRoster] = React.useState([]);
     const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
+    const [draftStatus, setDraftStatus] = React.useState();
 
     const ws = React.useRef(null);
 
@@ -57,9 +59,21 @@ const Draft = () => {
             .then(data => {
                 if(data.activeLeague){
                     setLeague(data["activeLeague"]);
+                    setLeagueOwner(data["leagueOwner"]);
                 }
                 else{
                     setLeague(null);
+                    setLeagueOwner(null);
+                }
+            });
+        fetch('http://localhost:3001/api/leagues/draft-status', {credentials: 'include'})
+            .then(res => res.json())
+            .then(data => {
+                if(data){
+                    setDraftStatus(data["data"]["draft_status"]);
+                }
+                else{
+                    setDraftStatus(null);
                 }
             });
     }, [])
@@ -88,7 +102,7 @@ const Draft = () => {
        
         loadLeagueData();
 
-    },[owner, league]);
+    },[owner, league, draftStatus]);
 
     React.useEffect(() => {
         
@@ -111,14 +125,18 @@ const Draft = () => {
             if(data['type'] == 'UPDATE_BOARD'){
                 getRostered();
             }
-            if(data['type'] == 'DRAFT_ORDER'){
+            else if(data['type'] == 'DRAFT_ORDER'){
                 DRAFT_ORDER = data['data'];
                 //setDraftTeam(DRAFT_ORDER[0]);
                 console.log(DRAFT_ORDER);
             }
-            if(data['type'] == 'UPDATE_DRAFTER'){
+            else if(data['type'] == 'UPDATE_DRAFTER'){
                 console.log('setting draft team');
                 setDraftTeam(data['data']);
+            }
+            else if(data['type'] == 'UPDATE_DRAFT_STATUS'){
+                setDraftStatus(data['data']);
+                //location.reload();
             }
         }
         ws.current.onerror = (error) => {
@@ -134,9 +152,41 @@ const Draft = () => {
 
     }, [league, team]);
 
+    const handleStartDraft = async () => {
+        const response = await fetch('http://localhost:3001/api/leagues/start-draft', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({teamId : team, leagueId : league}),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
     
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+    }
+
+    if(draftStatus == 'NOT_STARTED'){
+        return(
+            <>
+                {owner == leagueOwner ? 
+                    <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handleStartDraft}>
+                        Begin Draft
+                    </button>
+                :  <div className="text-3xl font-bold mb-4 text-slate-800">Draft has not begun!</div>
+                
+                }
+            </>
+        )
     }
 
     if(posCount["total"] >= MAX_SLOTS){

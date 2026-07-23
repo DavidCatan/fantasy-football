@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 
 const db = new Database('fantasy.db');
 // make roster slot unique for each user and player id for each league
+// add to teams: FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE
 db.exec(`
 
     CREATE TABLE IF NOT EXISTS users(
@@ -15,6 +16,7 @@ db.exec(`
         league_id VARCHAR(6) UNIQUE,
         league_name VARCHAR(100) NOT NULL,
         league_owner VARCHAR(50) NOT NULL,
+        draft_status VARCHAR(15) NOT NULL DEFAULT 'NOT_STARTED',
         completed INTEGER NOT NULL DEFAULT 0
     );
 
