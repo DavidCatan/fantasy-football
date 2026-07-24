@@ -135,11 +135,16 @@ export async function dropPlayer(team, league_id, player){
 export async function getDraftOrder(league_id, teams){
     let shuffledArray = [teams.length];
     for(let i = 0; i < teams.length; i++){
-        shuffledArray[i] = teams[i]["id"];
+        shuffledArray[i] = teams[i];
     }
 
     // shuffle the draft order
     shuffle(shuffledArray);
+
+    // fill other half of array for snake draft
+    for(let i = teams.length-1; i >= 0; i--){
+        shuffledArray.push(shuffledArray[i]);
+    }
 
     return shuffledArray;
 }

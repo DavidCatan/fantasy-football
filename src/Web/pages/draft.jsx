@@ -11,8 +11,8 @@ import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} f
 
 const SEASON = "2025"; 
 
-var DRAFT_ORDER;
 const MAX_SLOTS = 13;
+let timerInterval = null;
 
 // TODO: disable ability to change roster lineup while drafting!!
 
@@ -29,6 +29,9 @@ const Draft = () => {
     const [roster, setRoster] = React.useState([]);
     const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
     const [draftStatus, setDraftStatus] = React.useState();
+    const [draftClock, setDraftClock] = React.useState(0);
+    const [draftOrder, setDraftOrder] = React.useState([]);
+    const [draftIndex, setDraftIndex] = React.useState();
 
     const ws = React.useRef(null);
 
@@ -105,6 +108,15 @@ const Draft = () => {
     },[owner, league, draftStatus]);
 
     React.useEffect(() => {
+        if(draftOrder.length == 0 || draftIndex == undefined){
+            return;
+        }
+        let team = draftOrder[draftIndex];
+        setDraftTeam(team);
+
+    }, [draftIndex]);
+
+    React.useEffect(() => {
         
         if(!league || !team || !owner){
             return;
@@ -126,18 +138,19 @@ const Draft = () => {
                 getRostered();
             }
             else if(data['type'] == 'DRAFT_ORDER'){
-                DRAFT_ORDER = data['data'];
-                //setDraftTeam(DRAFT_ORDER[0]);
-                console.log(DRAFT_ORDER);
+                console.log(data['data']);
+                setDraftOrder(data['data']);
             }
             else if(data['type'] == 'UPDATE_DRAFTER'){
-                console.log('setting draft team');
-                setDraftTeam(data['data']);
+                setDraftIndex(data['data']);
             }
             else if(data['type'] == 'UPDATE_DRAFT_STATUS'){
                 setDraftStatus(data['data']);
-                //location.reload();
             }
+            else if(data['type'] == 'UPDATE_CLOCK'){
+                startDraftTimer(data['data'], setDraftClock);
+            }
+
         }
         ws.current.onerror = (error) => {
             console.log(error);
@@ -196,6 +209,9 @@ const Draft = () => {
     return (
         <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
             <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Draft</h1>
+            <PickOrder draftOrder={draftOrder} draftIndex={draftIndex} picksShown={4}/>
+            <div>{curDraftTeam?.name ? curDraftTeam["name"] : curDraftTeam?.owner} is on the clock!</div>
+            <div>{draftClock}</div>
             <div className="mb-6">
 
 
@@ -207,13 +223,33 @@ const Draft = () => {
                     ))}
                 </ButtonGroup>
             </div>
-            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}
+            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam?.id} team={team} league={league} ws={ws}
             posCount={posCount} />
         </div>
     );
 
     
 };
+
+function PickOrder({ draftOrder, draftIndex, picksShown }){
+    if(!draftOrder || draftIndex == undefined) return;
+
+    var teams = [];
+    for(let i = 0; i < picksShown; i++){
+        teams[i] = draftOrder[(draftIndex+i) % draftOrder.length];
+    }
+
+    return(
+        <>
+            {teams.map((team, index) => {
+                let curTeam = team?.name ? team["name"] : team?.owner
+                return(
+                    <div key={index}>{curTeam}</div>
+                );
+            })}
+        </>
+    );
+}
 
 function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league, posCount, ws }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
@@ -418,6 +454,34 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
             </div>
         </Modal>
     );
+}
+
+function startDraftTimer(pickDeadline, setDraftClock){
+    if(timerInterval){
+        clearInterval(timerInterval);
+    }
+
+    updateTime();
+    timerInterval = setInterval(updateTime, 1000);
+
+    function updateTime(){
+        let timeDiff = pickDeadline - Date.now();
+        let clock = [
+                Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
+                    .toString()
+                    .padStart(2, "0"),
+                Math.floor((timeDiff % (1000 * 60)) / 1000)
+                    .toString()
+                    .padStart(2, "0")
+        ];
+        if(timeDiff < 0){
+            clearInterval(timerInterval);
+        }
+        else{
+            setDraftClock(clock.join(":"));
+        }
+    }
+       
 }
 
 async function updateDraftDB(teamId, leagueId, player, slot){

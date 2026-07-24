@@ -19,6 +19,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
+const DRAFT_TIME = 10 * 1000; 
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -898,7 +899,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
         const draftOrder = leagueDraftOrders.get(leagueId)[0];
         let draftIndex = leagueDraftOrders.get(leagueId)[1];
 
-        if(teamId != draftOrder[draftIndex]){ // check if team should be drafting first
+        if(teamId != draftOrder[draftIndex]["id"]){ // check if team should be drafting first
             return res.status(400).json({ error: "Invalid team selection" });
         }
 
@@ -920,13 +921,13 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
                    .run(teamId, leagueId, playerId, playerName, playerPos, slot);
             db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
             draftIndex = (draftIndex + 1) % draftOrder.length;
-            const nextDrafter = draftOrder[draftIndex];
+            const nextDrafter = draftOrder[draftIndex]["id"];
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-            broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+            broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
             broadcastUpdate('UPDATE_BOARD', null, leagueId);
             clearTimeout(draftTimers.get(teamId));
             draftTimers.delete(teamId);
-            startDraftTimer(leagueId, draftOrder[draftIndex]);
+            startDraftTimer(leagueId, nextDrafter);
             return res.json({ success: true, rowId: info.lastInsertRowid });
         }
         catch(err){
@@ -1088,6 +1089,7 @@ wss.on('connection', (ws, req) => {
     ws.leagueId = leagueId;
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
+        draftTimers.get(leagueId) ? ws.send(JSON.stringify({'type' : 'UPDATE_CLOCK', 'data': draftTimers.get(leagueId)})) : undefined;
     }
 
     /*ws.on('message', (message) => {
@@ -1116,17 +1118,18 @@ async function sendDraftOrder(ws, league_id){
     }
     var draftOrder;
     const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
-    //league_id = JSON.parse(league_id);
-    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length){
+    
+    // create the draft order if it has not been created already 
+    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length*2){
         draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
-        startDraftTimer(league_id, leagueDraftOrders.get(league_id)[0][0]); // start initial draft timer
+        startDraftTimer(league_id, leagueDraftOrders.get(league_id)[0][0]["id"]); // start initial draft timer
     }
     else{
         draftOrder = leagueDraftOrders.get(league_id)[0];
     }
     ws.send(JSON.stringify({type: "DRAFT_ORDER", data: draftOrder}));
-    broadcastUpdate('UPDATE_DRAFTER', draftOrder[leagueDraftOrders.get(league_id)[1]], league_id);
+    ws.send(JSON.stringify({type : 'UPDATE_DRAFTER', data : leagueDraftOrders.get(league_id)[1]}));
 }
 
 function autoDraft(leagueId, teamId){
@@ -1180,12 +1183,12 @@ function autoDraft(leagueId, teamId){
         let draftIndex = leagueDraftOrders.get(leagueId)[1];
         
         draftIndex = (draftIndex + 1) % draftOrder.length;
-        const nextDrafter = draftOrder[draftIndex];
+        const nextDrafter = draftOrder[draftIndex]["id"];
         leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
         broadcastUpdate('UPDATE_BOARD', null, leagueId);
         draftTimers.delete(teamId);
-        startDraftTimer(leagueId, draftOrder[draftIndex]);
+        startDraftTimer(leagueId, nextDrafter);
     }
     catch(err){
         console.log(err);
@@ -1194,7 +1197,10 @@ function autoDraft(leagueId, teamId){
 }
 
 async function startDraftTimer(leagueId, teamId){
-    draftTimers.set(teamId, setTimeout(autoDraft, 5000, leagueId, teamId));
+    draftTimers.set(teamId, setTimeout(autoDraft, DRAFT_TIME, leagueId, teamId));
+    let pickDeadline = Date.now() + DRAFT_TIME;
+    draftTimers.set(leagueId, pickDeadline);
+    broadcastUpdate('UPDATE_CLOCK', pickDeadline, leagueId);
 }
 
 function getEmptySlots(team){
