@@ -5,6 +5,8 @@ import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
+import Stack from '@mui/material/Stack';
+import Divider from '@mui/material/Divider';
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
@@ -207,13 +209,11 @@ const Draft = () => {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
+        <div className="p-6 max-w-8xl mx-auto bg-white w-full">
             <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Draft</h1>
-            <PickOrder draftOrder={draftOrder} draftIndex={draftIndex} picksShown={4}/>
-            <div>{curDraftTeam?.name ? curDraftTeam["name"] : curDraftTeam?.owner} is on the clock!</div>
-            <div>{draftClock}</div>
+            <PickOrder draftOrder={draftOrder} draftIndex={draftIndex} picksShown={10} draftClock={draftClock} userTeam={team} />
+            <br></br>
             <div className="mb-6">
-
 
                 <ButtonGroup variant="outlined" disableElevation>
                     {["all", "QB", "RB", "WR", "TE"].map((p) => (
@@ -231,7 +231,7 @@ const Draft = () => {
     
 };
 
-function PickOrder({ draftOrder, draftIndex, picksShown }){
+function PickOrder({ draftOrder, draftIndex, picksShown, draftClock, userTeam }){
     if(!draftOrder || draftIndex == undefined) return;
 
     var teams = [];
@@ -241,12 +241,36 @@ function PickOrder({ draftOrder, draftIndex, picksShown }){
 
     return(
         <>
-            {teams.map((team, index) => {
-                let curTeam = team?.name ? team["name"] : team?.owner
-                return(
-                    <div key={index}>{curTeam}</div>
-                );
-            })}
+            <Stack spacing={1} direction={"row"}   divider={<Divider orientation="vertical" flexItem />} 
+                sx={{
+                    justifyContent: "flex-start",
+                    alignItems: "center",
+                }}
+            >
+                {teams.map((team, index) => {
+                    let curTeam = team?.name ? team["name"] : team?.owner
+                    return(
+                        <div key={index} className={` 
+                            flex flex-col justify-center items-center text-center p-2 text-sm font-semibold h-30 break-all 
+                            ${team?.id == userTeam ? "bg-green-500" : "bg-gray-300"}
+                            ${index == 0 ? "w-1/4 " 
+                                : "w-1/10 text-xs"}`
+                        }>
+                                <span className="w-full break-all line-clamp-2">
+                                    {curTeam}
+                                </span>
+                                
+                                <span className="mt-1 block truncate w-full">
+                                    {index == 0 ? " is on the clock! " : undefined}
+                                </span>
+                                <span className="mt-1 block truncate w-full">
+                                    {index == 0 ? draftClock : undefined}
+                                </span>
+                               
+                        </div>
+                    );
+                })}
+            </Stack>  
         </>
     );
 }

@@ -648,11 +648,12 @@ app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
 app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
     const {displayName} = req.body;
     sanitize(displayName);
-    if (!displayName){
+    const newName = displayName.substring(0,50); // truncate name if too long
+    if (!newName){
         return res.status(400).json({message: "Missing name field"});
     }
     try{
-       db.prepare('UPDATE teams SET name=? WHERE id=?').run(displayName, req.session.activeTeam);
+       db.prepare('UPDATE teams SET name=? WHERE id=?').run(newName, req.session.activeTeam);
        return res.status(200).json({message: "Succesfully updated name!"})
 
     }
