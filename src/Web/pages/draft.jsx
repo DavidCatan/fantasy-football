@@ -203,6 +203,9 @@ const Draft = () => {
             </>
         )
     }
+    else if(draftStatus == 'COMPLETE'){
+        return <div className="text-3xl font-bold mb-4 text-slate-800">Draft Complete!</div>;
+    }
 
     if(posCount["total"] >= MAX_SLOTS){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Draft Complete!</div>;
