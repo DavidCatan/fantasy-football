@@ -4,12 +4,13 @@ import playerData from "../../../nfl_players.json";
 import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
-import { Button, ButtonGroup, TextField, Alert } from "@mui/material";
+import { Button, ButtonGroup, TextField } from "@mui/material";
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useMemo } from "react";
+import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
 const MAX_SLOTS = 13;
@@ -25,14 +26,13 @@ const Players = () => {
     const [lineup, setLineup] = React.useState({});
     const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
     const [changedLineup, setChangedLineup] = React.useState(false);
-    const [error, setError] = React.useState([]);
 
     const getRostered = async () => {
         try{
             setRosteredPlayers(await getRosteredPlayers(league));
             setLoading(false);
         } catch(err){
-            setError(["error", "Failure to fetch rostered data. Try refreshing the page"]);
+            showAlert("error", "Failure to fetch rostered data. Try refreshing the page");
         }
     };
     // check session and league
@@ -82,7 +82,7 @@ const Players = () => {
                 setPosCount(p);
             } catch(err){
                 console.log(err);
-                setError(["error", "Failure to fetch league data. Try refreshing the page"]);
+                showAlert("error", "Failure to fetch league data. Try refreshing the page");
                 return;
             }
         }
@@ -106,27 +106,23 @@ const Players = () => {
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
 
-    if(error.length > 0){
-        return(
-            <Alert severity={error[0]}>{error[1]}</Alert>
-        )
-    }
-
     return (
-        <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
-            <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Players</h1>
-            <div className="mb-6">
-                <ButtonGroup variant="outlined" disableElevation>
-                    {["all", "QB", "RB", "WR", "TE"].map((p) => (
-                        <Button key={p} onClick={() => setPosition(p)} className="capitalize">
-                            {p}
-                        </Button>
-                    ))}
-                </ButtonGroup>
+        <LeagueProvider>
+            <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
+                <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Players</h1>
+                <div className="mb-6">
+                    <ButtonGroup variant="outlined" disableElevation>
+                        {["all", "QB", "RB", "WR", "TE"].map((p) => (
+                            <Button key={p} onClick={() => setPosition(p)} className="capitalize">
+                                {p}
+                            </Button>
+                        ))}
+                    </ButtonGroup>
+                </div>
+                <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers} team={team} league={league}
+                posCount={posCount} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
             </div>
-               <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers} team={team} league={league}
-            posCount={posCount} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup}  />
-        </div>
+        </LeagueProvider>
     );
 };
 
@@ -223,14 +219,14 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                         : undefined
                      :  <DropButton 
                             team={team} league={league} player={curPlayer} changedLineup={changedLineup}
-                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)} 
                         />} 
             />
 
             <DropModal player={curPlayer} rosteredPlayers={rosteredPlayers}
                 setRosteredPlayers={setRosteredPlayers} team={team} league={league} isOpen={dropIsOpen}
                 posCount={posCount} roster={roster} lineup={lineup} closeParent={() => setIsOpen(false)}
-                setChangedLineup={setChangedLineup} changedLineup={changedLineup} close={closeDropModal}/>
+                setChangedLineup={setChangedLineup} changedLineup={changedLineup} close={closeDropModal} />
         </div>
     );
 }
@@ -247,8 +243,8 @@ function AddButton({open}) {
     )
 }
 
-function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
-    const [alert, setAlert] = React.useState([]);
+function DropButton({team, league, player, changedLineup, setChangedLineup, close }) {
+    const { showAlert } = useLeague();
     return(
         <>
             <button 
@@ -256,11 +252,11 @@ function DropButton({team, league, player, changedLineup, setChangedLineup, clos
                     dropPlayer(team, league, player)
                     .then(data => {  
                         if(data["success"]){
-                            setAlert(["success", "Player has been dropped!"]);
+                            showAlert("success", "Player has been dropped!");
                             setChangedLineup(!changedLineup);
                         }    
                         else{
-                            setAlert(["error", "Failure to drop player"]);
+                            showAlert("error", "Failure to drop player");
                         }
                     })
                     .catch(err => {                   
@@ -273,33 +269,31 @@ function DropButton({team, league, player, changedLineup, setChangedLineup, clos
                 >
                 Drop
             </button>
-            {alert.length > 0 ? <Alert severity={alert[0]}>{alert[1]}</Alert> : undefined}
         </>
 
     );
 }
 
-function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup, close, isOpen}) {
+function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup, close, isOpen }) {
     if (!player) return null;
+    const { showAlert } = useLeague();
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
     const [emptySlot, setEmptySlot] = React.useState(false);
-    const [alert, setAlert] = React.useState([]);
 
     function addPlayer(team, player){
          if(rosteredPlayers.includes(player.id)){
-            setAlert(["error", "player is rostered!"]);
+            showAlert("error", "Player is already rostered!");
             handleClose();
             closeParent();
             return;
         }
-        console.log(updatedSlot);
         if(!updatedSlot){
-            setAlert(["info", "select slot to add player to!"]);
+            showAlert("info", "Select slot to add player to!");
             return;
         }
         if(!updatedSlot["eligiblePositions"].includes(player["position"])){
-             setAlert(["warning", "positions don't match"]);
+            showAlert("warning","Positions don't match");
             return;
         }
         else if(emptySlot){ // update lineup if an open slot is selected
@@ -308,11 +302,9 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
         }
        
         // add new player if slot is open or player is dropped  
-        console.log(droppedPlayer);
-        updatePlayerDB(team, league, player, updatedSlot["id"], droppedPlayer?.id, setAlert);
+        updatePlayerDB(team, league, player, updatedSlot["id"], droppedPlayer?.id, showAlert);
         setChangedLineup(!changedLineup);
         droppedPlayer ? setDroppedPlayer(null) : undefined;
-        alert.length > 0 ? setAlert([]) : undefined;
         setUpdatedSlot(null);
         close();
         closeParent();
@@ -320,7 +312,7 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
 
     React.useEffect(() => {
         if(rosteredPlayers.includes(Number(player.id)) && isOpen) {
-            alert('player has been rostered! you got sniped!');
+            showAlert("info", "Player has been rostered! You got sniped!");
             close();
         }
 
@@ -348,7 +340,6 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
 
     return (
         <>
-            {alert.length > 0 ? <Alert severity={alert[0]}>{alert[1]}</Alert> : undefined}
             <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}
                 >
                 <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player} setDroppedPlayer={setDroppedPlayer} 
@@ -442,7 +433,7 @@ function AddTransactionButton({playerInSlot, slot, setDroppedPlayer, setUpdatedS
     );
 }
 
-async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, setAlert){
+async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, showAlert){
     const response = await fetch ('http://localhost:3001/api/add', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -460,10 +451,10 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, set
     });
     const data = await response.json();
     if(response.ok){
-        setAlert(["success", "Player has been added!"])
+        showAlert("success", "Player has been added!");
     }
     else{
-        setAlert(["error", data["message"]]);
+        showAlert("error", data["message"]);
     }
 
 }

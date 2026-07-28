@@ -3,7 +3,6 @@ import playerData from "../../../nfl_players.json";
 import { ROSTER_TEMPLATE } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
 
-
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
     if (!player) return null;
 

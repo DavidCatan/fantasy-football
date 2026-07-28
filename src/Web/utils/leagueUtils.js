@@ -1,6 +1,5 @@
 import roundrobin from 'roundrobin-tournament-js';
-import playerStats from "../../Backend/nfl_stats.json" with { type: 'json' };;
-
+import playerStats from "../../Backend/nfl_stats.json" with { type: 'json' };
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
