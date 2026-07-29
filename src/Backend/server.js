@@ -19,7 +19,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 0 * 1000; 
+const DRAFT_TIME = 5 * 1000; 
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -617,12 +617,21 @@ app.post('/api/trades/decline-trade', sessionAuth, leagueAuth, (req, res) => {
         return res.status(400).json({message: "Team not part of trade"});
     }
     try{
-        db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        const deleteTrade = db.transaction((trade) => {
+            const tradeStatus = db.prepare('SELECT status FROM trades WHERE id=?').get(trade["id"]);
+            if(tradeStatus["status"] == 'accepted'){
+                throw new Error('Trade has already been accepted! Cannot delete/decline');
+            }
+            db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        });
+
+        deleteTrade(trade);
+       
         return res.status(200).json({message: "Successfully declined trade!"});  
     }
     catch(err){
         console.log(err);
-        return res.status(400).json({message: "Failure to delete selected trade"});
+        return res.status(400).json({message: err || "Failure to delete selected trade"});
     }
 
 });
@@ -927,11 +936,11 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
                 startDraftTimer(leagueId, nextDrafter);
             }
 
-            return res.json({ success: true, rowId: info.lastInsertRowid });
+            return res.json({ message: "Successfully drafted player!" });
         }
         catch(err){
             console.log(err);
-            return res.status(400).json({message: "could not draft player"});
+            return res.status(400).json({message: "Error while trying to draft player"});
         }
         
     }
@@ -951,7 +960,7 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
         const addPlayer = db.transaction((teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId) => {
             const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
             if(draftStatus["draft_status"] != 'COMPLETE'){
-                throw new Error("Complete the draft first!")
+                throw new Error("Complete the draft first!");
             }
 
             // check if player is still available

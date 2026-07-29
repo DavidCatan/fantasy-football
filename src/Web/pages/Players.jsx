@@ -16,6 +16,9 @@ const SEASON = "2025";
 const MAX_SLOTS = 13;
 
 const Players = () => {
+
+    const {showAlert} = useLeague();
+
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
@@ -107,7 +110,7 @@ const Players = () => {
     }
 
     return (
-        <LeagueProvider>
+        <>
             <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
                 <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Players</h1>
                 <div className="mb-6">
@@ -122,7 +125,7 @@ const Players = () => {
                 <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers} team={team} league={league}
                 posCount={posCount} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
             </div>
-        </LeagueProvider>
+        </>
     );
 };
 
@@ -459,4 +462,10 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
 
 }
 
-export default Players;
+export default function PlayeresWrapper() {
+    return(
+        <LeagueProvider>
+            <Players />
+        </LeagueProvider>
+    );
+}

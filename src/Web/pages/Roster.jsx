@@ -7,6 +7,7 @@ import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const MODAL_STYLES = {
         content: {
@@ -27,6 +28,8 @@ const MODAL_STYLES = {
     };
 
 const Roster = () => {
+
+    const {showAlert} = useLeague();
 
     const [team, setTeam] = React.useState(null);
     const [teams, setTeams] = React.useState([]);
@@ -97,7 +100,7 @@ const Roster = () => {
                 setLoading(false);
             } catch(err){
                 console.log(err);
-                alert('error getting team data');
+                showAlert("error", "Error getting team data. Try refreshing");
             }
         }
         
@@ -120,6 +123,9 @@ const Roster = () => {
 }
 
 function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades, teams, isLegal}){
+ 
+    const { showAlert } = useLeague();
+
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -147,7 +153,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
                     }
                 }
             }
@@ -155,7 +161,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
                     }
                 }
             }
@@ -163,7 +169,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
                     }
                 }
             }
@@ -255,15 +261,19 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
 }
 
 function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
+    const {showAlert} = useLeague();
     return(
         <button 
             onClick={() =>{
                 dropPlayer(team["id"], league, player)
                 .then(data => {  
-                    alert(data["message"]);
                     if(data["success"]){
                         setChangedLineup(!changedLineup);
+                        showAlert("success", data["message"]);
                     }    
+                    else{
+                        showAlert("error", data["message"]);
+                    }
                 })
                 .catch(err => {                   
                     console.error("Request failed:", err);
@@ -279,6 +289,8 @@ function DropButton({team, league, player, changedLineup, setChangedLineup, clos
 }
 
 function ProfileModal({name}){
+    const {showAlert} = useLeague();
+
     const [profileIsOpen, setProfileOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState(name);
     
@@ -294,7 +306,8 @@ function ProfileModal({name}){
         e.preventDefault(); 
 
         if(!displayName){
-            return(alert("Please enter a name!"));
+            showAlert("warning", "Please enter a name!");
+            return;
         }
 
         const response = await fetch('http://localhost:3001/api/teams/change-name', {
@@ -306,11 +319,11 @@ function ProfileModal({name}){
 
         const data = await response.json();
         if (response.ok) {
-            alert(data.message);
+            showAlert("success", data.message);
             handleClose();
-            location.reload(); // maybe put displayName in an earlier react state instead
+            //location.reload(); // maybe put displayName in an earlier react state instead
         } else {
-            alert("Could not change display name: " + data.message);
+            showAlert("error", "Could not change display name: " + data.message);
         }
     };
 
@@ -403,6 +416,9 @@ function TradeModal({trades, teams, team}) {
 }
 
 function TradeRow({trades, trade, index, proposerName, receiverName, closeParent, team}) {
+
+    const { showAlert } = useLeague();
+
     const [isOpen, setIsOpen] = React.useState(false);
         
     const handleClose = () => {
@@ -410,13 +426,13 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
     }   
 
     const handleAcceptTrade = () => {
-        acceptTrade(trades, trade, index);
+        acceptTrade(trades, trade, index, showAlert);
         handleClose();
         closeParent();
     }
 
     const handleDeclineTrade = () => {
-        declineTrade(trades, trade, index);  
+        declineTrade(trades, trade, index, showAlert);  
         handleClose(); 
         closeParent();     
     }
@@ -520,7 +536,7 @@ function FinalResultsModal({team}){
     );
 }
 
-async function changeSlots(player1, slot1, player2, slot2, team){
+async function changeSlots(player1, slot1, player2, slot2, team, showAlert){
     const response = await fetch ('http://localhost:3001/api/updateLineup', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -536,14 +552,14 @@ async function changeSlots(player1, slot1, player2, slot2, team){
     });
     const data = await response.json();
     if(response.ok){
-        alert(data.message);
+        showAlert("success", data.message);
     }
     else{
-        alert(data.message);
+        showAlert("error", data.message);
     }
 }
 
-async function declineTrade(trades, trade, index){
+async function declineTrade(trades, trade, index, showAlert){
     const response = await fetch ('http://localhost:3001/api/trades/decline-trade', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -555,15 +571,15 @@ async function declineTrade(trades, trade, index){
         });
         const data = await response.json();
         if(response.ok){
-            alert(data.message);
+            showAlert("success", data.message);
             trades.splice(index, 1);
         }
         else{
-            alert(data.message);
+            showAlert("error", data.message);
         }
 }
 
-async function acceptTrade(trades, trade, index){
+async function acceptTrade(trades, trade, index, showAlert){
     const response = await fetch ('http://localhost:3001/api/trades/accept-trade', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -575,12 +591,18 @@ async function acceptTrade(trades, trade, index){
         });
         const data = await response.json();
         if(response.ok){
-            alert(data.message);
+            showAlert("success", data.message);
             trades[index]["status"] = "accepted";
         }
         else{
-            alert(data.message);
+            showAlert("error", data.message);
         }
 }
 
-export default Roster;
+export default function RosterWrapper() {
+    return(
+        <LeagueProvider>
+            <Roster />
+        </LeagueProvider>
+    );
+}

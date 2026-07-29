@@ -10,6 +10,7 @@ import Divider from '@mui/material/Divider';
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
+import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
 
@@ -20,6 +21,9 @@ let timerInterval = null;
 
 
 const Draft = () => {
+
+    const {showAlert} = useLeague();
+
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
@@ -43,7 +47,7 @@ const Draft = () => {
             setDraftedPlayers(await getRosteredPlayers(league));
             setLoading(false);
         } catch(err){
-            alert('error getting rostered data');
+            showAlert('error', 'Error fetching rostered data. Try refreshing');
         }
     };
 
@@ -101,7 +105,7 @@ const Draft = () => {
                 setTeam(t["data"]["id"]);
             } catch(err){
                 console.log(err);
-                alert('error getting league data');
+                showAlert('error', 'Error getting league data. Try refreshing');
             }
         }
        
@@ -113,10 +117,14 @@ const Draft = () => {
         if(draftOrder.length == 0 || draftIndex == undefined){
             return;
         }
-        let team = draftOrder[draftIndex];
-        setDraftTeam(team);
+        let draftTeam = draftOrder[draftIndex];
+        setDraftTeam(draftTeam);
+        
+        if(draftTeam?.id == team){
+            showAlert('success', 'You are on the clock!');
+        }
 
-    }, [draftIndex]);
+    }, [draftIndex, team]);
 
     React.useEffect(() => {
         
@@ -177,10 +185,10 @@ const Draft = () => {
 
         const data = await response.json();
         if(response.ok){
-          alert('success: ' + data.message);
+            showAlert('success', data.message);
         }
         else{
-          alert('failure: ' + data.message);
+            showAlert('error', data.message);
         }
     }
 
@@ -236,6 +244,8 @@ const Draft = () => {
 
 function PickOrder({ draftOrder, draftIndex, picksShown, draftClock, userTeam }){
     if(!draftOrder || draftIndex == undefined) return;
+
+    const {showAlert} = useLeague();
 
     var teams = [];
     for(let i = 0; i < picksShown; i++){
@@ -364,9 +374,11 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
 function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, posCount, ws }) {
     if (!player) return null;
 
+    const {showAlert} = useLeague();
+
     React.useEffect(() => {
         if(draftedPlayers.includes(Number(player.id)) && isOpen) {
-            alert('player has been drafted! you got sniped!');
+            showAlert('warning', 'Player has been drafted! You got sniped!');
             close();
         }
 
@@ -411,28 +423,28 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
     function draftPlayer(team, player){
         if(posCount["total"] >= MAX_SLOTS){
-            alert('Draft is complete!');
+            showAlert('info', 'Draft is complete!');
             close();
             return;
         }
         if(draftedPlayers.includes(player.id)){
-            alert('Player is rostered!');
+            showAlert('warning', 'Player is rostered!');
             close();
             return;
         }
         if(team != curDraftTeam){
-            alert('you are not on the clock!');
+            showAlert('warning', 'You are not on the clock!');
             close();
             return;
         }
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
             let slot = determineSlot(player.position, posCount);  
             console.log(slot);          
-            updateDraftDB(team, league, player, slot);
+            updateDraftDB(team, league, player, slot, showAlert);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
-            alert('websocket connection error');
+            showAlert('error', 'Websocket connection error');
         }
         //setDraftedPlayers((prev) => [...prev, player.id]);
         close();
@@ -511,7 +523,7 @@ function startDraftTimer(pickDeadline, setDraftClock){
        
 }
 
-async function updateDraftDB(teamId, leagueId, player, slot){
+async function updateDraftDB(teamId, leagueId, player, slot, showAlert){
     const response = await fetch ('http://localhost:3001/api/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -526,10 +538,23 @@ async function updateDraftDB(teamId, leagueId, player, slot){
         }),
         credentials: 'include'
     });
+    let data = await response.json();
+    if(!response.ok){
+        showAlert('error', data.message);
+    }
+    else{
+        showAlert('success', data.message);
+    }
 
 }
 
 
 
 
-export default Draft;
+export default function DraftWrapper() {
+    return(
+        <LeagueProvider>
+            <Draft />
+        </LeagueProvider>
+    );
+}
