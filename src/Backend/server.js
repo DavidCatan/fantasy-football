@@ -19,7 +19,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 5 * 1000; 
+const DRAFT_TIME = 0 * 1000; 
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -43,14 +43,14 @@ var draftTimers = new Map();
 */
 
 // for TESTING!!!!!
-const leagueId = '1ybxKK';
+const leagueId = 'ViMCUo';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
 /*for(let i = 2; i < 11; i++){
-    //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
+  //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
        
@@ -453,11 +453,11 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
         try{
             db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
             
-            const insertPlayer = db.prepare('INSERT INTO players (league_id, player_id, player_name, player_pos, drafted, projected_points)'
-                +  'VALUES (?,?,?,?,?,?)');
+            const insertPlayer = db.prepare('INSERT INTO players (league_id, player_id, player_name, player_pos, drafted, projected_points, adp)'
+                +  'VALUES (?,?,?,?,?,?,?)');
             const insertAllPlayers = db.transaction((players) => {
                 players.forEach((player) => {
-                    insertPlayer.run(leagueId, player["id"], player["name"], player["position"], 0, player["points"]);
+                    insertPlayer.run(leagueId, player["id"], player["name"], player["position"], 0, player["points"], player["ADP"]);
                 });
             });
             insertAllPlayers(players["all"]);
@@ -1174,8 +1174,8 @@ function autoDraft(leagueId, teamId){
 
         let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
 
-        // determine open position if any
-        var pos;
+        // determine open starting position if any
+        /*var pos;
         if(slotAllocation["open_slots"].find((slot) => slot["label"] == "RB")){
             pos = "RB";
         }
@@ -1187,16 +1187,18 @@ function autoDraft(leagueId, teamId){
         }
         else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "TE")){
             pos = "TE";
-        }
+        }*/
 
         
 
-        const bestPlayer = !pos ? db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
+       /* const bestPlayer = !pos ? db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
                             .get(leagueId, 0)
                         : db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? AND player_pos=? ORDER BY projected_points DESC LIMIT 1')
-                            .get(leagueId, 0, pos);
+                            .get(leagueId, 0, pos);*/
 
         // determine the slot to autodraft to
+        const bestPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY adp = 0, adp ASC LIMIT 1')
+                            .get(leagueId, 0)
         var slot;
         let openIndex = slotAllocation["open_slots"].findIndex((slot) => 
             slot["eligiblePositions"].includes(bestPlayer["player_pos"]));

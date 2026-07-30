@@ -30,7 +30,11 @@ for (const player in playerData) {
 }
 
 for (const key in players){
-  players[key].sort((a,b) => b.points - a.points);
+  players[key].sort((a, b) => {
+    if (a.ADP == 0) return 1;        
+    if (b.ADP == 0) return -1;      
+    return a.ADP - b.ADP;
+  });
 }
 
 export async function fetchPlayerStats(season, playerId) {
