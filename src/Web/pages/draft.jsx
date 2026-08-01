@@ -5,28 +5,39 @@ import { nameArray, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
+import Stack from '@mui/material/Stack';
+import Divider from '@mui/material/Divider';
 import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
+import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
 
-var DRAFT_ORDER;
 const MAX_SLOTS = 13;
+let timerInterval = null;
 
 // TODO: disable ability to change roster lineup while drafting!!
 
 
 const Draft = () => {
+
+    const {showAlert} = useLeague();
+
     const [pos, setPosition] = React.useState("all");
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
+    const [leagueOwner, setLeagueOwner] = React.useState(null);
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
     const [curDraftTeam, setDraftTeam] = React.useState();
     const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
     const [roster, setRoster] = React.useState([]);
     const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
+    const [draftStatus, setDraftStatus] = React.useState();
+    const [draftClock, setDraftClock] = React.useState(0);
+    const [draftOrder, setDraftOrder] = React.useState([]);
+    const [draftIndex, setDraftIndex] = React.useState();
 
     const ws = React.useRef(null);
 
@@ -36,7 +47,7 @@ const Draft = () => {
             setDraftedPlayers(await getRosteredPlayers(league));
             setLoading(false);
         } catch(err){
-            alert('error getting rostered data');
+            showAlert('error', 'Error fetching rostered data. Try refreshing');
         }
     };
 
@@ -57,9 +68,21 @@ const Draft = () => {
             .then(data => {
                 if(data.activeLeague){
                     setLeague(data["activeLeague"]);
+                    setLeagueOwner(data["leagueOwner"]);
                 }
                 else{
                     setLeague(null);
+                    setLeagueOwner(null);
+                }
+            });
+        fetch('http://localhost:3001/api/leagues/draft-status', {credentials: 'include'})
+            .then(res => res.json())
+            .then(data => {
+                if(data){
+                    setDraftStatus(data["data"]["draft_status"]);
+                }
+                else{
+                    setDraftStatus(null);
                 }
             });
     }, [])
@@ -82,13 +105,26 @@ const Draft = () => {
                 setTeam(t["data"]["id"]);
             } catch(err){
                 console.log(err);
-                alert('error getting league data');
+                showAlert('error', 'Error getting league data. Try refreshing');
             }
         }
        
         loadLeagueData();
 
-    },[owner, league]);
+    },[owner, league, draftStatus]);
+
+    React.useEffect(() => {
+        if(draftOrder.length == 0 || draftIndex == undefined){
+            return;
+        }
+        let draftTeam = draftOrder[draftIndex];
+        setDraftTeam(draftTeam);
+        
+        if(draftTeam?.id == team){
+            showAlert('success', 'You are on the clock!');
+        }
+
+    }, [draftIndex, team]);
 
     React.useEffect(() => {
         
@@ -111,15 +147,20 @@ const Draft = () => {
             if(data['type'] == 'UPDATE_BOARD'){
                 getRostered();
             }
-            if(data['type'] == 'DRAFT_ORDER'){
-                DRAFT_ORDER = data['data'];
-                //setDraftTeam(DRAFT_ORDER[0]);
-                console.log(DRAFT_ORDER);
+            else if(data['type'] == 'DRAFT_ORDER'){
+                console.log(data['data']);
+                setDraftOrder(data['data']);
             }
-            if(data['type'] == 'UPDATE_DRAFTER'){
-                console.log('setting draft team');
-                setDraftTeam(data['data']);
+            else if(data['type'] == 'UPDATE_DRAFTER'){
+                setDraftIndex(data['data']);
             }
+            else if(data['type'] == 'UPDATE_DRAFT_STATUS'){
+                setDraftStatus(data['data']);
+            }
+            else if(data['type'] == 'UPDATE_CLOCK'){
+                startDraftTimer(data['data'], setDraftClock);
+            }
+
         }
         ws.current.onerror = (error) => {
             console.log(error);
@@ -134,9 +175,44 @@ const Draft = () => {
 
     }, [league, team]);
 
+    const handleStartDraft = async () => {
+        const response = await fetch('http://localhost:3001/api/leagues/start-draft', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({teamId : team, leagueId : league}),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+            showAlert('success', data.message);
+        }
+        else{
+            showAlert('error', data.message);
+        }
+    }
+
     
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+    }
+
+    if(draftStatus == 'NOT_STARTED'){
+        return(
+            <>
+                {owner == leagueOwner ? 
+                    <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handleStartDraft}>
+                        Begin Draft
+                    </button>
+                :  <div className="text-3xl font-bold mb-4 text-slate-800">Draft has not begun!</div>
+                
+                }
+            </>
+        )
+    }
+    else if(draftStatus == 'COMPLETE'){
+        return <div className="text-3xl font-bold mb-4 text-slate-800">Draft Complete!</div>;
     }
 
     if(posCount["total"] >= MAX_SLOTS){
@@ -144,10 +220,11 @@ const Draft = () => {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
+        <div className="p-6 max-w-8xl mx-auto bg-white w-full">
             <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Draft</h1>
+            <PickOrder draftOrder={draftOrder} draftIndex={draftIndex} picksShown={10} draftClock={draftClock} userTeam={team} />
+            <br></br>
             <div className="mb-6">
-
 
                 <ButtonGroup variant="outlined" disableElevation>
                     {["all", "QB", "RB", "WR", "TE"].map((p) => (
@@ -157,13 +234,59 @@ const Draft = () => {
                     ))}
                 </ButtonGroup>
             </div>
-            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}
+            <PlayerList pos={pos} draftedPlayers={draftedPlayers} setDraftedPlayers={setDraftedPlayers} curDraftTeam={curDraftTeam?.id} team={team} league={league} ws={ws}
             posCount={posCount} />
         </div>
     );
 
     
 };
+
+function PickOrder({ draftOrder, draftIndex, picksShown, draftClock, userTeam }){
+    if(!draftOrder || draftIndex == undefined) return;
+
+    const {showAlert} = useLeague();
+
+    var teams = [];
+    for(let i = 0; i < picksShown; i++){
+        teams[i] = draftOrder[(draftIndex+i) % draftOrder.length];
+    }
+
+    return(
+        <>
+            <Stack spacing={1} direction={"row"}   divider={<Divider orientation="vertical" flexItem />} 
+                sx={{
+                    justifyContent: "flex-start",
+                    alignItems: "center",
+                }}
+            >
+                {teams.map((team, index) => {
+                    let curTeam = team?.name ? team["name"] : team?.owner
+                    return(
+                        <div key={index} className={` 
+                            flex flex-col justify-center items-center text-center p-2 text-sm font-semibold h-30 break-all 
+                            ${team?.id == userTeam ? "bg-green-500" : "bg-gray-300"}
+                            ${index == 0 ? "w-1/4 " 
+                                : "w-1/10 text-xs"}`
+                        }>
+                                <span className="w-full break-all line-clamp-2">
+                                    {curTeam}
+                                </span>
+                                
+                                <span className="mt-1 block truncate w-full">
+                                    {index == 0 ? " is on the clock! " : undefined}
+                                </span>
+                                <span className="mt-1 block truncate w-full">
+                                    {index == 0 ? draftClock : undefined}
+                                </span>
+                               
+                        </div>
+                    );
+                })}
+            </Stack>  
+        </>
+    );
+}
 
 function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team, league, posCount, ws }) {
     const [modalIsOpen, setIsOpen] = React.useState(false);
@@ -251,9 +374,11 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
 function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, posCount, ws }) {
     if (!player) return null;
 
+    const {showAlert} = useLeague();
+
     React.useEffect(() => {
         if(draftedPlayers.includes(Number(player.id)) && isOpen) {
-            alert('player has been drafted! you got sniped!');
+            showAlert('warning', 'Player has been drafted! You got sniped!');
             close();
         }
 
@@ -298,28 +423,28 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
     function draftPlayer(team, player){
         if(posCount["total"] >= MAX_SLOTS){
-            alert('Draft is complete!');
+            showAlert('info', 'Draft is complete!');
             close();
             return;
         }
         if(draftedPlayers.includes(player.id)){
-            alert('Player is rostered!');
+            showAlert('warning', 'Player is rostered!');
             close();
             return;
         }
         if(team != curDraftTeam){
-            alert('you are not on the clock!');
+            showAlert('warning', 'You are not on the clock!');
             close();
             return;
         }
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
             let slot = determineSlot(player.position, posCount);  
             console.log(slot);          
-            updateDraftDB(team, league, player, slot);
+            updateDraftDB(team, league, player, slot, showAlert);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
-            alert('websocket connection error');
+            showAlert('error', 'Websocket connection error');
         }
         //setDraftedPlayers((prev) => [...prev, player.id]);
         close();
@@ -370,7 +495,35 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     );
 }
 
-async function updateDraftDB(teamId, leagueId, player, slot){
+function startDraftTimer(pickDeadline, setDraftClock){
+    if(timerInterval){
+        clearInterval(timerInterval);
+    }
+
+    updateTime();
+    timerInterval = setInterval(updateTime, 1000);
+
+    function updateTime(){
+        let timeDiff = pickDeadline - Date.now();
+        let clock = [
+                Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
+                    .toString()
+                    .padStart(2, "0"),
+                Math.floor((timeDiff % (1000 * 60)) / 1000)
+                    .toString()
+                    .padStart(2, "0")
+        ];
+        if(timeDiff < 0){
+            clearInterval(timerInterval);
+        }
+        else{
+            setDraftClock(clock.join(":"));
+        }
+    }
+       
+}
+
+async function updateDraftDB(teamId, leagueId, player, slot, showAlert){
     const response = await fetch ('http://localhost:3001/api/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -385,10 +538,23 @@ async function updateDraftDB(teamId, leagueId, player, slot){
         }),
         credentials: 'include'
     });
+    let data = await response.json();
+    if(!response.ok){
+        showAlert('error', data.message);
+    }
+    else{
+        showAlert('success', data.message);
+    }
 
 }
 
 
 
 
-export default Draft;
+export default function DraftWrapper() {
+    return(
+        <LeagueProvider>
+            <Draft />
+        </LeagueProvider>
+    );
+}

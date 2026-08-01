@@ -8,18 +8,23 @@ import db from './db.js';
 import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
+import players from '../Web/utils/draftUtils.js';
+import bcrypt from 'bcrypt';
+
 
 const app = express();
 //const db = new Database('fantasy.db');
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
-const MAX_SLOTS = 14;
+const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
+const DRAFT_TIME = 0 * 1000; 
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
+var draftTimers = new Map();
 
 /*
     Leagues : {
@@ -38,7 +43,26 @@ leagueMatchups.set("leagues", new Map());
 */
 
 // for TESTING!!!!!
-//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("123ABC");
+const leagueId = 'ViMCUo';
+//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
+//const SALT_ROUNDS = 10;
+//const password = 'Test!1234';
+//const hash = await bcrypt.hash(password, SALT_ROUNDS);
+//db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
+/*for(let i = 2; i < 11; i++){
+  //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
+    db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
+        
+       
+}
+var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+if(teams.length >= MAX_TEAMS){
+    setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
+}*/
+
+db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
+db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
+db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_STARTED', leagueId);
 
 app.use(cors({
     origin: 'http://localhost:5173',
@@ -366,12 +390,6 @@ app.post('/api/admin/process-trades', (req, res) => {
         });
         return res.status(200).json({message: "Successfully Processed trades!"});  
 
-        function getEmptySlots(team){
-            let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
-            slots = new Set(slots.map((row) => row["player_slot"]));
-            let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
-            return openSlots;
-        }
     }
     catch(err){
         console.log(err);
@@ -404,7 +422,7 @@ app.get('/api/session', (req, res) => {
 // api endpoint to check league
 app.get('/api/league', (req, res) => {
     if(req.session.activeLeague){
-        return res.status(200).json({activeLeague: req.session.activeLeague});
+        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner});
     }
     return res.status(200).json({activeLeague: null});
 });
@@ -434,8 +452,19 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
         db.prepare('INSERT INTO leagues (league_id, league_name, league_owner) VALUES (?,?,?)').run(leagueId, leagueName, owner);
         try{
             db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+            
+            const insertPlayer = db.prepare('INSERT INTO players (league_id, player_id, player_name, player_pos, drafted, projected_points, adp)'
+                +  'VALUES (?,?,?,?,?,?,?)');
+            const insertAllPlayers = db.transaction((players) => {
+                players.forEach((player) => {
+                    insertPlayer.run(leagueId, player["id"], player["name"], player["position"], 0, player["points"], player["ADP"]);
+                });
+            });
+            insertAllPlayers(players["all"]);
+           
         }
         catch(err){
+            console.log(err);
             db.prepare('DELETE FROM leagues WHERE league_id=?').run(leagueId);
             return res.status(400).json({message: "Error adding user to league"});
         }
@@ -496,7 +525,9 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     try{
         const teamId = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
         if(teamId){
+            const leagueOwner = db.prepare('SELECT league_owner FROM leagues WHERE league_id=?').get(leagueId);
             req.session.activeLeague = leagueId;
+            req.session.leagueOwner = leagueOwner["league_owner"];
             req.session.activeTeam = teamId["id"];
             return res.status(200).json({message: "successfully entered league"});
         }
@@ -507,6 +538,29 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "User not in valid league"});
+    }
+});
+
+// api endpoint to start the draft
+app.post('/api/leagues/start-draft', sessionAuth, leagueAuth, (req, res) => {
+    const {teamId, leagueId} = req.body;
+    if(!teamId || !leagueId || teamId != req.session.activeTeam || req.session.username != req.session.leagueOwner || leagueId != req.session.activeLeague){
+        return res.status(400).json({message: "Not league owner, cannot start draft"});
+    }
+    try{
+        db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=? AND league_owner=?').run('IN_PROGRESS', leagueId, req.session.username);
+        broadcastUpdate('UPDATE_DRAFT_STATUS', 'IN_PROGRESS', leagueId);
+        wss.clients.forEach(client =>
+        {
+            if(client.readyState == 1 && client.leagueId == leagueId){
+                sendDraftOrder(client, leagueId);
+            }
+        });
+        return res.status(200).json({message : "Draft has begun!"});
+    }   
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error while trying to start draft"});
     }
 });
 
@@ -563,12 +617,21 @@ app.post('/api/trades/decline-trade', sessionAuth, leagueAuth, (req, res) => {
         return res.status(400).json({message: "Team not part of trade"});
     }
     try{
-        db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        const deleteTrade = db.transaction((trade) => {
+            const tradeStatus = db.prepare('SELECT status FROM trades WHERE id=?').get(trade["id"]);
+            if(tradeStatus["status"] == 'accepted'){
+                throw new Error('Trade has already been accepted! Cannot delete/decline');
+            }
+            db.prepare('DELETE FROM trades WHERE id=?').run(trade["id"]);
+        });
+
+        deleteTrade(trade);
+       
         return res.status(200).json({message: "Successfully declined trade!"});  
     }
     catch(err){
         console.log(err);
-        return res.status(400).json({message: "Failure to delete selected trade"});
+        return res.status(400).json({message: err || "Failure to delete selected trade"});
     }
 
 });
@@ -594,11 +657,12 @@ app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
 app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
     const {displayName} = req.body;
     sanitize(displayName);
-    if (!displayName){
+    const newName = displayName.substring(0,50); // truncate name if too long
+    if (!newName){
         return res.status(400).json({message: "Missing name field"});
     }
     try{
-       db.prepare('UPDATE teams SET name=? WHERE id=?').run(displayName, req.session.activeTeam);
+       db.prepare('UPDATE teams SET name=? WHERE id=?').run(newName, req.session.activeTeam);
        return res.status(200).json({message: "Succesfully updated name!"})
 
     }
@@ -668,6 +732,18 @@ app.get('/api/leagues/:league_id/standings', sessionAuth, leagueAuth, (req, res)
     catch(err){
         console.log(err);
         return res.status(400).json({message: "Error getting standings data"});
+    }
+});
+
+// api endpoint to get draft status
+app.get('/api/leagues/draft-status', sessionAuth, leagueAuth, (req, res) => {
+    try{
+        const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(req.session.activeLeague);
+        return res.status(200).json({message : "got draft status", data: draftStatus});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message : "could not determine the draft status"})
     }
 });
 
@@ -833,7 +909,7 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
         const draftOrder = leagueDraftOrders.get(leagueId)[0];
         let draftIndex = leagueDraftOrders.get(leagueId)[1];
 
-        if(teamId != draftOrder[draftIndex]){ // check if team should be drafting first
+        if(teamId != draftOrder[draftIndex]["id"]){ // check if team should be drafting first
             return res.status(400).json({ error: "Invalid team selection" });
         }
 
@@ -842,27 +918,29 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             if(rosteredPlayers.length >= MAX_SLOTS){
                 return res.status(400).json({message: "roster already full"});
             }
-        }
-        catch(err){
-            console.log(err);
-            return res.status(400).json({message: "could not draft player"});
-        }
 
-
-        try{
             const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
                 + 'VALUES (?, ?, ?, ?, ?, ?)')
                    .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+            db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
+
             draftIndex = (draftIndex + 1) % draftOrder.length;
-            const nextDrafter = draftOrder[draftIndex];
+            const nextDrafter = draftOrder[draftIndex]["id"];
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-            broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+            broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
             broadcastUpdate('UPDATE_BOARD', null, leagueId);
-            return res.json({ success: true, rowId: info.lastInsertRowid });
+            clearTimeout(draftTimers.get(teamId));
+            draftTimers.delete(teamId);
+            
+            if(!checkDraftStatus(draftOrder, teamId, rosteredPlayers, leagueId)){
+                startDraftTimer(leagueId, nextDrafter);
+            }
+
+            return res.json({ message: "Successfully drafted player!" });
         }
         catch(err){
             console.log(err);
-            return res.status(400).json({message: "could not draft player"});
+            return res.status(400).json({message: "Error while trying to draft player"});
         }
         
     }
@@ -873,34 +951,56 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 // /api Endpoint to add a player
 app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
 
-    const { teamId, leagueId, playerId, playerName, playerPos, slot } = req.body;
+    const { teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId } = req.body;
     if(!teamId || !leagueId || !playerId || !playerName || !playerPos || !slot || teamId != req.session.activeTeam){
         return res.status(400).json({message: "invalid adding parameters"});
     }
 
-    // check if roster has empty slot
     try{
-        const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
-        if(rosteredPlayers.length >= MAX_SLOTS){
-            return res.status(400).json({message: "roster already full"});
-        }
-    }
-    catch(err){
-        console.log(err);
-        return res.status(400).json({message: "could not add player"});
-    }
-    try{
-        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
-            + 'VALUES (?, ?, ?, ?, ?, ?)')
-                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+        const addPlayer = db.transaction((teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId) => {
+            const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
+            if(draftStatus["draft_status"] != 'COMPLETE'){
+                throw new Error("Complete the draft first!");
+            }
+
+            // check if player is still available
+            const playerIsRostered = db.prepare('SELECT drafted FROM players WHERE league_id=? AND player_id=?').get(leagueId, playerId);
+            if(playerIsRostered["drafted"]){
+                throw new Error("Player has been taken! You got sniped!");
+            }
+            
+            // drop player if needed
+            if(droppedPlayerId){
+                const deleted = db.prepare('DELETE FROM roster_slots WHERE league_id=? AND team_id=? AND player_id=?')
+                .run(leagueId, teamId, droppedPlayerId);
+                if(deleted["changes"] === 0){
+                    throw new Error("error dropping player, player not found on roster");
+                }
+                db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(0, leagueId, droppedPlayerId);
+            }
+            // check if roster has empty slot
+            const rosteredPlayers = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(teamId);
+            if(rosteredPlayers.length >= MAX_SLOTS){
+                throw new Error("roster already full");
+            }
+            db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)')
+                    .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+
+            // updated available status for newly added player
+            db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
+        });
+
+        addPlayer(teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId);
+        
    
         //broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
         //broadcastUpdate('UPDATE_BOARD', null, leagueId);
-        return res.status(200).json({ success: true, rowId: info.lastInsertRowid });
+        return res.status(200).json({ message: "successfully added player!" });
     }
     catch(err){
         console.log(err);
-        return res.status(400).json({message: "error while adding player"});
+        return res.status(400).json({message: err.message || "error while adding player"});
     }    
 });
 
@@ -917,6 +1017,9 @@ app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
         if(deleted["changes"] === 0){
             return res.status(404).json({message: "error, player not found on roster"});
         }
+
+        // change status to available
+        db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(0, leagueId, playerId);
 
         return res.status(200).json({message: "successfully dropped player" });
     }
@@ -1019,6 +1122,7 @@ wss.on('connection', (ws, req) => {
     ws.leagueId = leagueId;
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
+        draftTimers.get(leagueId) ? ws.send(JSON.stringify({'type' : 'UPDATE_CLOCK', 'data': draftTimers.get(leagueId)})) : undefined;
     }
 
     /*ws.on('message', (message) => {
@@ -1041,18 +1145,24 @@ wss.on('connection', (ws, req) => {
 });
 
 async function sendDraftOrder(ws, league_id){
+    const draft_status = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(league_id);
+    if(draft_status["draft_status"] != "IN_PROGRESS"){
+        return;
+    }
     var draftOrder;
     const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
-    //league_id = JSON.parse(league_id);
-    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length){
+    
+    // create the draft order if it has not been created already 
+    if(!leagueDraftOrders.has(league_id) || leagueDraftOrders.get(league_id)[0].length != teams.length*2){
         draftOrder = await getDraftOrder(league_id, teams);
         leagueDraftOrders.set(league_id, [draftOrder, 0]);
+        startDraftTimer(league_id, leagueDraftOrders.get(league_id)[0][0]["id"]); // start initial draft timer
     }
     else{
         draftOrder = leagueDraftOrders.get(league_id)[0];
     }
     ws.send(JSON.stringify({type: "DRAFT_ORDER", data: draftOrder}));
-    broadcastUpdate('UPDATE_DRAFTER', draftOrder[leagueDraftOrders.get(league_id)[1]], league_id);
+    ws.send(JSON.stringify({type : 'UPDATE_DRAFTER', data : leagueDraftOrders.get(league_id)[1]}));
 }
 
 function autoDraft(leagueId, teamId){
@@ -1061,19 +1171,91 @@ function autoDraft(leagueId, teamId){
         if(rosteredPlayers.length >= MAX_SLOTS){
             return;
         }
-        const info = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+
+        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
+
+        // determine open starting position if any
+        /*var pos;
+        if(slotAllocation["open_slots"].find((slot) => slot["label"] == "RB")){
+            pos = "RB";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "WR")){
+            pos = "WR";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "QB")){
+            pos = "QB";
+        }
+        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "TE")){
+            pos = "TE";
+        }*/
+
+        
+
+       /* const bestPlayer = !pos ? db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
+                            .get(leagueId, 0)
+                        : db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? AND player_pos=? ORDER BY projected_points DESC LIMIT 1')
+                            .get(leagueId, 0, pos);*/
+
+        // determine the slot to autodraft to
+        const bestPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY adp = 0, adp ASC LIMIT 1')
+                            .get(leagueId, 0)
+        var slot;
+        let openIndex = slotAllocation["open_slots"].findIndex((slot) => 
+            slot["eligiblePositions"].includes(bestPlayer["player_pos"]));
+        if(openIndex > -1){
+            slot = slotAllocation["open_slots"].splice(openIndex, 1)[0]["id"];
+        }
+        else{
+            slot = "BN"+slotAllocation["overflow_slot"]++;
+        }   
+
+        const draftPlayer = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
             + 'VALUES (?, ?, ?, ?, ?, ?)')
-                .run(teamId, leagueId, playerId, playerName, playerPos, slot);
+                .run(teamId, leagueId, bestPlayer["player_id"], bestPlayer["player_name"], bestPlayer["player_pos"], slot);
+        db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, bestPlayer["player_id"]);
+
+        const draftOrder = leagueDraftOrders.get(leagueId)[0];
+        let draftIndex = leagueDraftOrders.get(leagueId)[1];
+        
         draftIndex = (draftIndex + 1) % draftOrder.length;
-        const nextDrafter = draftOrder[draftIndex];
+        const nextDrafter = draftOrder[draftIndex]["id"];
         leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
-        broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
+        broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
         broadcastUpdate('UPDATE_BOARD', null, leagueId);
+        draftTimers.delete(teamId);
+        
+        if(!checkDraftStatus(draftOrder, teamId, rosteredPlayers, leagueId)){
+            startDraftTimer(leagueId, nextDrafter);
+        }
+
     }
     catch(err){
         console.log(err);
         return;
     }
+}
+
+async function startDraftTimer(leagueId, teamId){
+    draftTimers.set(teamId, setTimeout(autoDraft, DRAFT_TIME, leagueId, teamId));
+    let pickDeadline = Date.now() + DRAFT_TIME;
+    draftTimers.set(leagueId, pickDeadline);
+    broadcastUpdate('UPDATE_CLOCK', pickDeadline, leagueId);
+}
+
+function checkDraftStatus(draftOrder, teamId, rosteredPlayers, leagueId){
+    if(draftOrder[draftOrder.length / 2]["id"] == teamId && rosteredPlayers.length+1 >= MAX_SLOTS){
+        db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('COMPLETE', leagueId);
+        broadcastUpdate('UPDATE_DRAFT_STATUS', 'COMPLETE', leagueId);
+        return true;
+    }
+    return false;
+}
+
+function getEmptySlots(team){
+    let slots = db.prepare('SELECT player_slot FROM roster_slots WHERE team_id=?').all(team);
+    slots = new Set(slots.map((row) => row["player_slot"]));
+    let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
+    return openSlots;
 }
 
 function broadcastUpdate(type, data, league_id){
@@ -1083,10 +1265,7 @@ function broadcastUpdate(type, data, league_id){
             client.send(JSON.stringify({'type' : type, 'data': data}));
         }
     });
-    let draftOrder = leagueDraftOrders.get(league_id)[0];
-    let draftIndex = leagueDraftOrders.get(league_id)[1];
-
-    autoDraft(league_id, draftOrder[draftIndex]);
+    
 }
 
 server.listen(3001, () => console.log('Backend running on port 3001'));

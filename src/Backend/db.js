@@ -15,6 +15,7 @@ db.exec(`
         league_id VARCHAR(6) UNIQUE,
         league_name VARCHAR(100) NOT NULL,
         league_owner VARCHAR(50) NOT NULL,
+        draft_status VARCHAR(15) NOT NULL DEFAULT 'NOT_STARTED',
         completed INTEGER NOT NULL DEFAULT 0
     );
 
@@ -27,7 +28,8 @@ db.exec(`
         losses INTEGER NOT NULL DEFAULT 0,
         points_for REAL NOT NULL DEFAULT 0,
         points_against REAL NOT NULL DEFAULT 0,
-        final_rank INTEGER DEFAULT NULL
+        final_rank INTEGER DEFAULT NULL,
+        FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE
 
     );
 
@@ -87,7 +89,9 @@ db.exec(`
         player_id INTEGER NOT NULL,
         player_name VARCHAR(100) NOT NULL,
         player_pos VARCHAR(2) NOT NULL,
-        drafted INTEGER NOT NULL DEFAULT 0
+        drafted INTEGER NOT NULL DEFAULT 0,
+        projected_points REAL NOT NULL DEFAULT 0.0,
+        adp REAL NOT NULL DEFAULT 0.0
 
     );
 

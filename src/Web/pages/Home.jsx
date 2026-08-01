@@ -55,7 +55,7 @@ const Home = () => {
         const data = await response.json();
         if (response.ok) {
           setNewLeague(data["league_id"]);
-          //alert(data.message);
+          alert(data.message);
 
         } else {
             alert("Create league failed: " + data.message);

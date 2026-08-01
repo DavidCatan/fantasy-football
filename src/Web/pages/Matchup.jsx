@@ -12,10 +12,13 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
-const WEEK_NUM = 17;
+const WEEK_NUM = 1;
 
 const Matchup = () => {
+
+    const { showAlert } = useLeague();
 
     const [team, setTeam] = React.useState(null);
     const [league, setLeague] = React.useState(null);
@@ -142,13 +145,17 @@ const Matchup = () => {
 
                 // swap matches so user matchup is first in array and first to display
                 matches = matches["data"];
+                let id = userTeam ? userTeam["id"] : t["data"]["id"];
+                console.log(matches);
                 for(let i = 0; i < matches.length; i++){
-                    if(matches[i]["home_team_id"] == t["data"]["id"] || matches[i]["away_team_id"] == t["data"]["id"]){
+                    if(matches[i]["home_team_id"] == id || matches[i]["away_team_id"] == id){
                         let temp = matches[0];
                         matches[0] = matches[i];
                         matches[i] = temp;
+                        break;
                     }
-                }
+                }       
+                
                 // set user data
                 setTeam(t["data"]);
                 setRoster(r);
@@ -169,7 +176,7 @@ const Matchup = () => {
                 setLoading(false);
             } catch(err){
                 console.log(err);
-                alert('error getting team data');
+                showAlert('error', 'Error getting team data. Try refreshing');
             }
         }
         
@@ -180,44 +187,39 @@ const Matchup = () => {
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
-
     return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
-                {/*<div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                    <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints}/>
-                    <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints}/>
-                </div>*/}
+            <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Matchup</h2>
 
-                <Swiper navigation={true} modules={[Navigation, Pagination, Keyboard]}
-                    keyboard={true}
-                    centeredSlides={true} slidesPerView={1}
-                    loop={false} 
-                    onSlideChange={(swiper) => {
-                        let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : userTeam["id"];
-                        console.log(swiper.realIndex, userTeam["id"]);
-                        teams.forEach((team) => {
-                            if(team["id"] == t){
-                                setOwner(team["owner"]);
-                            }
-                        })                    
-                    }}
-                    className="mySwiper h-fit">
-                    {matchups.length > 0 ? matchups.map((matchup, index) => {
-                            return(
-                                <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
-                                    <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                                        <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
-                                        <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
-                                    </div>
-                                </SwiperSlide>    
-                            );         
-                            
-                        })
-                        : undefined
-                    }
+                    <Swiper navigation={true} modules={[Navigation, Pagination, Keyboard]}
+                        keyboard={true}
+                        centeredSlides={true} slidesPerView={1}
+                        loop={false} 
+                        onSlideChange={(swiper) => {
+                            let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : userTeam["id"];
+                            console.log(swiper.realIndex, userTeam["id"]);
+                            teams.forEach((team) => {
+                                if(team["id"] == t){
+                                    setOwner(team["owner"]);
+                                }
+                            })                    
+                        }}
+                        className="mySwiper h-fit">
+                        {matchups.length > 0 ? matchups.map((matchup, index) => {
+                                return(
+                                    <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
+                                        <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                                            <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
+                                            <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
+                                        </div>
+                                    </SwiperSlide>    
+                                );         
+                                
+                            })
+                            : undefined
+                        }
                     </Swiper>
-        </div>
+            </div>
         
     );
 }
@@ -277,6 +279,7 @@ function TradeButton({open}){
 
 function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam, isOpen, setIsOpen}){
    
+    const { showAlert } = useLeague();
 
     const[tradePlayers, setTradePlayers] = React.useState([]);
     const [updatedSlots, setUpdatedSlots] = React.useState([]);
@@ -337,12 +340,12 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
         }*/
 
         if(!players || players.length == 0){
-            alert("Select player to trade!");
+            showAlert('info', 'Select player to trade!');
             return;
         }
         
         // send trade
-        updateTradeDB(recvTeam, sendTeam, league, players, [player]);
+        updateTradeDB(recvTeam, sendTeam, league, players, [player], showAlert);
         close();
         closeParent();
     }
@@ -459,8 +462,8 @@ function TradeTransactionButton({playerInSlot, slot, tradePlayers, setTradePlaye
     );
 }
 
-async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlayers){
-    let response = await fetch ('http://localhost:3001/api/trades/propose-trade', {
+async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlayers, showAlert){
+    const response = await fetch ('http://localhost:3001/api/trades/propose-trade', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body:
@@ -475,11 +478,18 @@ async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlay
             });
     let data = await response.json();
     if(!response.ok){
-        alert('error preparing trade: ' + data.message);
+        showAlert('error', 'error preparing trade: ' + data.message);
     }
     else{
-        alert(data.message);
+        showAlert('success', data.message);
     }
 }
 
-export default Matchup;
+export default function MatchupWrapper() {
+    return(
+        <LeagueProvider>
+            <Matchup />
+        </LeagueProvider>
+    );
+}
+    
