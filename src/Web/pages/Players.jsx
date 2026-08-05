@@ -17,17 +17,17 @@ const MAX_SLOTS = 13;
 
 const Players = () => {
 
-    const {showAlert} = useLeague();
+    const {showAlert, owner, league, team, roster, posCount, lineup} = useLeague();
 
     const [pos, setPosition] = React.useState("all");
-    const [team, setTeam] = React.useState(null);
-    const [league, setLeague] = React.useState(null);
+    //const [team, setTeam] = React.useState(null);
+    //const [league, setLeague] = React.useState(null);
     const [rosteredPlayers, setRosteredPlayers] = React.useState([]);
-    const [owner, setOwner] = React.useState();
+    //const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
-    const [roster, setRoster] = React.useState([]);
-    const [lineup, setLineup] = React.useState({});
-    const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
+    //const [roster, setRoster] = React.useState([]);
+    //const [lineup, setLineup] = React.useState({});
+    //const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
     const [changedLineup, setChangedLineup] = React.useState(false);
 
     const getRostered = async () => {
@@ -39,7 +39,7 @@ const Players = () => {
         }
     };
     // check session and league
-    React.useEffect(() => {
+    /*React.useEffect(() => {
         fetch('http://localhost:3001/api/session', {credentials: 'include'})
             .then(res => res.json())
             .then(data => {
@@ -60,16 +60,18 @@ const Players = () => {
                     setLeague(null);
                 }
             });
-    }, [])
+    }, [])*/
+
+    console.log(owner, league, team);
     
-    React.useEffect(() => {
+    /*React.useEffect(() => {
         if(!owner || !league){
             return;
         }
         const loadLeagueData = async () => {
             try{
-                let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t["data"]["id"]);
+                //let t = await getTeam(league, owner);
+                let r = await getTeamRoster(league, team);
                 let l = new Map();
                 let p = {"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0};
                 if(r){
@@ -81,7 +83,7 @@ const Players = () => {
                     })
                 }
                 setLineup(l);
-                setTeam(t["data"]["id"]);
+                //setTeam(t["data"]["id"]);
                 setPosCount(p);
             } catch(err){
                 console.log(err);
@@ -92,7 +94,7 @@ const Players = () => {
        
         loadLeagueData();
 
-    },[owner, league, changedLineup]);
+    },[owner, league, changedLineup]);*/
 
     React.useEffect(() => {
         
@@ -122,14 +124,16 @@ const Players = () => {
                         ))}
                     </ButtonGroup>
                 </div>
-                <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers} team={team} league={league}
-                posCount={posCount} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
+                <PlayerList pos={pos} rosteredPlayers={rosteredPlayers} setRosteredPlayers={setRosteredPlayers}
+                changedLineup={changedLineup} setChangedLineup={setChangedLineup} />
             </div>
         </>
     );
 };
 
-function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, posCount, roster, lineup, changedLineup, setChangedLineup }) {
+function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, changedLineup, setChangedLineup }) {
+    const { team, league, roster, lineup } = useLeague(); 
+
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -181,7 +185,7 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                 onChange={(event, player) => openModal(playerData[player])}
                 className="bg-white rounded-lg shadow-sm"
             />
-
+            {/* TODO: show first 30 AVAILABLE players and change view all to VIEW MORE */}
             <ul className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
                 {displayedPlayers.map((player) => {
                     const isAvailable = !rosteredPlayers.includes(Number(player.id));
@@ -221,14 +225,14 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, team, league, po
                         !rosteredPlayers.includes(Number(curPlayer.id)) ? <AddButton open={openDropModal} zIndex={1000}/>  
                         : undefined
                      :  <DropButton 
-                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
+                            player={curPlayer} changedLineup={changedLineup}
                             setChangedLineup={setChangedLineup} close={() => setIsOpen(false)} 
                         />} 
             />
 
             <DropModal player={curPlayer} rosteredPlayers={rosteredPlayers}
-                setRosteredPlayers={setRosteredPlayers} team={team} league={league} isOpen={dropIsOpen}
-                posCount={posCount} roster={roster} lineup={lineup} closeParent={() => setIsOpen(false)}
+                setRosteredPlayers={setRosteredPlayers} isOpen={dropIsOpen}
+                closeParent={() => setIsOpen(false)}
                 setChangedLineup={setChangedLineup} changedLineup={changedLineup} close={closeDropModal} />
         </div>
     );
@@ -246,8 +250,8 @@ function AddButton({open}) {
     )
 }
 
-function DropButton({team, league, player, changedLineup, setChangedLineup, close }) {
-    const { showAlert } = useLeague();
+function DropButton({ player, changedLineup, setChangedLineup, close }) {
+    const { showAlert, team, league } = useLeague();
     return(
         <>
             <button 
@@ -277,9 +281,9 @@ function DropButton({team, league, player, changedLineup, setChangedLineup, clos
     );
 }
 
-function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, posCount, closeParent, changedLineup, setChangedLineup, close, isOpen }) {
+function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, changedLineup, setChangedLineup, close, isOpen }) {
     if (!player) return null;
-    const { showAlert } = useLeague();
+    const { showAlert, team, league, roster, lineup, posCount } = useLeague();
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
     const [emptySlot, setEmptySlot] = React.useState(false);
@@ -345,7 +349,7 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
         <>
             <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}
                 >
-                <Lineup team={team} league={league} roster={roster} lineup={lineup} player={player} setDroppedPlayer={setDroppedPlayer} 
+                <Lineup player={player} setDroppedPlayer={setDroppedPlayer} 
                 droppedPlayer={droppedPlayer} setUpdatedSlot={setUpdatedSlot} updatedSlot={updatedSlot} setEmptySlot={setEmptySlot}/>
                 <button 
                     onClick={() => addPlayer(team, player)}
@@ -358,7 +362,10 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
+function Lineup({changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
+    const { team, league, roster, lineup } = useLeague();
+    console.log(roster, lineup);
+
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
@@ -368,7 +375,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
         setPlayer(player);
         setIsOpen(true);
     }
-
+    console.log(roster);
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
@@ -462,10 +469,11 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
 
 }
 
-export default function PlayeresWrapper() {
+export default Players;
+/*export default function PlayeresWrapper() {
     return(
         <LeagueProvider>
             <Players />
         </LeagueProvider>
     );
-}
+}*/

@@ -485,11 +485,13 @@ async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlay
     }
 }
 
-export default function MatchupWrapper() {
+export default Matchup;
+
+/*export default function MatchupWrapper() {
     return(
         <LeagueProvider>
             <Matchup />
         </LeagueProvider>
     );
-}
+}*/
     
