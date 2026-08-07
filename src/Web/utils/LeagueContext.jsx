@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Snackbar } from "@mui/material";
 import { determineSlot } from './draftUtils';
-import { getTeamRoster } from './leagueUtils';
+import { getTeamRoster, getTeam } from './leagueUtils';
 
 const LeagueContext = React.createContext();
 
@@ -10,8 +10,10 @@ export function LeagueProvider({ children }){
     const [owner, setOwner] = React.useState(null);
     const [leagueOwner, setLeagueOwner] = React.useState(null);
     const [team, setTeam] = React.useState(null);
+    const [userTeam, setUserTeam] = React.useState(null);
     const [roster, setRoster] = React.useState([]);
     const [draftStatus, setDraftStatus] = React.useState(null);
+    const [isLegal, setIsLegal] = React.useState(false);
 
     const [state, setState] = React.useState({
         open: false,
@@ -36,6 +38,7 @@ export function LeagueProvider({ children }){
                 .then(data => {
                     if(data.logged){
                         setOwner(data['username']);
+                        setIsLegal(data["legalRoster"]);
                     }
                     else{
                         setOwner(null);
@@ -69,10 +72,14 @@ export function LeagueProvider({ children }){
         }
         const loadRosterData = async () => {
             try{
+
                 let r = await getTeamRoster(league, team);
+                let t = await getTeam(league, owner);
                 if(r){
                     setRoster(r);
-                    console.log(r);
+                }
+                if(t){
+                    setUserTeam(t["data"]);
                 }
             } catch(err){
                 console.log(err);
@@ -114,7 +121,7 @@ export function LeagueProvider({ children }){
 
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
-        roster, setRoster, posCount, draftStatus, setDraftStatus, lineup
+        roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam
     }
 
     return(

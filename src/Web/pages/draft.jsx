@@ -22,7 +22,7 @@ let timerInterval = null;
 
 const Draft = () => {
 
-    const {showAlert, owner, league, leagueOwner, team, posCount, draftStatus, setDraftStatus} = useLeague();
+    const {showAlert, owner, league, leagueOwner, team, posCount, draftStatus, setDraftStatus, setRoster} = useLeague();
 
     const [pos, setPosition] = React.useState("all");
     //const [team, setTeam] = React.useState(null);
@@ -147,7 +147,7 @@ const Draft = () => {
       
         getRostered();
 
-        ws.current = new WebSocket(`ws://localhost:3001/draft?league=${league}`);
+        ws.current = new WebSocket(`ws://localhost:3001/draft?league=${league}&team=${team}`);
 
         ws.current.onopen = () => {
             console.log("Connected to WebSocket Server!");
@@ -158,7 +158,7 @@ const Draft = () => {
             //console.log(message);
             const data = JSON.parse(message.data);
             if(data['type'] == 'UPDATE_BOARD'){
-                getRostered();
+                setDraftedPlayers((prev) => [...prev, data['data']]);
             }
             else if(data['type'] == 'DRAFT_ORDER'){
                 console.log(data['data']);
@@ -172,6 +172,9 @@ const Draft = () => {
             }
             else if(data['type'] == 'UPDATE_CLOCK'){
                 startDraftTimer(data['data'], setDraftClock);
+            }
+            else if(data['type'] == 'AUTODRAFTED'){
+                setRoster((prev) => [...prev, data['data']]);
             }
 
         }
@@ -544,7 +547,7 @@ async function updateDraftDB(teamId, leagueId, player, slot, showAlert, setRoste
         JSON.stringify({
             teamId: teamId,
             leagueId: leagueId,
-            playerId: player.id
+            playerId: Number(player.id)
             /*playerName: player.name,
             playerPos: player.position,
             slot: slot*/

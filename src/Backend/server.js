@@ -19,7 +19,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 13;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 3 * 1000; 
+const DRAFT_TIME = 0 * 1000; 
 
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
@@ -948,8 +948,9 @@ app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
             draftIndex = (draftIndex + 1) % draftOrder.length;
             const nextDrafter = draftOrder[draftIndex]["id"];
             leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+
             broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
-            broadcastUpdate('UPDATE_BOARD', null, leagueId);
+            broadcastUpdate('UPDATE_BOARD', Number(playerId), leagueId);
             clearTimeout(draftTimers.get(teamId));
             draftTimers.delete(teamId);
             
@@ -1141,9 +1142,11 @@ wss.on('connection', (ws, req) => {
     const url = 'http://localhost' + req.url;
     const parameters = new URL(url);
     const leagueId = parameters.searchParams.get('league');
+    const teamId = parameters.searchParams.get('team');
     //const teams = parameters.searchParams.get('teams');
     //console.log('web-teams',teams);
     ws.leagueId = leagueId;
+    ws.teamId = teamId
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
         draftTimers.get(leagueId) ? ws.send(JSON.stringify({'type' : 'UPDATE_CLOCK', 'data': draftTimers.get(leagueId)})) : undefined;
@@ -1244,9 +1247,18 @@ function autoDraft(leagueId, teamId){
         draftIndex = (draftIndex + 1) % draftOrder.length;
         const nextDrafter = draftOrder[draftIndex]["id"];
         leagueDraftOrders.set(leagueId,[draftOrder, draftIndex]);
+
+        const draftedData = {id: draftPlayer.lastInsertRowid, league_id: leagueId, player_id: bestPlayer["player_id"], player_name: bestPlayer["player_name"],
+                 player_pos: bestPlayer["player_pos"], player_slot: slot, team_id: teamId};
+
         broadcastUpdate('UPDATE_DRAFTER', draftIndex, leagueId);
-        broadcastUpdate('UPDATE_BOARD', null, leagueId);
+        broadcastUpdate('UPDATE_BOARD', bestPlayer["player_id"], leagueId);
         draftTimers.delete(teamId);
+        wss.clients.forEach((client) => {
+            if(client.teamId == teamId && client.readyState == 1){
+                client.send(JSON.stringify({'type' : 'AUTODRAFTED', 'data': draftedData}));
+            }
+        })
         
         if(!checkDraftStatus(draftOrder, teamId, rosteredPlayers, leagueId)){
             startDraftTimer(leagueId, nextDrafter);
