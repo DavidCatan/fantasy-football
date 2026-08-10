@@ -20,14 +20,8 @@ const Players = () => {
     const {showAlert, owner, league, team, roster, posCount, lineup} = useLeague();
 
     const [pos, setPosition] = React.useState("all");
-    //const [team, setTeam] = React.useState(null);
-    //const [league, setLeague] = React.useState(null);
     const [rosteredPlayers, setRosteredPlayers] = React.useState([]);
-    //const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
-    //const [roster, setRoster] = React.useState([]);
-    //const [lineup, setLineup] = React.useState({});
-    //const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
     const [changedLineup, setChangedLineup] = React.useState(false);
 
     const getRostered = async () => {
@@ -38,63 +32,6 @@ const Players = () => {
             showAlert("error", "Failure to fetch rostered data. Try refreshing the page");
         }
     };
-    // check session and league
-    /*React.useEffect(() => {
-        fetch('http://localhost:3001/api/session', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.logged){
-                    setOwner(data['username']);
-                }
-                else{
-                    setOwner(null);
-                }
-            });
-        fetch('http://localhost:3001/api/league', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.activeLeague){
-                    setLeague(data["activeLeague"]);
-                }
-                else{
-                    setLeague(null);
-                }
-            });
-    }, [])*/
-
-    console.log(owner, league, team);
-    
-    /*React.useEffect(() => {
-        if(!owner || !league){
-            return;
-        }
-        const loadLeagueData = async () => {
-            try{
-                //let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, team);
-                let l = new Map();
-                let p = {"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0};
-                if(r){
-                    setRoster(r);
-                    console.log(r);
-                    r.forEach((player) => {
-                        determineSlot(player.player_pos, p);
-                        l.set(player["player_slot"], player["player_name"]);
-                    })
-                }
-                setLineup(l);
-                //setTeam(t["data"]["id"]);
-                setPosCount(p);
-            } catch(err){
-                console.log(err);
-                showAlert("error", "Failure to fetch league data. Try refreshing the page");
-                return;
-            }
-        }
-       
-        loadLeagueData();
-
-    },[owner, league, changedLineup]);*/
 
     React.useEffect(() => {
         
@@ -225,7 +162,7 @@ function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, changedLineup, s
                         !rosteredPlayers.includes(Number(curPlayer.id)) ? <AddButton open={openDropModal} zIndex={1000}/>  
                         : undefined
                      :  <DropButton 
-                            player={curPlayer} changedLineup={changedLineup}
+                            player={curPlayer} changedLineup={changedLineup} setRosteredPlayers={setRosteredPlayers}
                             setChangedLineup={setChangedLineup} close={() => setIsOpen(false)} 
                         />} 
             />
@@ -250,8 +187,8 @@ function AddButton({open}) {
     )
 }
 
-function DropButton({ player, changedLineup, setChangedLineup, close }) {
-    const { showAlert, team, league } = useLeague();
+function DropButton({ player, changedLineup, setChangedLineup, close, setRosteredPlayers }) {
+    const { showAlert, team, league, setRoster } = useLeague();
     return(
         <>
             <button 
@@ -260,7 +197,13 @@ function DropButton({ player, changedLineup, setChangedLineup, close }) {
                     .then(data => {  
                         if(data["success"]){
                             showAlert("success", "Player has been dropped!");
-                            setChangedLineup(!changedLineup);
+                            setRoster((prev) => prev.filter((p) => {
+                                return p.player_id != player.id;
+                            }));
+                            setRosteredPlayers((prev) => prev.filter((id) => {
+                                return id != player.id;
+                            }));
+                            //setChangedLineup(!changedLineup);
                         }    
                         else{
                             showAlert("error", "Failure to drop player");
@@ -283,7 +226,8 @@ function DropButton({ player, changedLineup, setChangedLineup, close }) {
 
 function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, changedLineup, setChangedLineup, close, isOpen }) {
     if (!player) return null;
-    const { showAlert, team, league, roster, lineup, posCount } = useLeague();
+    const { showAlert, team, league, roster, lineup, posCount, setRoster } = useLeague();
+
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
     const [emptySlot, setEmptySlot] = React.useState(false);
@@ -309,8 +253,8 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, c
         }
        
         // add new player if slot is open or player is dropped  
-        updatePlayerDB(team, league, player, updatedSlot["id"], droppedPlayer?.id, showAlert);
-        setChangedLineup(!changedLineup);
+        updatePlayerDB(team, league, player, updatedSlot["id"], droppedPlayer?.id, showAlert, setRoster, setRosteredPlayers);
+        //setChangedLineup(!changedLineup);
         droppedPlayer ? setDroppedPlayer(null) : undefined;
         setUpdatedSlot(null);
         close();
@@ -443,7 +387,7 @@ function AddTransactionButton({playerInSlot, slot, setDroppedPlayer, setUpdatedS
     );
 }
 
-async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, showAlert){
+async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, showAlert, setRoster, setRosteredPlayers){
     const response = await fetch ('http://localhost:3001/api/add', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -462,6 +406,15 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
     const data = await response.json();
     if(response.ok){
         showAlert("success", "Player has been added!");
+        setRoster((prev) => [...prev, data.addData]);
+        setRosteredPlayers((prev) => [...prev, Number(data.addData.player_id)]);
+        console.log(data.dropData);
+
+        if(data.dropData){
+            setRosteredPlayers((prev) => prev.filter((id) => {
+                return id != Number(data.dropData);
+            }));
+        }
     }
     else{
         showAlert("error", data["message"]);
@@ -470,10 +423,3 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
 }
 
 export default Players;
-/*export default function PlayeresWrapper() {
-    return(
-        <LeagueProvider>
-            <Players />
-        </LeagueProvider>
-    );
-}*/

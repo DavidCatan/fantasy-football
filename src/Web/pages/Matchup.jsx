@@ -5,7 +5,7 @@ import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups} from '../utils/leagueUtils';
+import {getTeam, getTeamRosters, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups} from '../utils/leagueUtils';
 import {Swiper, SwiperSlide} from 'swiper/react';
 import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
 import 'swiper/css';
@@ -14,138 +14,51 @@ import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
-const WEEK_NUM = 1;
+const WEEK_NUM = 12;
 
 const Matchup = () => {
 
-    const { showAlert } = useLeague();
-
-    const [team, setTeam] = React.useState(null);
-    const [league, setLeague] = React.useState(null);
-    const [owner, setOwner] = React.useState();
-    const [roster, setRoster] = React.useState();
-    const [lineup, setLineup] = React.useState(new Map());
-    const [userLineup, setUserLineup] = React.useState(new Map());
+    const { showAlert, league, owner, lineup, userTeam } = useLeague();
+    const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
-    const [changedLineup, setChangedLineup] = React.useState(false);
-    const [totalPoints, setTotalPoints] = React.useState(0.0);
-    const [user, setUser] = React.useState();
-    const [userTeam, setUserTeam] = React.useState();
-
-    const [oppTeam, setOppTeam] = React.useState(null);
-    const [oppRoster, setOppRoster] = React.useState();
-    const [oppLineup, setOppLineup] = React.useState({});
-    const [oppTotalPoints, setOppTotalPoints] = React.useState(0.0);
-
     const [matchups, setMatchups] = React.useState([]);
     const [teams, setTeams] = React.useState([]);
-
-
-      // check session and league
-    React.useEffect(() => {
-        fetch('http://localhost:3001/api/session', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.logged){
-                    setOwner(data['username']);
-                    setUser(data["username"]);
-                }
-                else{
-                    setOwner(null);
-                    setUser(null);
-                }
-            });
-        fetch('http://localhost:3001/api/league', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.activeLeague){
-                    setLeague(data["activeLeague"]);
-                }
-                else{
-                    setLeague(null);
-                }
-            });
-    }, [])
+    const [totalPoints, setTotalPoints] = React.useState(new Map());
     
     React.useEffect(() => {
-        if(!owner || !league){
+        if(!owner || !league || !userTeam){
             return;
         }
         const loadTeamData = async () => {
             try{
                 // get user data
-                let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t["data"]["id"]);
+                let r = await getTeamRosters(league);
                 let l = new Map();
-                let tp = 0.0; 
-
+                let tp = new Map(); 
+                
                 let allTeams = await getTeams(league);    
 
                 if(r){
-                    r.forEach((player) => {
-                        l.set(player["player_slot"], player["player_name"]);
-                        if(!player["player_slot"].includes("BN")){
-                            tp += calculatePoints(player["player_name"])[WEEK_NUM-1];
-                        }
-                    })
+                    Object.entries(r).forEach(([team, players]) => {
+                        let slots = new Map();
+                        let points = 0.0;
+                        players.forEach((player) => {
+                            slots.set(player["player_slot"], player["player_name"]);
+                            if(!player["player_slot"].includes("BN")){
+                                points += calculatePoints(player["player_name"])[WEEK_NUM-1];
+                            }
+                        });
+                        points = Math.round((points + Number.EPSILON) * 100) / 100;
+                        tp.set(Number(team), points);
+                        l.set(Number(team), slots);
+                    });
                 }
-
-                // get opponent data 
-                let matchup = await getMatchup(league, t["data"]["id"], WEEK_NUM);
-                // get previous matchup if in second week of matchup
-                let prevMatchup = WEEK_NUM == 15 || WEEK_NUM == 17 ? await getMatchup(league, t["data"]["id"], WEEK_NUM-1) : undefined;
-                console.log(t, matchup);
-                let matches = await getMatchups(league, WEEK_NUM);
-                var oppR;
-                var oppT;
-                let oppL = new Map();
-                let oppTp = 0.0;
-
-                if(matchup["data"]){
-                    if(matchup["data"]["home_team_id"] == t["data"]["id"]){ // opponent is away team
-                        oppT = (matchup["data"]["away_team_id"]);
-                        oppR = await getTeamRoster(league, matchup["data"]["away_team_id"]);
-
-                         // if in second week of matchup, add previous points to total
-                        if(prevMatchup){
-                            tp += prevMatchup["data"]["home_points"];
-                            oppTp += prevMatchup["data"]["away_points"];
-                        }
-                    }
-                    else{ // opponent is home team
-                        oppT = (matchup["data"]["home_team_id"]);
-                        oppR = await getTeamRoster(league, matchup["data"]["home_team_id"]);
-
-                        // if in second week of matchup, add previous points to total
-                        if(prevMatchup){
-                            tp += prevMatchup["data"]["away_points"];
-                            oppTp += prevMatchup["data"]["home_points"];
-                        }
-                    }
-                }
-                if(allTeams){
-                    allTeams.forEach((team) => {
-                        if(team["id"] == oppT){
-                            setOppTeam(team);
-                        }
-                    })
-                }
-
-                if(oppR){
-                    oppR.forEach((player) => {
-                        oppL.set(player["player_slot"], player["player_name"]);
-                        if(!player["player_slot"].includes("BN")){
-                            oppTp += calculatePoints(player["player_name"])[WEEK_NUM-1];
-                        }
-                    })
-                }
-
-                tp = Math.round((tp + Number.EPSILON) * 100) / 100;
-                oppTp = Math.round((oppTp + Number.EPSILON) * 100) / 100;
+                setTotalPoints(tp);
 
                 // swap matches so user matchup is first in array and first to display
+                let matches = await getMatchups(league, WEEK_NUM);
                 matches = matches["data"];
-                let id = userTeam ? userTeam["id"] : t["data"]["id"];
+                let id = userTeam["id"];
                 console.log(matches);
                 for(let i = 0; i < matches.length; i++){
                     if(matches[i]["home_team_id"] == id || matches[i]["away_team_id"] == id){
@@ -156,23 +69,9 @@ const Matchup = () => {
                     }
                 }       
                 
-                // set user data
-                setTeam(t["data"]);
-                setRoster(r);
-                setLineup(l);
-                t["data"]["owner"] == user ? setUserLineup(l)&setUserTeam(t["data"]) : undefined;
-
-                setTotalPoints(tp);
-
-                // set opponent data
-                setOppRoster(oppR);
-                setOppLineup(oppL);
-                setOppTotalPoints(oppTp);
-
+                setLineups(l);
                 setMatchups(matches);
                 setTeams(allTeams);
-                //console.log(l);
-                //console.log(r);
                 setLoading(false);
             } catch(err){
                 console.log(err);
@@ -182,7 +81,7 @@ const Matchup = () => {
         
         loadTeamData();
 
-    },[owner, league, changedLineup]);
+    },[owner, league, userTeam]);
 
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
@@ -195,22 +94,17 @@ const Matchup = () => {
                         keyboard={true}
                         centeredSlides={true} slidesPerView={1}
                         loop={false} 
-                        onSlideChange={(swiper) => {
-                            let t = swiper.realIndex != 0 ? matchups[swiper.realIndex]["home_team_id"] : userTeam["id"];
-                            console.log(swiper.realIndex, userTeam["id"]);
-                            teams.forEach((team) => {
-                                if(team["id"] == t){
-                                    setOwner(team["owner"]);
-                                }
-                            })                    
-                        }}
                         className="mySwiper h-fit">
                         {matchups.length > 0 ? matchups.map((matchup, index) => {
+                            let homeTeam = matchup["home_team_id"];
+                            let awayTeam = matchup["away_team_id"];
+                            let homePoints = totalPoints.get(homeTeam);
+                            let awayPoints = totalPoints.get(awayTeam);
                                 return(
                                     <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
                                         <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                                            <Lineup team={team} league={league} roster={roster} lineup={lineup} totalPoints={totalPoints} oppPoints={oppTotalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
-                                            <Lineup team={oppTeam} league={league} roster={oppRoster} lineup={oppLineup} totalPoints={oppTotalPoints} oppPoints={totalPoints} user={user} userLineup={userLineup} userTeam={userTeam}/>
+                                            <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} totalPoints={homePoints} oppPoints={awayPoints} />
+                                            <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)} totalPoints={awayPoints} oppPoints={homePoints} />
                                         </div>
                                     </SwiperSlide>    
                                 );         
@@ -224,7 +118,9 @@ const Matchup = () => {
     );
 }
 
-function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, userLineup, userTeam}){
+function Lineup({team, lineup, totalPoints, oppPoints}){
+    const { league, owner } = useLeague();
+
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -257,11 +153,11 @@ function Lineup({team, league, roster, lineup, totalPoints, oppPoints, user, use
             
             {/* Modal that opens after initial click on player */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
-                            button={user!=team["owner"] ? <TradeButton open={openTradeModal} /> : undefined}  
+                            button={owner!=team["owner"] ? <TradeButton open={openTradeModal} /> : undefined}  
             />
-            <TradeModal player={curPlayer} /*rosteredPlayers={rosteredPlayers} 
-                    setRosteredPlayers={setRosteredPlayers}*/ team={team} league={league} 
-                    /*roster={roster}*/ lineup={userLineup} closeParent={() => setIsOpen(false)} user={user} userTeam={userTeam}
+            <TradeModal player={curPlayer}
+                     team={team} 
+                    closeParent={() => setIsOpen(false)}
                     isOpen={tradeIsOpen} setIsOpen={setTradeOpen}
                 />
         </div>
@@ -277,22 +173,13 @@ function TradeButton({open}){
     )
 }
 
-function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineup, league, team, closeParent, changedLineup, setChangedLineup, user, userTeam, isOpen, setIsOpen}){
+function TradeModal({ player, rosteredPlayers, setRosteredPlayers, team, closeParent, isOpen, setIsOpen}){
    
-    const { showAlert } = useLeague();
+    const { showAlert, league, owner, lineup, userTeam } = useLeague();
 
-    const[tradePlayers, setTradePlayers] = React.useState([]);
+    const [tradePlayers, setTradePlayers] = React.useState([]);
     const [updatedSlots, setUpdatedSlots] = React.useState([]);
     const [emptySlot, setEmptySlot] = React.useState(false);
-
-    
-    /*const openTradeModal = () => {
-        setTradeOpen(true);
-    }
-
-    const handleClose = () => {
-        setTradeOpen(false);
-    }*/
 
         
     const close = () => {
@@ -372,11 +259,11 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
 
     return(
         <>
-            {user!=team["owner"] ?
+            {owner!=team["owner"] ?
                 <div className="flex justify-center">
 
                     <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-                        <UserLineup team={team} league={league} roster={roster} lineup={lineup} player={player} setTradePlayers={setTradePlayers} 
+                        <UserLineup team={team} lineup={lineup} player={player} setTradePlayers={setTradePlayers} 
                                 tradePlayers={tradePlayers} setUpdatedSlots={setUpdatedSlots} updatedSlots={updatedSlots} setEmptySlot={setEmptySlot} />
                         <button 
                         onClick={() => sendTrade(team, userTeam, tradePlayers)}
@@ -394,7 +281,9 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, roster, lineu
     );
 }
 
-function UserLineup({team, league, roster, lineup, player, setTradePlayers, tradePlayers, updatedSlots, setUpdatedSlots, setEmptySlot}){
+function UserLineup({team, lineup, player, setTradePlayers, tradePlayers, updatedSlots, setUpdatedSlots, setEmptySlot}){
+    const { league } = useLeague();
+
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
@@ -486,12 +375,4 @@ async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlay
 }
 
 export default Matchup;
-
-/*export default function MatchupWrapper() {
-    return(
-        <LeagueProvider>
-            <Matchup />
-        </LeagueProvider>
-    );
-}*/
     

@@ -25,16 +25,10 @@ const Draft = () => {
     const {showAlert, owner, league, leagueOwner, team, posCount, draftStatus, setDraftStatus, setRoster} = useLeague();
 
     const [pos, setPosition] = React.useState("all");
-    //const [team, setTeam] = React.useState(null);
-    //const [league, setLeague] = React.useState(null);
-    //const [leagueOwner, setLeagueOwner] = React.useState(null);
     const [draftedPlayers, setDraftedPlayers] = React.useState([]);
     const [curDraftTeam, setDraftTeam] = React.useState();
-    //const [owner, setOwner] = React.useState();
     const [loading, setLoading] = React.useState(true);
-    //const [roster, setRoster] = React.useState([]);
-    //const [posCount, setPosCount] = React.useState({"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0});
-    //const [draftStatus, setDraftStatus] = React.useState();
+    
     const [draftClock, setDraftClock] = React.useState(0);
     const [draftOrder, setDraftOrder] = React.useState([]);
     const [draftIndex, setDraftIndex] = React.useState();
@@ -50,81 +44,6 @@ const Draft = () => {
             showAlert('error', 'Error fetching rostered data. Try refreshing');
         }
     };
-
-    // check session and league
-    /*React.useEffect(() => {
-        fetch('http://localhost:3001/api/session', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.logged){
-                setOwner(data['username']);
-                }
-                else{
-                setOwner(null);
-                }
-            });
-        fetch('http://localhost:3001/api/league', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.activeLeague){
-                    setLeague(data["activeLeague"]);
-                    setLeagueOwner(data["leagueOwner"]);
-                }
-                else{
-                    setLeague(null);
-                    setLeagueOwner(null);
-                }
-            });
-        fetch('http://localhost:3001/api/leagues/draft-status', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data){
-                    setDraftStatus(data["data"]["draft_status"]);
-                }
-                else{
-                    setDraftStatus(null);
-                }
-            });
-    }, [])
-
-    React.useEffect(() => {
-        fetch('http://localhost:3001/api/leagues/draft-status', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data){
-                    setDraftStatus(data["data"]["draft_status"]);
-                }
-                else{
-                    setDraftStatus(null);
-                }
-            });
-    }, [])*/
-    
-    /*React.useEffect(() => {
-        if(!owner || !league){
-            return;
-        }
-        const loadLeagueData = async () => {
-            try{
-                //let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, team);
-                if(r){
-                    setRoster(r);
-                    console.log(r);
-                    r.forEach((player) => {
-                        determineSlot(player.player_pos, posCount);
-                    })
-                }
-                //setTeam(t["data"]["id"]);
-            } catch(err){
-                console.log(err);
-                showAlert('error', 'Error getting league data. Try refreshing');
-            }
-        }
-       
-        loadLeagueData();
-
-    },[owner, league, draftStatus]);*/
 
     React.useEffect(() => {
         if(draftOrder.length == 0 || draftIndex == undefined){
@@ -567,11 +486,3 @@ async function updateDraftDB(teamId, leagueId, player, slot, showAlert, setRoste
 
 
 export default Draft;
-
-/*export default function DraftWrapper() {
-    return(
-        <LeagueProvider>
-            <Draft />
-        </LeagueProvider>
-    );
-}*/

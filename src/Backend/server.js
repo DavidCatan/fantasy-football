@@ -895,6 +895,29 @@ app.get('/api/leagues/:league_id/teams/:team_id/roster', sessionAuth, leagueAuth
     }
 });
 
+// api endpoint to get specific each team's roster
+app.get('/api/leagues/:league_id/rosters', sessionAuth, leagueAuth, (req, res) => {
+    const {league_id} = req.params;
+    if(!league_id || league_id != req.session.activeLeague){
+        return res.status(400).json({message: "invalid league or team"});
+    }
+    try{
+        const teams = db.prepare('SELECT id FROM teams WHERE league_id=?').all(league_id);
+        const getRoster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?');
+        const rosters = {};
+
+        teams.forEach((teamId) => {
+            rosters[teamId["id"]] = getRoster.all(teamId["id"]);
+        });
+
+        return res.status(200).json({message: "Got roster data", data: rosters});
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Error fetching roster info for team"});
+    }
+});
+
 
 // /api Endpoint to draft a player
 app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
@@ -1013,15 +1036,17 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
                     .run(teamId, leagueId, playerId, playerName, playerPos, slot);
 
             // updated available status for newly added player
-            db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
+            const add = db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?').run(1, leagueId, playerId);
+            return add.lastInsertRowid;
         });
 
-        addPlayer(teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId);
+        const addId = addPlayer(teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId);
         
-   
+         const addData = {id: addId, league_id: leagueId, player_id: playerId, player_name: playerName,
+                 player_pos: playerPos, player_slot: slot, team_id: teamId};
         //broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
         //broadcastUpdate('UPDATE_BOARD', null, leagueId);
-        return res.status(200).json({ message: "successfully added player!" });
+        return res.status(200).json({ message: "successfully added player!", addData: addData, dropData: droppedPlayerId });
     }
     catch(err){
         console.log(err);

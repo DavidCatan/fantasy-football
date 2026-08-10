@@ -41,6 +41,15 @@ export async function getTeamRoster(league_id, team_id){
     return null;
 }
 
+export async function getTeamRosters(league_id){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/rosters`, {credentials: 'include'});
+    const data = await response.json();
+    if(response.ok){
+        return data["data"];
+    }
+    return null;
+}
+
 export async function getLeagues(user){
     try{
         const response = await fetch(`http://${API_HOST}:${API_PORT}/api/${user}`, {credentials: 'include'});

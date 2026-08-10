@@ -31,41 +31,9 @@ const Roster = () => {
 
     const {showAlert, team, league, owner, lineup, isLegal, userTeam} = useLeague();
 
-    //const [team, setTeam] = React.useState(null);
     const [teams, setTeams] = React.useState([]);
-    //const [league, setLeague] = React.useState(null);
-    //const [owner, setOwner] = React.useState();
-    //const [roster, setRoster] = React.useState();
-    //const [lineup, setLineup] = React.useState({});
     const [loading, setLoading] = React.useState(true);
-    const [changedLineup, setChangedLineup] = React.useState(false);
     const [trades, setTrades] = React.useState([]);
-    //const [isLegal, setIsLegal] = React.useState();
-
-      // check session and league
-    /*React.useEffect(() => {
-        fetch('http://localhost:3001/api/session', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.logged){
-                    setOwner(data['username']);
-                    setIsLegal(data["legalRoster"]);
-                }
-                else{
-                    setOwner(null);
-                }
-            });
-        fetch('http://localhost:3001/api/league', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.activeLeague){
-                    setLeague(data["activeLeague"]);
-                }
-                else{
-                    setLeague(null);
-                }
-            });
-    }, [])*/
 
     React.useEffect(() => {
          if(!owner || !league || !userTeam){
@@ -91,54 +59,13 @@ const Roster = () => {
 
     }, [owner, league, userTeam]);
     
-    /*React.useEffect(() => {
-        if(!owner || !league){
-            return;
-        }
-        const loadTeamData = async () => {
-            try{
-                // get team, roster, trades, and lineup
-                let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t["data"]["id"]);
-                let tr = await getTrades(league, t["data"]["id"]);
-                let allTeams = await getTeams(league); // subject to change
-                let l = new Map();
-                if(r){
-                    r.forEach((player) => {
-                        l.set(player["player_slot"], player["player_name"]);
-                    })
-                }
-                /*ROSTER_TEMPLATE.forEach((slot) => {
-                    if(!l.has(slot["id"])){
-                        l.set(slot["id"], "empty");
-                    }
-                });
-
-                setTeam(t["data"]);
-                setRoster(r);
-                setLineup(l);
-                setTrades(tr["data"]);
-                setTeams(allTeams);
-                console.log(l);
-                console.log(r);
-                setLoading(false);
-            } catch(err){
-                console.log(err);
-                showAlert("error", "Error getting team data. Try refreshing");
-            }
-        }
-        
-        loadTeamData();
-
-    },[owner, league, changedLineup]);*/
-
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
 
     return(
         <>
-            <Lineup  changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
+            <Lineup 
             trades={trades} teams={teams} />
             {userTeam["final_rank"] ? <FinalResultsModal /> : undefined}
         </>
@@ -146,7 +73,7 @@ const Roster = () => {
     );
 }
 
-function Lineup({ changedLineup, setChangedLineup, trades, teams }){
+function Lineup({ trades, teams }){
  
     const { showAlert, team, userTeam, lineup, setRoster, isLegal } = useLeague();
 
@@ -200,7 +127,6 @@ function Lineup({ changedLineup, setChangedLineup, trades, teams }){
             setMoving(false);
             setMovingPlayer();
             setMovingSlot();
-            setChangedLineup(!changedLineup);
         }
         else{ // user is clicking slot to move
             if(player){
@@ -254,8 +180,8 @@ function Lineup({ changedLineup, setChangedLineup, trades, teams }){
             {/* Modal to show player data and option to drop */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
                 button={<DropButton 
-                            player={curPlayer} changedLineup={changedLineup}
-                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                            player={curPlayer} 
+                            close={() => setIsOpen(false)}
                         />} 
             />
         </div>
@@ -284,7 +210,7 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
     );
 }
 
-function DropButton({ player, changedLineup, setChangedLineup, close}) {
+function DropButton({ player, close}) {
     const {showAlert, team, league } = useLeague();
     return(
         <button 
@@ -292,7 +218,6 @@ function DropButton({ player, changedLineup, setChangedLineup, close}) {
                 dropPlayer(team, league, player)
                 .then(data => {  
                     if(data["success"]){
-                        setChangedLineup(!changedLineup);
                         showAlert("success", data["message"]);
                     }    
                     else{
@@ -484,10 +409,6 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                             <tbody className="divide-y divide-slate-100">
                                 {trade["items"].map((tradeItem, index) => {
                                     const playerName = playerNames.get(tradeItem["player_id"]);
-                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
-                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
-                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
-                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                     if(tradeItem["sender_id"] == sender){
                                         return(
                                             <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
@@ -507,10 +428,6 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                             <tbody className="divide-y divide-slate-100">
                                 {trade["items"].map((tradeItem, index) => {
                                     const playerName = playerNames.get(tradeItem["player_id"]);
-                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
-                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
-                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
-                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                     if(tradeItem["receiver_id"] == sender){
                                         return(
                                         <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
