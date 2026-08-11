@@ -211,7 +211,7 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
 }
 
 function DropButton({ player, close}) {
-    const {showAlert, team, league } = useLeague();
+    const {showAlert, team, league, setRoster } = useLeague();
     return(
         <button 
             onClick={() =>{
@@ -219,6 +219,9 @@ function DropButton({ player, close}) {
                 .then(data => {  
                     if(data["success"]){
                         showAlert("success", data["message"]);
+                        setRoster((prev) => prev.filter((p) => {
+                            return p.player_id != player.id;
+                        }));
                     }    
                     else{
                         showAlert("error", data["message"]);
@@ -546,10 +549,4 @@ async function acceptTrade(trades, trade, index, showAlert){
         }
 }
 
-export default function RosterWrapper() {
-    return(
-        <LeagueProvider>
-            <Roster />
-        </LeagueProvider>
-    );
-}
+export default Roster;

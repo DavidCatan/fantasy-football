@@ -2,40 +2,51 @@ import Modal from 'react-modal';
 import playerData from "../../../nfl_players.json";
 import { ROSTER_TEMPLATE } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
+import React from 'react';
+
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
-    if (!player) return null;
 
-    const data = calculatePoints(player.name);
+    const data = React.useMemo(() => {
+        return player?.name ? calculatePoints(player.name) : [];
+    }, [player?.name]);
     
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: zIndex }
-    };
 
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
+    const wideimage = React.useMemo(() => {
+        if(!player) return '';
+        if (Math.floor(Math.random() * 20) == 0){
+            return "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
+        } 
+        else{
+            return "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
+        }
+    }, [player]); 
+
+    
+const modalStyles =  React.useMemo(() => {
+    return { content: {
+        top: '50%',
+        left: '50%',
+        right: 'auto',
+        bottom: 'auto',
+        marginRight: '-50%',
+        transform: 'translate(-50%, -50%)',
+        borderRadius: '16px',
+        border: 'none',
+        padding: '24px',
+        maxWidth: '90%',
+        width: '400px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+    },
+    overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: zIndex }}
+}, [zIndex]);
+    
+
+
+    
 
     return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
+        <Modal isOpen={Boolean(isOpen && player)} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
             <div className="relative">
                 <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
                 
