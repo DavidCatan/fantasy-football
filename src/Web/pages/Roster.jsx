@@ -29,102 +29,53 @@ const MODAL_STYLES = {
 
 const Roster = () => {
 
-    const {showAlert} = useLeague();
+    const {showAlert, team, league, owner, lineup, isLegal, userTeam} = useLeague();
 
-    const [team, setTeam] = React.useState(null);
     const [teams, setTeams] = React.useState([]);
-    const [league, setLeague] = React.useState(null);
-    const [owner, setOwner] = React.useState();
-    const [roster, setRoster] = React.useState();
-    const [lineup, setLineup] = React.useState({});
     const [loading, setLoading] = React.useState(true);
-    const [changedLineup, setChangedLineup] = React.useState(false);
     const [trades, setTrades] = React.useState([]);
-    const [isLegal, setIsLegal] = React.useState();
 
-      // check session and league
     React.useEffect(() => {
-        fetch('http://localhost:3001/api/session', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.logged){
-                    setOwner(data['username']);
-                    setIsLegal(data["legalRoster"]);
-                }
-                else{
-                    setOwner(null);
-                }
-            });
-        fetch('http://localhost:3001/api/league', {credentials: 'include'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.activeLeague){
-                    setLeague(data["activeLeague"]);
-                }
-                else{
-                    setLeague(null);
-                }
-            });
-    }, [])
-    
-    React.useEffect(() => {
-        if(!owner || !league){
+         if(!owner || !league || !userTeam){
             return;
         }
+
         const loadTeamData = async () => {
             try{
-                // get team, roster, trades, and lineup
-                let t = await getTeam(league, owner);
-                let r = await getTeamRoster(league, t["data"]["id"]);
-                let tr = await getTrades(league, t["data"]["id"]);
-                let allTeams = await getTeams(league); // subject to change
-                let l = new Map();
-                if(r){
-                    r.forEach((player) => {
-                        l.set(player["player_slot"], player["player_name"]);
-                    })
-                }
-                /*ROSTER_TEMPLATE.forEach((slot) => {
-                    if(!l.has(slot["id"])){
-                        l.set(slot["id"], "empty");
-                    }
-                });*/
-
-                setTeam(t["data"]);
-                setRoster(r);
-                setLineup(l);
+                let tr = await getTrades(league, team);
+                let allTeams = await getTeams(league);
                 setTrades(tr["data"]);
                 setTeams(allTeams);
-                console.log(l);
-                console.log(r);
                 setLoading(false);
-            } catch(err){
-                console.log(err);
-                showAlert("error", "Error getting team data. Try refreshing");
             }
+            catch(err){
+                console.log(err);
+                showAlert("error", "Error getting roster data. Try refreshing");
+            }
+            
         }
-        
+
         loadTeamData();
 
-    },[owner, league, changedLineup]);
-
+    }, [owner, league, userTeam]);
+    
     if(loading){
         return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
     }
 
     return(
         <>
-            <Lineup team={team} league={league} roster={roster} lineup={lineup} changedLineup={changedLineup} setChangedLineup={setChangedLineup} 
-            trades={trades} teams={teams} isLegal={isLegal}/>
-            {team["final_rank"] ? <FinalResultsModal team={team}/> : undefined}
+            <Lineup 
+            trades={trades} teams={teams} />
+            {userTeam["final_rank"] ? <FinalResultsModal /> : undefined}
         </>
         
     );
 }
 
-function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, trades, teams, isLegal}){
+function Lineup({ trades, teams }){
  
-    const { showAlert } = useLeague();
+    const { showAlert, team, userTeam, lineup, setRoster, isLegal } = useLeague();
 
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -133,7 +84,6 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
     const [movingSlot, setMovingSlot] = React.useState();
     const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
-    console.log(isLegal);
     function openModal(player) {
         if (!player) return;
         setPlayer(player);
@@ -153,7 +103,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
             }
@@ -161,7 +111,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
             }
@@ -169,7 +119,7 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
                         console.log('interesting');
-                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert);
+                        changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
             }
@@ -177,9 +127,8 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
             setMoving(false);
             setMovingPlayer();
             setMovingSlot();
-            setChangedLineup(!changedLineup);
         }
-        else{
+        else{ // user is clicking slot to move
             if(player){
                 const eSlots = [ROSTER_TEMPLATE.length];
                 for(let i = 0; i < ROSTER_TEMPLATE.length; i++){
@@ -202,11 +151,11 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <div className="flex">
-                <ProfileModal name={team["name"]}/>
+                <ProfileModal name={userTeam["name"]}/>
 
                 <h2 className="flex text-2xl font-bold mb-4 pb-2 mt-4">Roster</h2>
 
-                <TradeModal trades={trades}  teams={teams} team={team["id"]}/>
+                <TradeModal trades={trades} teams={teams} />
 
             </div>
             <hr className="border-b border-gray-700"></hr>
@@ -231,15 +180,16 @@ function Lineup({team, league, roster, lineup, changedLineup, setChangedLineup, 
             {/* Modal to show player data and option to drop */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
                 button={<DropButton 
-                            team={team} league={league} player={curPlayer} changedLineup={changedLineup}
-                            setChangedLineup={setChangedLineup} close={() => setIsOpen(false)}
+                            player={curPlayer} 
+                            close={() => setIsOpen(false)}
                         />} 
             />
         </div>
     );
 }
 
-function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index, isLegal}){
+function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index}){
+    const { isLegal } = useLeague();
     return(
         <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
             undefined 
@@ -260,16 +210,18 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
     );
 }
 
-function DropButton({team, league, player, changedLineup, setChangedLineup, close}) {
-    const {showAlert} = useLeague();
+function DropButton({ player, close}) {
+    const {showAlert, team, league, setRoster } = useLeague();
     return(
         <button 
             onClick={() =>{
-                dropPlayer(team["id"], league, player)
+                dropPlayer(team, league, player)
                 .then(data => {  
                     if(data["success"]){
-                        setChangedLineup(!changedLineup);
                         showAlert("success", data["message"]);
+                        setRoster((prev) => prev.filter((p) => {
+                            return p.player_id != player.id;
+                        }));
                     }    
                     else{
                         showAlert("error", data["message"]);
@@ -368,7 +320,7 @@ function ProfileModal({name}){
     );
 }
 
-function TradeModal({trades, teams, team}) {
+function TradeModal({trades, teams }) {
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     
     const openTradeModal = () => {
@@ -403,7 +355,7 @@ function TradeModal({trades, teams, team}) {
                                 receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                 return(
                                     <TradeRow key={trade["id"]} trade={trade} proposerName={proposerName} receiverName={receiverName}
-                                    trades={trades} index={index} closeParent={handleClose} team={team}/> 
+                                    trades={trades} index={index} closeParent={handleClose}/> 
                                 );
                                 
                             })}
@@ -415,9 +367,9 @@ function TradeModal({trades, teams, team}) {
     );
 }
 
-function TradeRow({trades, trade, index, proposerName, receiverName, closeParent, team}) {
+function TradeRow({trades, trade, index, proposerName, receiverName, closeParent}) {
 
-    const { showAlert } = useLeague();
+    const { showAlert, team } = useLeague();
 
     const [isOpen, setIsOpen] = React.useState(false);
         
@@ -460,10 +412,6 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                             <tbody className="divide-y divide-slate-100">
                                 {trade["items"].map((tradeItem, index) => {
                                     const playerName = playerNames.get(tradeItem["player_id"]);
-                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
-                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
-                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
-                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                     if(tradeItem["sender_id"] == sender){
                                         return(
                                             <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
@@ -483,10 +431,6 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
                             <tbody className="divide-y divide-slate-100">
                                 {trade["items"].map((tradeItem, index) => {
                                     const playerName = playerNames.get(tradeItem["player_id"]);
-                                    //var proposerName = teams.find(team => team["id"] == trade["proposer_id"]);
-                                    //var receiverName = teams.find(team => team["id"] == trade["receiver_id"]);
-                                    //proposerName["name"] ? proposerName = proposerName["name"] : proposerName = proposerName["owner"];
-                                    //receiverName["name"] ? receiverName = receiverName["name"] : receiverName = receiverName["owner"];
                                     if(tradeItem["receiver_id"] == sender){
                                         return(
                                         <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50 hover:cursor-pointer truncate">
@@ -526,17 +470,18 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
 }
 
 // TODO: make final results better!!!!!
-function FinalResultsModal({team}){
+function FinalResultsModal(){
+    const { userTeam } = useLeague();
     const [isOpen, setIsOpen] = React.useState(true);
 
     return(
         <Modal isOpen={isOpen} style={MODAL_STYLES} onRequestClose={() => setIsOpen(false)} closeTimeoutMS={200}>
-            <h1>{team["final_rank"]}</h1>
+            <h1>{userTeam["final_rank"]}</h1>
         </Modal>
     );
 }
 
-async function changeSlots(player1, slot1, player2, slot2, team, showAlert){
+async function changeSlots(player1, slot1, player2, slot2, team, showAlert, setRoster){
     const response = await fetch ('http://localhost:3001/api/updateLineup', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -546,12 +491,17 @@ async function changeSlots(player1, slot1, player2, slot2, team, showAlert){
             slot1: slot1,
             player2: player2,
             slot2: slot2,
-            teamId: team["id"]
+            teamId: team
         }),
         credentials: 'include'
     });
     const data = await response.json();
     if(response.ok){
+        setRoster((prev) => prev.map((player) => {
+            if (player.player_slot == slot1["id"]) return { ...player, player_slot: slot2["id"] };
+            if (player.player_slot == slot2["id"]) return { ...player, player_slot: slot1["id"] };
+            return player;
+        }));
         showAlert("success", data.message);
     }
     else{
@@ -599,10 +549,4 @@ async function acceptTrade(trades, trade, index, showAlert){
         }
 }
 
-export default function RosterWrapper() {
-    return(
-        <LeagueProvider>
-            <Roster />
-        </LeagueProvider>
-    );
-}
+export default Roster;

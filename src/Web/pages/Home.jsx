@@ -6,8 +6,11 @@ import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/module
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
+import { useLeague } from "../utils/LeagueContext";
 
 const Home = () => {
+    const {owner, league, setLeague, setLeagueOwner, setTeam } = useLeague();
+
     const navigate = useNavigate();
     const [username, setUsername] = React.useState();
     const [password, setPassword] = React.useState();
@@ -91,7 +94,10 @@ const Home = () => {
       const data = await response.json();
       if (response.ok) {
          // alert(data.message);
-          navigate("/roster");
+        setLeague(data["activeLeague"]);
+        setLeagueOwner(data["leagueOwner"]);
+        setTeam(data["activeTeam"]);
+        navigate("/roster");
 
       } else {
           alert("Join failed: " + data.message);
