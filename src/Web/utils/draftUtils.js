@@ -7,7 +7,8 @@ var players = {
   "QB" : [],
   "WR" : [],
   "RB" : [],
-  "TE" : []
+  "TE" : [],
+  "PK" : []
 };
 export var playerNames = new Map();
 export var nameSet = new Set();
@@ -150,7 +151,7 @@ export function determineSlot(pos, posCount){
         posCount["te"]++;
     }
   }
-  else if(pos == "K"){
+  else if(pos == "PK"){
     if(posCount["k"] > 0){
       slot = "BN"+posCount["bn"]++;
     }

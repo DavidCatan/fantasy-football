@@ -17,7 +17,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
-const MAX_SLOTS = 13;
+const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
 const DRAFT_TIME = 0 * 1000; 
 

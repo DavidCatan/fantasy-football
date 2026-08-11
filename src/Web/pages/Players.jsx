@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
-const MAX_SLOTS = 13;
+const MAX_SLOTS = 14;
 
 const Players = () => {
 

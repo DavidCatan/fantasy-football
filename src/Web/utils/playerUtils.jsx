@@ -87,7 +87,7 @@ export function RosterSlots({lineup, button, points, openModal}) {
         let pos = slot.slice(0,2);
         let num = slot.slice(2);
         if(pos == "BN" && num > 6){
-            roster.push({ id: "BN"+num,  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
+            roster.push({ id: "BN"+num,  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] })
         }
     });
     return(

@@ -9,13 +9,13 @@ export const ROSTER_TEMPLATE = [
     { id: "WR2",  label: "WR",   eligiblePositions: ["WR"] },
     { id: "TE",   label: "TE",   eligiblePositions: ["TE"] },
     { id: "FLEX", label: "FLEX", eligiblePositions: ["RB", "WR", "TE"] },
-    //{ id: "K",    label: "K",    eligiblePositions: ["K"] },
-    { id: "BN1",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN2",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] },
-    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }//,
+    { id: "PK",    label: "K",    eligiblePositions: ["PK"] },
+    { id: "BN1",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
+    { id: "BN2",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
+    { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
+    { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
+    { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
+    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] }//,
     //{ id: "BN7",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
 
 ];
