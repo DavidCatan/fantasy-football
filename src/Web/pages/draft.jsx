@@ -162,7 +162,7 @@ const Draft = () => {
             <div className="mb-6">
 
                 <ButtonGroup variant="outlined" disableElevation>
-                    {["all", "QB", "RB", "WR", "TE"].map((p) => (
+                    {["all", "QB", "RB", "WR", "TE", "PK"].map((p) => (
                         <Button key={p} onClick={() => setPosition(p)} className="capitalize">
                             {p}
                         </Button>

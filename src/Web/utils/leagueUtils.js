@@ -217,11 +217,15 @@ export function calculateWeeklyPoints(week, playerName){
     const PASS_TD_MULTIPLIER = 4;
     const TD_MULITIPLER = 6;
     const TURNOVER_MULTIPLIER = -2;
+    const MADE_FG_MULTIPLIER = 1;
+    const MISSED_FG_MULTIPLIER = -1;
+    const MADE_XP_MULTIPLIER = 1;
+    const MISSED_XP_MULTIPLIER = -1;
 
     const statCategories = [
         "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
         "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
-        "kickReturnTouchdowns", "puntReturnTouchdowns"
+        "kickReturnTouchdowns", "puntReturnTouchdowns", "madeFG", "missedFG", "madeXP", "missedXP"
     ];
 
     const pointDistr = {
@@ -235,14 +239,26 @@ export function calculateWeeklyPoints(week, playerName){
         "receivingTouchdowns" : TD_MULITIPLER,
         "fumbles" :  TURNOVER_MULTIPLIER,
         "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
-        "puntReturnTouchdowns" : TURNOVER_MULTIPLIER
+        "puntReturnTouchdowns" : TURNOVER_MULTIPLIER,
+        "madeFG" : MADE_FG_MULTIPLIER,
+        "missedFG" : MISSED_FG_MULTIPLIER,
+        "madeXP" : MADE_XP_MULTIPLIER,
+        "missedXP" : MISSED_XP_MULTIPLIER
     };
 
     if(playerStats["week"][week].hasOwnProperty(playerName)){
         for (const stat in pointDistr){
-            if(playerStats["week"][week][playerName].hasOwnProperty(stat)){
-                totalPoints += playerStats["week"][week][playerName][stat] * pointDistr[stat];
-            }
+            if (playerStats["week"][week][playerName].hasOwnProperty(stat)){
+
+                if (stat == "madeFG"){ // calculate points from array
+                    playerStats["week"][week][playerName][stat].forEach((fg) => {
+                        totalPoints += Math.floor(fg / 10) * pointDistr[stat];
+                    });
+                }
+                else{
+                    totalPoints += playerStats["week"][week][playerName][stat] * pointDistr[stat];
+                }
+            }          
         }
     }
   

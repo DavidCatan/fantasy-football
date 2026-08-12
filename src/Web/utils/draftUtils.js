@@ -60,11 +60,15 @@ export function calculatePoints(player){
   const PASS_TD_MULTIPLIER = 4;
   const TD_MULITIPLER = 6;
   const TURNOVER_MULTIPLIER = -2;
+  const MADE_FG_MULTIPLIER = 1;
+  const MISSED_FG_MULTIPLIER = -1;
+  const MADE_XP_MULTIPLIER = 1;
+  const MISSED_XP_MULTIPLIER = -1;
 
   const statCategories = [
     "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
     "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
-    "kickReturnTouchdowns", "puntReturnTouchdowns"
+    "kickReturnTouchdowns", "puntReturnTouchdowns", "madeFG", "missedFG", "madeXP", "missedXP"
   ];
 
   const pointDistr = {
@@ -78,14 +82,26 @@ export function calculatePoints(player){
     "receivingTouchdowns" : TD_MULITIPLER,
     "fumbles" :  TURNOVER_MULTIPLIER,
     "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
-    "puntReturnTouchdowns" : TURNOVER_MULTIPLIER
+    "puntReturnTouchdowns" : TURNOVER_MULTIPLIER,
+    "madeFG" : MADE_FG_MULTIPLIER,
+    "missedFG" : MISSED_FG_MULTIPLIER,
+    "madeXP" : MADE_XP_MULTIPLIER,
+    "missedXP" : MISSED_XP_MULTIPLIER
   };
 
   for(let i = 0; i < 18; i++){
     if(playerStats["week"][i+1].hasOwnProperty(player)){
       for (const stat in pointDistr){
-        if(playerStats["week"][i+1][player].hasOwnProperty(stat)){
-          totalPoints[i] += playerStats["week"][i+1][player][stat] * pointDistr[stat];
+        if (playerStats["week"][i+1][player].hasOwnProperty(stat)){
+
+          if (stat == "madeFG"){ // calculate points from array
+            playerStats["week"][i+1][player][stat].forEach((fg) => {
+                totalPoints[i] += Math.floor(fg / 10) * pointDistr[stat];
+            });
+          }
+          else{
+            totalPoints[i] += playerStats["week"][i+1][player][stat] * pointDistr[stat];
+          }
           //console.log(playerStats["week"][i][player][stat]);
         }
       }

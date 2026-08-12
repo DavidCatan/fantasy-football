@@ -21,6 +21,14 @@ const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
 const DRAFT_TIME = 0 * 1000; 
 
+const AUTO_DRAFT_LIMITS = {
+    "QB" : 3,
+    "RB" : 5,
+    "WR" : 5,
+    "TE" : 2,
+    "PK" : 2
+}
+
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
@@ -43,14 +51,14 @@ var draftTimers = new Map();
 */
 
 // for TESTING!!!!!
-const leagueId = 'ViMCUo';
+const leagueId = '5itD1h';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
 /*for(let i = 2; i < 11; i++){
-  //  db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
+    //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
        
@@ -1224,33 +1232,31 @@ function autoDraft(leagueId, teamId){
             return;
         }
 
-        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
+        let openPositions = {
+            "QB" : AUTO_DRAFT_LIMITS["QB"],
+            "RB" : AUTO_DRAFT_LIMITS["RB"],
+            "WR" : AUTO_DRAFT_LIMITS["WR"],
+            "TE" : AUTO_DRAFT_LIMITS["TE"],
+            "PK" : AUTO_DRAFT_LIMITS["PK"]
+        }
 
-        // determine open starting position if any
-        /*var pos;
-        if(slotAllocation["open_slots"].find((slot) => slot["label"] == "RB")){
-            pos = "RB";
-        }
-        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "WR")){
-            pos = "WR";
-        }
-        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "QB")){
-            pos = "QB";
-        }
-        else if(slotAllocation["open_slots"].find((slot) => slot["label"] == "TE")){
-            pos = "TE";
-        }*/
+        rosteredPlayers.forEach((player) => {
+            openPositions[player["player_pos"]]--;
+        });
 
+        let availablePositions = new Array();
+        Object.entries(openPositions).forEach(([pos, value]) => {
+            if (value > 0){
+                availablePositions.push(pos);
+            }
+        });
+
+        const bestPlayer = db.prepare(`SELECT * FROM players WHERE league_id=? AND drafted=?` 
+           + ` AND player_pos IN ( ${availablePositions.map(() => "?").join(",")} ) ORDER BY adp = 0, adp ASC LIMIT 1`)
+                            .get(leagueId, 0, ...availablePositions);
         
-
-       /* const bestPlayer = !pos ? db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY projected_points DESC LIMIT 1')
-                            .get(leagueId, 0)
-                        : db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? AND player_pos=? ORDER BY projected_points DESC LIMIT 1')
-                            .get(leagueId, 0, pos);*/
-
         // determine the slot to autodraft to
-        const bestPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND drafted=? ORDER BY adp = 0, adp ASC LIMIT 1')
-                            .get(leagueId, 0)
+        let slotAllocation = {"open_slots" : getEmptySlots(teamId), "overflow_slot" : 7};
         var slot;
         let openIndex = slotAllocation["open_slots"].findIndex((slot) => 
             slot["eligiblePositions"].includes(bestPlayer["player_pos"]));
@@ -1304,7 +1310,7 @@ async function startDraftTimer(leagueId, teamId){
 }
 
 function checkDraftStatus(draftOrder, teamId, rosteredPlayers, leagueId){
-    if(draftOrder[draftOrder.length / 2]["id"] == teamId && rosteredPlayers.length+1 >= MAX_SLOTS){
+    if(draftOrder[draftOrder.length-1]["id"] == teamId && rosteredPlayers.length+1 >= MAX_SLOTS){
         db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('COMPLETE', leagueId);
         broadcastUpdate('UPDATE_DRAFT_STATUS', 'COMPLETE', leagueId);
         return true;
