@@ -87,7 +87,7 @@ export function RosterSlots({lineup, button, points, openModal}) {
         let pos = slot.slice(0,2);
         let num = slot.slice(2);
         if(pos == "BN" && num > 6){
-            roster.push({ id: "BN"+num,  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] })
+            roster.push({ id: "BN"+num,  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] })
         }
     });
     return(
@@ -106,6 +106,7 @@ export function RosterSlots({lineup, button, points, openModal}) {
                                 : slot["label"] == "WR" ? 'bg-green-900'// mr-6'
                                 : slot["label"] == "TE" ? 'bg-purple-900'// mr-8'
                                 : slot["label"] == "FLEX" ? 'bg-pink-900'// mr-4'
+                                : slot["label"] == "K" ? "bg-cyan-700"
                                 : 'bg-gray-700'
                             }`
                         }>

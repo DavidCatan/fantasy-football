@@ -5,7 +5,7 @@ import json
 SEASON = 2026
 
 def get_rosters():
-    positions = ["QB", "WR", "RB", "TE", "K"]
+    positions = ["QB", "WR", "RB", "TE", "PK"]
     all_players = {}
     for id in range(1,35):
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{id}/roster"

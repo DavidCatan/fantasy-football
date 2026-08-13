@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
-const MAX_SLOTS = 13;
+const MAX_SLOTS = 14;
 
 const Players = () => {
 
@@ -54,7 +54,7 @@ const Players = () => {
                 <h1 className="text-3xl font-bold mb-4 text-slate-800 text-center">Players</h1>
                 <div className="mb-6">
                     <ButtonGroup variant="outlined" disableElevation>
-                        {["all", "QB", "RB", "WR", "TE"].map((p) => (
+                        {["all", "QB", "RB", "WR", "TE", "PK"].map((p) => (
                             <Button key={p} onClick={() => setPosition(p)} className="capitalize">
                                 {p}
                             </Button>

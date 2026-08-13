@@ -14,7 +14,7 @@ import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const SEASON = "2025"; 
 
-const MAX_SLOTS = 13;
+const MAX_SLOTS = 14;
 let timerInterval = null;
 
 // TODO: disable ability to change roster lineup while drafting!!
@@ -162,7 +162,7 @@ const Draft = () => {
             <div className="mb-6">
 
                 <ButtonGroup variant="outlined" disableElevation>
-                    {["all", "QB", "RB", "WR", "TE"].map((p) => (
+                    {["all", "QB", "RB", "WR", "TE", "PK"].map((p) => (
                         <Button key={p} onClick={() => setPosition(p)} className="capitalize">
                             {p}
                         </Button>
