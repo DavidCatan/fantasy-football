@@ -23,6 +23,17 @@ export const ROSTER_TEMPLATE = [
 const API_HOST = "localhost";
 const API_PORT = 3001;
 
+export async function getLiveStats(){
+    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/stats/live-stats`, {credentials: 'include', cache: 'no-store'});
+    const data = await response.json();
+    if(response.ok){
+        //const ids = data["data"].map(item => item.player_id);
+        //return ids;
+        return data["data"];
+    }
+    return null;
+}
+
 export async function getRosteredPlayers(league_id){
     const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/rostered`, {credentials: 'include'});
     const data = await response.json();
@@ -207,7 +218,7 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // TODO: imp
 
 }
 
-export function calculateWeeklyPoints(week, playerName){
+export function calculateWeeklyPoints(week, playerName, playerStats){
     var totalPoints = 0;
 
     const PASSING_MULTIPLIER = 0.04;
@@ -245,7 +256,6 @@ export function calculateWeeklyPoints(week, playerName){
         "madeXP" : MADE_XP_MULTIPLIER,
         "missedXP" : MISSED_XP_MULTIPLIER
     };
-
     if(playerStats["week"][week].hasOwnProperty(playerName)){
         for (const stat in pointDistr){
             if (playerStats["week"][week][playerName].hasOwnProperty(stat)){

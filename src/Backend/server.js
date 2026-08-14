@@ -5,7 +5,7 @@ import { WebSocketServer } from 'ws';
 import http from 'http';
 import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
-import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, internalAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
@@ -19,7 +19,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 0 * 1000; 
+const DRAFT_TIME = 0 * 1000;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -29,10 +29,13 @@ const AUTO_DRAFT_LIMITS = {
     "PK" : 2
 }
 
+const processedPlays = new Set();
+
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
 var draftTimers = new Map();
+var liveStats;
 
 /*
     Leagues : {
@@ -926,6 +929,11 @@ app.get('/api/leagues/:league_id/rosters', sessionAuth, leagueAuth, (req, res) =
     }
 });
 
+// api endpoint fo fetch live stats
+app.get('/api/stats/live-stats', (req, res) => {
+    return res.status(200).json({ data: liveStats });
+});
+
 
 // /api Endpoint to draft a player
 app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
@@ -1166,6 +1174,12 @@ app.post('/api/register', async (req, res) => {
 
 });
 
+// api endpoint for live stats
+app.post('/api/internal/live-updates', internalAuth, (req, res) => {
+    liveStats = req.body;
+    return res.status(200);
+});
+
 function checkRosterLegality(team){
     const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
     return roster.length <= ROSTER_TEMPLATE.length;
@@ -1324,6 +1338,98 @@ function getEmptySlots(team){
     let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
     return openSlots;
 }
+
+/*async function fetchLiveData(gameIds) {
+    for (const gameId of gameIds){
+        try{
+            const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`);
+            const data = await response.json();
+
+            var drives; 
+            data.drives?.previous ? drives = data.drives.previous : drives = [];
+
+            for (const drive of drives){
+                for (const play of drive["plays"]) {
+                    if (processedPlays.has(play["id"])){
+                        continue;
+                    }
+                    processedPlays.add(play["id"]);
+                    calculateLivePoints(play);
+                }
+            }
+        }
+        catch(err){
+            console.log(err, gameId);
+        }
+    }
+}
+
+// fetch data during active games every 20 seconds
+setInterval(() => {
+    const liveGameIds = ['401873275']; 
+    if (liveGameIds.length > 0) {
+        fetchLiveData(liveGameIds);
+    }
+}, 20000);
+
+function calculateLivePoints(play){
+    switch(play["type"]["text"]){
+
+        case "Punt Return Touchdown" :
+        case "Kickoff Return Touchdown" :
+            // handle kick return
+            break;
+        
+        case "Field Goal Good" :
+        case "Extra Point Good" :
+            // handle kick good
+            break;
+        
+        case "Field Goal Blocked"  :
+        case "Field Goal Missed"   :
+        case "Extra Point Missed"  : 
+        case "Extra Point Blocked" :
+            // handle kick no good 
+            break;
+  
+        case "Pass Reception" :
+        case "Passing Touchdown" :
+        case "Pass Interception Return" :
+            // handle pass play
+            handlePassPlay(play);
+            break;
+        
+        case "Rush" :
+        case "Rushing Touchdown" :
+        case "Fumble Recovery (Opponent)" :
+            // handle rushing play
+            break;
+
+        case "Two-Point Pass" :
+        case "Two-Point Rush" :
+            // handle two point conversion
+            break;
+
+        // cases to ignore
+        case "Timeout"     :
+        case "Penalty"     :
+        case "End Period"  :
+        case "End of Half" :
+        case "End of Game" :
+        case "Coin Toss"   :
+            break;
+    }
+  
+}
+
+function handlePassPlay(play) {
+    console.log(play);
+    switch (play["type"]["text"]){
+        case "Pass Reception":
+            
+    }
+}*/
+
 
 function broadcastUpdate(type, data, league_id){
     wss.clients.forEach(client =>

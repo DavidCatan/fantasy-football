@@ -1,5 +1,6 @@
 import Modal from 'react-modal';
 import playerData from "../../../nfl_players.json";
+import playerStats from "../../Backend/nfl_stats.json";
 import { ROSTER_TEMPLATE } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
 import React from 'react';
@@ -8,7 +9,7 @@ import React from 'react';
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
 
     const data = React.useMemo(() => {
-        return player?.name ? calculatePoints(player.name) : [];
+        return player?.name ? calculatePoints(player.name, playerStats) : [];
     }, [player?.name]);
     
 
