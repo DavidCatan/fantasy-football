@@ -69,7 +69,7 @@ const Admin = () => {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({leagueId: 'ciJNFG', weekNum: 17}),
+            body: JSON.stringify({leagueId: '5itD1h', weekNum: 17}),
         });
 
         const data = await response.json();

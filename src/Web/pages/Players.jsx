@@ -411,6 +411,9 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
         console.log(data.dropData);
 
         if(data.dropData){
+             setRoster((prev) => prev.filter((p) => {
+                return p.player_id != Number(data.dropData);
+            }));
             setRosteredPlayers((prev) => prev.filter((id) => {
                 return id != Number(data.dropData);
             }));

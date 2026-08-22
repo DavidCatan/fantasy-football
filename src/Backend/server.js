@@ -1,5 +1,5 @@
 import express from 'express';
-import 'dotenv/config'
+import 'dotenv/config';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
@@ -10,6 +10,7 @@ import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
 import bcrypt from 'bcrypt';
+import { getLiveGames, processLiveRosters, getLiveStats } from './serverUtils.js';
 
 
 const app = express();
@@ -36,6 +37,8 @@ var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
 var draftTimers = new Map();
 var liveStats;
+var livePlayers = new Set();
+var liveGames = new Set();
 
 /*
     Leagues : {
@@ -116,6 +119,56 @@ matchups.forEach((matchup) => {
     db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
     .run(0,0, team2);
 })*/
+
+
+// run weekly?
+/*setInterval(async () => {
+    processLiveGames();
+   
+}, 10000);*/
+
+
+
+processLiveGames(processLiveStats);
+
+
+
+async function processLiveStats(liveGames) {
+    liveStats = await getLiveStats(liveGames);
+}
+
+async function processLiveGames(processLiveStats) {
+    try{
+        const games = await getLiveGames(); 
+        for (const game of games) {
+            let gameTime = new Date(game['date']).getTime();
+            let curTime = Date.now();
+            let timeDiff = gameTime - curTime;
+
+            if (timeDiff <= 0 ){
+                liveGames.add(game['id']);
+                processLiveRosters(game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                processLiveRosters(game['competitions'][0]['competitors'][1]['id'], livePlayers);
+            }
+            else{
+                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][1]['id'], livePlayers);
+                setTimeout(() => {
+                    liveGames.add(game['id']);
+                }, timeDiff);
+            }
+        };
+        processLiveStats(liveGames);
+
+        // run every minute?
+        setInterval(async () => {
+            processLiveStats(liveGames);
+        }, 60000);
+    }
+    catch(err){
+        console.log(err);
+    }
+}
 
 // api endpoint to process the end of the season
 app.post('/api/admin/process-season-end', adminAuth, (req, res) => {
@@ -692,6 +745,14 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     }
     try{
         req.session.legalRoster = checkRosterLegality(teamId);
+        
+        let livePlayer1 = player1 ? checkLivePlayer(player1.id) : false;
+        let livePlayer2 = player2 ? checkLivePlayer(player2.id) : false;
+
+        if(livePlayer1 || livePlayer2){
+            return res.status(400).json({message : "Player is locked for the week!"})
+        }
+        
 
         if(!player1){ // fill button clicked on empty position
             if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
@@ -1032,6 +1093,11 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
             if(playerIsRostered["drafted"]){
                 throw new Error("Player has been taken! You got sniped!");
             }
+
+            // check if player is in live game
+            if(checkLivePlayer(playerId) || checkLivePlayer(droppedPlayerId)){
+                throw new Error("Player is locked for the week!");
+            }
             
             // drop player if needed
             if(droppedPlayerId){
@@ -1078,6 +1144,9 @@ app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
     }
 
     try{
+        if(checkLivePlayer(playerId)){
+            return res.status(400).json({message : 'Player is locked for the week!'});
+        }
         const deleted = db.prepare('DELETE FROM roster_slots WHERE league_id=? AND team_id=? AND player_id=?')
         .run(leagueId, teamId, playerId);
         if(deleted["changes"] === 0){
@@ -1175,10 +1244,10 @@ app.post('/api/register', async (req, res) => {
 });
 
 // api endpoint for live stats
-app.post('/api/internal/live-updates', internalAuth, (req, res) => {
+/*app.post('/api/internal/live-updates', internalAuth, (req, res) => {
     liveStats = req.body;
     return res.status(200);
-});
+});*/
 
 function checkRosterLegality(team){
     const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
@@ -1429,6 +1498,10 @@ function handlePassPlay(play) {
             
     }
 }*/
+
+function checkLivePlayer(player){
+    return livePlayers.has(Number(player));
+}
 
 
 function broadcastUpdate(type, data, league_id){

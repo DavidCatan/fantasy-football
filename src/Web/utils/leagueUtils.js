@@ -147,7 +147,7 @@ export async function dropPlayer(team, league_id, player){
     if(response.ok){
         return {success: true, message: "successfully dropped player"};
     }
-    return {success: false, message: "error, could not drop player"};
+    return {success: false, message: data['message'] || "error, could not drop player" };
 }
 
 
@@ -218,8 +218,12 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // TODO: imp
 
 }
 
-export function calculateWeeklyPoints(week, playerName, playerStats){
+export function calculateWeeklyPoints(week, playerName, newStats){
     var totalPoints = 0;
+
+    if (!newStats){
+        newStats = playerStats;
+    }
 
     const PASSING_MULTIPLIER = 0.04;
     const RUSHING_MULTIPLIER = 0.1;
@@ -256,17 +260,17 @@ export function calculateWeeklyPoints(week, playerName, playerStats){
         "madeXP" : MADE_XP_MULTIPLIER,
         "missedXP" : MISSED_XP_MULTIPLIER
     };
-    if(playerStats["week"][week].hasOwnProperty(playerName)){
+    if(newStats["week"][week].hasOwnProperty(playerName)){
         for (const stat in pointDistr){
-            if (playerStats["week"][week][playerName].hasOwnProperty(stat)){
+            if (newStats["week"][week][playerName].hasOwnProperty(stat)){
 
                 if (stat == "madeFG"){ // calculate points from array
-                    playerStats["week"][week][playerName][stat].forEach((fg) => {
+                    newStats["week"][week][playerName][stat].forEach((fg) => {
                         totalPoints += Math.floor(fg / 10) * pointDistr[stat];
                     });
                 }
                 else{
-                    totalPoints += playerStats["week"][week][playerName][stat] * pointDistr[stat];
+                    totalPoints += newStats["week"][week][playerName][stat] * pointDistr[stat];
                 }
             }          
         }

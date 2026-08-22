@@ -74,9 +74,9 @@ const Roster = () => {
 }
 
 function Lineup({ trades, teams }){
- 
+    
     const { showAlert, team, userTeam, lineup, setRoster, isLegal } = useLeague();
-
+    console.log(lineup);
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);

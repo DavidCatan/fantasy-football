@@ -15,7 +15,7 @@ import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
-const WEEK_NUM = 2;
+const WEEK_NUM = 3;
 
 const Matchup = () => {
 
@@ -36,7 +36,7 @@ const Matchup = () => {
 
     setInterval(() => {
        fetchStats();
-    }, 200000);
+    }, 100000);
     
     React.useEffect(() => {
         if(!owner || !league || !userTeam){
@@ -51,6 +51,7 @@ const Matchup = () => {
                 
                 let allTeams = await getTeams(league);    
                 let stats = await getLiveStats();
+                console.log(stats);
                 if(stats){
                     setLivePlayerStats(stats);
                 }
