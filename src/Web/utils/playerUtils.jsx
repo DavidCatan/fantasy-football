@@ -1,16 +1,19 @@
 import Modal from 'react-modal';
 import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json";
+import stats2026 from "../../Backend/2026_stats.json";
 import { ROSTER_TEMPLATE } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
+import { Button, ButtonGroup } from "@mui/material";
 import React from 'react';
 
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
-
+    const [year, setYear] = React.useState("2025");
     const data = React.useMemo(() => {
-        return player?.name ? calculatePoints(player.name, playerStats) : [];
-    }, [player?.name]);
+        let stats = year == "2025" ? playerStats : stats2026;
+        return player?.name ? calculatePoints(player.name, stats) : [];
+    }, [player?.name, year]);
     
 
     const wideimage = React.useMemo(() => {
@@ -58,6 +61,14 @@ const modalStyles =  React.useMemo(() => {
                 </div>
 
                 {button ? button : undefined}
+
+                <ButtonGroup variant="outlined" disableElevation sx={{ display: 'flex', width: 'fit-content', mx: 'auto' }}>
+                    {["2025", "2026"].map((y) => (
+                        <Button key={y} onClick={() => setYear(y)} className="capitalize">
+                            {y}
+                        </Button>
+                    ))}
+                </ButtonGroup>
 
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
                     <table className="w-full text-sm text-center border-collapse">

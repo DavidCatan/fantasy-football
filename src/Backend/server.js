@@ -57,7 +57,7 @@ var liveGames = new Set();
 */
 
 // for TESTING!!!!!
-const leagueId = '5itD1h';
+const leagueId = 'vRkjLl';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
@@ -460,6 +460,67 @@ app.post('/api/admin/process-trades', (req, res) => {
         return res.status(400).json({message: "Failure to process trades"});
     }
 
+});
+
+// api endpoint to process waivers
+app.post('/api/admin/process-waivers', adminAuth, (req, res) => {
+    try{
+        const waivers = db.prepare('SELECT * FROM waivers').all();
+        const deleteWaiver = db.prepare('DELETE FROM waivers WHERE id=?');
+        const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)');
+        const deleteFromRoster = db.prepare('DELETE FROM roster_slots WHERE team_id=? AND player_id=?');
+        const updatePlayerAvailablity = db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?');
+        const getPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND player_id=?'); 
+        const getTeam = db.prepare('SELECT * FROM roster_slots WHERE team_id=?');
+
+        waivers.forEach((waiver) => {
+
+            // check if player is available
+            let player = getPlayer.get(waiver['league_id'], waiver['player_id']);
+            if (player['drafted'] == 1){
+                deleteWaiver.run(waiver['id']);
+                return;
+            }
+
+             // drop player if needed
+            if(waiver['dropped_player_id']){
+                deleteFromRoster.run(waiver['team_id'], waiver['dropped_player_id']);
+                updatePlayerAvailablity.run(0, waiver['league_id'], waiver['dropped_player_id']);
+            }
+
+            // check if roster has empty slot
+            const rosteredPlayers = getTeam.all(waiver['team_id']);
+            if(rosteredPlayers.length >= MAX_SLOTS){
+                deleteWaiver.run(waiver['id']);
+                return;
+            }
+
+            // check for available slot
+            let openSlots = getEmptySlots(waiver['team_id']);
+            var slot;
+            let openIndex = openSlots.findIndex((slot) => slot['eligiblePositions'].includes(player['player_pos']));
+            if(openIndex > -1){
+                slot = openSlots.splice(openIndex, 1)[0]["id"];
+            }
+            else{
+                deleteWaiver.run(waiver['id']);
+                return;
+            }
+
+            // add player and update status
+            addToRoster.run(waiver['team_id'], waiver['league_id'], player['player_id'], player['player_name'], player['player_pos'], slot);
+            updatePlayerAvailablity.run(1, waiver['league_id'], player['player_id']);
+
+            deleteWaiver.run(waiver['id']);
+        });
+        return res.status(200).json({message: "Successfully Processed waivers!"});  
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to process trades"});
+    }
 });
 
 // api endpoint to check admin session
@@ -1082,6 +1143,24 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
     }
 
     try{
+        // submit waiver claim if player is live
+        if(checkLivePlayer(playerId)){
+            const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
+            if(draftStatus["draft_status"] != 'COMPLETE'){
+                throw new Error("Complete the draft first!");
+            }
+
+            const playerIsRostered = db.prepare('SELECT drafted FROM players WHERE league_id=? AND player_id=?').get(leagueId, playerId);
+            if(playerIsRostered["drafted"]){
+                throw new Error("Player has been taken! You got sniped!");
+            }
+
+            db.prepare('INSERT INTO waivers (league_id, team_id, player_id, dropped_player_id) VALUES (?,?,?,?)')
+            .run(leagueId, teamId, playerId, droppedPlayerId);
+
+            return res.status(200).json({message: "Waiver claim sent!", waiver: true});
+        }
+
         const addPlayer = db.transaction((teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId) => {
             const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
             if(draftStatus["draft_status"] != 'COMPLETE'){

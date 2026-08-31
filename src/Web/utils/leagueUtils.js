@@ -260,7 +260,7 @@ export function calculateWeeklyPoints(week, playerName, newStats){
         "madeXP" : MADE_XP_MULTIPLIER,
         "missedXP" : MISSED_XP_MULTIPLIER
     };
-    if(newStats["week"][week].hasOwnProperty(playerName)){
+    if(newStats["week"][week]?.hasOwnProperty(playerName)){
         for (const stat in pointDistr){
             if (newStats["week"][week][playerName].hasOwnProperty(stat)){
 
@@ -275,7 +275,7 @@ export function calculateWeeklyPoints(week, playerName, newStats){
             }          
         }
     }
-  
+  totalPoints = Math.round((totalPoints + Number.EPSILON) * 100) / 100;
   return totalPoints;
 }
 

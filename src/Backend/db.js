@@ -60,6 +60,18 @@ db.exec(`
         FOREIGN KEY (away_team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS waivers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id INTEGER NOT NULL,
+        team_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        dropped_player_id INTEGER NOT NULL,
+        status VARCHAR(10) NOT NULL DEFAULT 'pending',
+
+        FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS trades (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         league_id INTEGER NOT NULL,

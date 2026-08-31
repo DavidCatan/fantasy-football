@@ -66,7 +66,7 @@ const Matchup = () => {
                                 points += calculateWeeklyPoints(WEEK_NUM, player["player_name"], stats);
                             }
                         });
-                        points = Math.round((points + Number.EPSILON) * 100) / 100;
+                    
                         tp.set(Number(team), points);
                         l.set(Number(team), slots);
                     });

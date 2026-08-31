@@ -88,9 +88,8 @@ export function calculatePoints(player, playerStats){
     "madeXP" : MADE_XP_MULTIPLIER,
     "missedXP" : MISSED_XP_MULTIPLIER
   };
-
   for(let i = 0; i < 18; i++){
-    if(playerStats["week"][i+1].hasOwnProperty(player)){
+    if(playerStats["week"][i+1]?.hasOwnProperty(player)){
       for (const stat in pointDistr){
         if (playerStats["week"][i+1][player].hasOwnProperty(stat)){
 
