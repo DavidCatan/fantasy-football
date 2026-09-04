@@ -10,7 +10,7 @@ import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
 import bcrypt from 'bcrypt';
-import { getLiveGames, processLiveRosters, getLiveStats } from './serverUtils.js';
+import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder } from './serverUtils.js';
 
 
 const app = express();
@@ -57,13 +57,13 @@ var liveGames = new Set();
 */
 
 // for TESTING!!!!!
-const leagueId = 'vRkjLl';
+const leagueId = 'XDFFqg';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
-/*for(let i = 2; i < 11; i++){
+for(let i = 2; i < 11; i++){
     //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
@@ -72,7 +72,7 @@ const leagueId = 'vRkjLl';
 var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
 if(teams.length >= MAX_TEAMS){
     setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
-}*/
+}
 
 db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
 db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
@@ -123,7 +123,7 @@ matchups.forEach((matchup) => {
 
 // run weekly?
 /*setInterval(async () => {
-    processLiveGames();
+    processLiveGames(processLiveStats);
    
 }, 10000);*/
 
@@ -298,9 +298,6 @@ app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
         console.log(err);
         return res.status(400).json({message: "failed to set playoff matchtups"});
     }
-    function standingsOrder(team1, team2) {
-        return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
-    }
 });
 
 // api endpoint to update weekly standings
@@ -463,9 +460,11 @@ app.post('/api/admin/process-trades', (req, res) => {
 });
 
 // api endpoint to process waivers
-app.post('/api/admin/process-waivers', adminAuth, (req, res) => {
+app.post('/api/admin/process-waivers', adminAuth, async (req, res) => {
     try{
-        const waivers = db.prepare('SELECT * FROM waivers').all();
+        const leagues = db.prepare('SELECT league_id FROM leagues').all();
+        const getWaivers = db.prepare('SELECT * FROM waivers WHERE league_id=?');
+        const getStandings = db.prepare('SELECT * FROM teams WHERE league_id=?')
         const deleteWaiver = db.prepare('DELETE FROM waivers WHERE id=?');
         const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
                 + 'VALUES (?, ?, ?, ?, ?, ?)');
@@ -473,47 +472,63 @@ app.post('/api/admin/process-waivers', adminAuth, (req, res) => {
         const updatePlayerAvailablity = db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?');
         const getPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND player_id=?'); 
         const getTeam = db.prepare('SELECT * FROM roster_slots WHERE team_id=?');
+            
+        leagues.forEach((league) => {
+            let waivers = getWaivers.all(league['league_id']);
+            let waiverOrder = getStandings.all(league['league_id']).sort(standingsOrder).reverse();
 
-        waivers.forEach((waiver) => {
+            while (waivers.length > 0){
+                // check first team in waiver priority for active waiver claim
+                for (const waiver of waivers){
+                    if(waiverOrder[0]['id'] == waiver['team_id']){
+                        // check if player is available
+                        let player = getPlayer.get(waiver['league_id'], waiver['player_id']);
+                        if (player['drafted'] == 1){
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // drop player if needed
+                        if(waiver['dropped_player_id']){
+                            deleteFromRoster.run(waiver['team_id'], waiver['dropped_player_id']);
+                            updatePlayerAvailablity.run(0, waiver['league_id'], waiver['dropped_player_id']);
+                        }
 
-            // check if player is available
-            let player = getPlayer.get(waiver['league_id'], waiver['player_id']);
-            if (player['drafted'] == 1){
-                deleteWaiver.run(waiver['id']);
-                return;
+                        // check if roster has empty slot
+                        const rosteredPlayers = getTeam.all(waiver['team_id']);
+                        if(rosteredPlayers.length >= MAX_SLOTS){
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // check for available slot
+                        let openSlots = getEmptySlots(waiver['team_id']);
+                        var slot;
+                        let openIndex = openSlots.findIndex((slot) => slot['eligiblePositions'].includes(player['player_pos']));
+                        if(openIndex > -1){
+                            slot = openSlots.splice(openIndex, 1)[0]["id"];
+                        }
+                        else{
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // add player and update status
+                        addToRoster.run(waiver['team_id'], waiver['league_id'], player['player_id'], player['player_name'], player['player_pos'], slot);
+                        updatePlayerAvailablity.run(1, waiver['league_id'], player['player_id']);
+
+                        deleteWaiver.run(waiver['id']);
+                        waiverOrder.push(waiverOrder.shift());
+                        waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                    }
+                }
+                waiverOrder.push(waiverOrder.shift());
             }
-
-             // drop player if needed
-            if(waiver['dropped_player_id']){
-                deleteFromRoster.run(waiver['team_id'], waiver['dropped_player_id']);
-                updatePlayerAvailablity.run(0, waiver['league_id'], waiver['dropped_player_id']);
-            }
-
-            // check if roster has empty slot
-            const rosteredPlayers = getTeam.all(waiver['team_id']);
-            if(rosteredPlayers.length >= MAX_SLOTS){
-                deleteWaiver.run(waiver['id']);
-                return;
-            }
-
-            // check for available slot
-            let openSlots = getEmptySlots(waiver['team_id']);
-            var slot;
-            let openIndex = openSlots.findIndex((slot) => slot['eligiblePositions'].includes(player['player_pos']));
-            if(openIndex > -1){
-                slot = openSlots.splice(openIndex, 1)[0]["id"];
-            }
-            else{
-                deleteWaiver.run(waiver['id']);
-                return;
-            }
-
-            // add player and update status
-            addToRoster.run(waiver['team_id'], waiver['league_id'], player['player_id'], player['player_name'], player['player_pos'], slot);
-            updatePlayerAvailablity.run(1, waiver['league_id'], player['player_id']);
-
-            deleteWaiver.run(waiver['id']);
         });
+        
         return res.status(200).json({message: "Successfully Processed waivers!"});  
 
     }

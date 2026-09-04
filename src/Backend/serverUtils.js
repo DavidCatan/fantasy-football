@@ -107,3 +107,7 @@ export async function processLiveRosters(teamId, livePlayers){
         });
     }
 }
+
+export function standingsOrder(team1, team2) {
+    return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
+}

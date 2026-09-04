@@ -143,7 +143,7 @@ const Admin = () => {
                 <h2 className="text-3xl font-bold mb-4 border-b border-gray-700 pb-2">Admin Dashboard</h2>
                   <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
-                    transition-all font-medium" onClick={() => handleWeek(17)}>
+                    transition-all font-medium" onClick={() => handleWeek(1)}>
                   Lock in Week
                   </button>
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 

@@ -65,7 +65,7 @@ db.exec(`
         league_id INTEGER NOT NULL,
         team_id INTEGER NOT NULL,
         player_id INTEGER NOT NULL,
-        dropped_player_id INTEGER NOT NULL,
+        dropped_player_id INTEGER DEFAULT NULL,
         status VARCHAR(10) NOT NULL DEFAULT 'pending',
 
         FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE,
