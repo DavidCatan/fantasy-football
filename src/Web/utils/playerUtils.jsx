@@ -2,18 +2,32 @@ import Modal from 'react-modal';
 import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json";
 import stats2026 from "../../Backend/2026_stats.json";
-import { ROSTER_TEMPLATE } from "./leagueUtils";
+import { ROSTER_TEMPLATE, getLiveStats } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
 import { Button, ButtonGroup } from "@mui/material";
 import React from 'react';
 
+const STATS = {"2025" : playerStats, "2026": getLiveStats()};
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
-    const [year, setYear] = React.useState("2025");
+    const [year, setYear] = React.useState("2026");
+    const [stats, setStats] = React.useState(STATS["2026"]);
+
+    // change displayed stats
     const data = React.useMemo(() => {
-        let stats = year == "2025" ? playerStats : stats2026;
         return player?.name ? calculatePoints(player.name, stats) : [];
-    }, [player?.name, year]);
+    }, [player?.name, stats]);
+
+    // fetch 2026 stats
+    React.useEffect(() => {
+        const fetchStats = async () => {
+            year == "2026" ? STATS[year] = await getLiveStats() : undefined;
+            setStats(STATS[year]);
+        };
+        fetchStats();
+        
+    }, [year]);
+
     
 
     const wideimage = React.useMemo(() => {

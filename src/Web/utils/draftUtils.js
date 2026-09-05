@@ -65,12 +65,6 @@ export function calculatePoints(player, playerStats){
   const MADE_XP_MULTIPLIER = 1;
   const MISSED_XP_MULTIPLIER = -1;
 
-  const statCategories = [
-    "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
-    "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
-    "kickReturnTouchdowns", "puntReturnTouchdowns", "madeFG", "missedFG", "madeXP", "missedXP"
-  ];
-
   const pointDistr = {
     "passingYards" : PASSING_MULTIPLIER,
     "passingTouchdowns" : PASS_TD_MULTIPLIER,
@@ -88,6 +82,7 @@ export function calculatePoints(player, playerStats){
     "madeXP" : MADE_XP_MULTIPLIER,
     "missedXP" : MISSED_XP_MULTIPLIER
   };
+
   for(let i = 0; i < 18; i++){
     if(playerStats["week"][i+1]?.hasOwnProperty(player)){
       for (const stat in pointDistr){
@@ -104,9 +99,12 @@ export function calculatePoints(player, playerStats){
           //console.log(playerStats["week"][i][player][stat]);
         }
       }
-      
+      totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;
     }
-    totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;
+    else{
+      totalPoints[i] = "-";
+    }
+  
   }
   
   return totalPoints;

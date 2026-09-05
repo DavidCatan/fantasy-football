@@ -1,14 +1,14 @@
 import playerData from '../../nfl_players.json'  with { type: 'json' };
 
 const SEASON = 2026;
-const SEASON_TYPE = 1;
-const WEEK_NUM = 3;
+const SEASON_TYPE = 2;
+//const WEEK_NUM = 3;
 const POSITIONS = ["QB", "WR", "RB", "TE", "PK"];
 
 
-export async function getLiveGames(){
+export async function getLiveGames(weekNum){
     
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${WEEK_NUM}&dates=${SEASON}&seasontype=${SEASON_TYPE}`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNum}&dates=${SEASON}&seasontype=${SEASON_TYPE}`);
     const data = await response.json();
     if(response.ok){
         return data['events'];
@@ -16,9 +16,9 @@ export async function getLiveGames(){
     return null;
 }
 
-export async function getLiveStats(liveGameIds) {
+export async function getLiveStats(weekNum, liveGameIds) {
     const liveData = {"week" : {}};
-    liveData['week'][WEEK_NUM] = {};
+    liveData['week'][weekNum] = {};
     for (const gameId of liveGameIds) {
         const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`);
         const box = await response.json();
@@ -80,11 +80,11 @@ export async function getLiveStats(liveGameIds) {
                             keys.map((key, index) => [key, statValues[index]])
                         );
                     }
-                    if (liveData['week'][WEEK_NUM].hasOwnProperty(playerName)){
-                        Object.assign(liveData["week"][WEEK_NUM][playerName], playerStats);
+                    if (liveData['week'][weekNum].hasOwnProperty(playerName)){
+                        Object.assign(liveData["week"][weekNum][playerName], playerStats);
                     }
                     else{
-                        liveData['week'][WEEK_NUM][playerName] = {...playerStats};
+                        liveData['week'][weekNum][playerName] = {...playerStats};
                     }
                 });
             });

@@ -11,6 +11,7 @@ import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
 import bcrypt from 'bcrypt';
 import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder } from './serverUtils.js';
+import cron from 'node-cron';
 
 
 const app = express();
@@ -30,31 +31,21 @@ const AUTO_DRAFT_LIMITS = {
     "PK" : 2
 }
 
-const processedPlays = new Set();
-
 var leagueDraftOrders = new Map();
 var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
 var draftTimers = new Map();
-var liveStats;
+
+// live weekly variables
+var weekNum = 0;
+var liveStats = {
+    "week": {
+        "1": {}
+    }
+};
 var livePlayers = new Set();
 var liveGames = new Set();
 
-/*
-    Leagues : {
-        1234 : {
-            week : {
-                1 : [ [1,2], [3,4] ]
-            }
-        },
-
-        5678 : {
-            week :{
-                1 : 
-            }
-        }
-    }
-*/
 
 // for TESTING!!!!!
 const leagueId = 'XDFFqg';
@@ -63,7 +54,7 @@ const leagueId = 'XDFFqg';
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
-for(let i = 2; i < 11; i++){
+/*for(let i = 2; i < 11; i++){
     //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
@@ -72,7 +63,7 @@ for(let i = 2; i < 11; i++){
 var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
 if(teams.length >= MAX_TEAMS){
     setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
-}
+}*/
 
 db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
 db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
@@ -102,44 +93,31 @@ app.use(session({
     on all: check input for unique identifier
     check if team id matches owner
 */
-/*const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(10);
-matchups.forEach((matchup) => {
-    let team1 = matchup["home_team_id"];
-    let team2 = matchup["away_team_id"];
 
-    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team1);
-
-    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team2);
-    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team2);
-
-    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team1);
-    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-    .run(0, 0, team1);
-    
-    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-    .run(0,0, team2);
-})*/
-
-
-// run weekly?
-/*setInterval(async () => {
-    processLiveGames(processLiveStats);
-   
-}, 10000);*/
+// reset weekly states/variables every tuesday at 3:00am
+cron.schedule('0 0 3 * * 2', async () => {
+    try{
+        weekNum++;
+        livePlayers.clear();
+        liveGames.clear();
+        processLiveGames(weekNum, processLiveStats);
+    }
+    catch(err){
+        console.log(err);
+    }
+});
 
 
 
-processLiveGames(processLiveStats);
 
 
-
-async function processLiveStats(liveGames) {
-    liveStats = await getLiveStats(liveGames);
+async function processLiveStats(weekNum, liveGames) {
+    liveStats = await getLiveStats(weekNum, liveGames);
 }
 
-async function processLiveGames(processLiveStats) {
+async function processLiveGames(weekNum, processLiveStats) {
     try{
-        const games = await getLiveGames(); 
+        const games = await getLiveGames(weekNum); 
         for (const game of games) {
             let gameTime = new Date(game['date']).getTime();
             let curTime = Date.now();
@@ -158,11 +136,11 @@ async function processLiveGames(processLiveStats) {
                 }, timeDiff);
             }
         };
-        processLiveStats(liveGames);
+        processLiveStats(weekNum, liveGames);
 
-        // run every minute?
+        // run every minute
         setInterval(async () => {
-            processLiveStats(liveGames);
+            processLiveStats(weekNum, liveGames);
         }, 60000);
     }
     catch(err){
@@ -562,7 +540,7 @@ app.get('/api/session', (req, res) => {
 // api endpoint to check league
 app.get('/api/league', (req, res) => {
     if(req.session.activeLeague){
-        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, activeTeam: req.session.activeTeam});
+        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, activeTeam: req.session.activeTeam, weekNum: weekNum});
     }
     return res.status(200).json({activeLeague: null, leagueOwner: null});
 });

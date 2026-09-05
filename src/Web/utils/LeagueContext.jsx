@@ -14,6 +14,7 @@ export function LeagueProvider({ children }){
     const [roster, setRoster] = React.useState([]);
     const [draftStatus, setDraftStatus] = React.useState(null);
     const [isLegal, setIsLegal] = React.useState(false);
+    const [weekNum, setWeekNum] = React.useState(1);
 
     const [state, setState] = React.useState({
         open: false,
@@ -51,11 +52,13 @@ export function LeagueProvider({ children }){
                         setLeague(data["activeLeague"]);
                         setLeagueOwner(data["leagueOwner"]);
                         setTeam(data["activeTeam"]);
+                        setWeekNum(data["weekNum"]);
                     }
                     else{
                         setLeague(null);
                         setLeagueOwner(null);
                         setTeam(null);
+                        setWeekNum(null);
                     }
             });
         }
@@ -121,7 +124,8 @@ export function LeagueProvider({ children }){
 
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
-        roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam
+        roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam,
+        weekNum
     }
 
     return(

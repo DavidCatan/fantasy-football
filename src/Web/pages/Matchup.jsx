@@ -15,11 +15,11 @@ import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
-const WEEK_NUM = 3;
-
 const Matchup = () => {
 
-    const { showAlert, league, owner, lineup, userTeam } = useLeague();
+    const { showAlert, league, owner, lineup, userTeam, weekNum } = useLeague();
+        console.log(weekNum);
+
     const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
     const [matchups, setMatchups] = React.useState([]);
@@ -63,7 +63,7 @@ const Matchup = () => {
                         players.forEach((player) => {
                             slots.set(player["player_slot"], player["player_name"]);
                             if(!player["player_slot"].includes("BN")){
-                                points += calculateWeeklyPoints(WEEK_NUM, player["player_name"], stats);
+                                points += calculateWeeklyPoints(weekNum, player["player_name"], stats);
                             }
                         });
                     
@@ -74,7 +74,7 @@ const Matchup = () => {
                 setTotalPoints(tp);
 
                 // swap matches so user matchup is first in array and first to display
-                let matches = await getMatchups(league, WEEK_NUM);
+                let matches = await getMatchups(league, weekNum);
                 matches = matches["data"];
                 let id = userTeam["id"];
                 console.log(matches);
@@ -136,7 +136,7 @@ const Matchup = () => {
 }
 
 function Lineup({team, lineup, totalPoints, oppPoints, playerStats}){
-    const { league, owner } = useLeague();
+    const { league, owner, weekNum } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -164,7 +164,7 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats}){
            
            {/* Show team's roster in the matchup list */}
            <RosterSlots lineup={lineup} openModal={openModal} 
-           points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculateWeeklyPoints(WEEK_NUM, playerInSlot.name, playerStats) : 0.0}</span>}/>
+           points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculateWeeklyPoints(weekNum, playerInSlot.name, playerStats) : 0.0}</span>}/>
             
             {/* Modal that opens after initial click on player */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
