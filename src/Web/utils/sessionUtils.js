@@ -92,6 +92,16 @@ export function leagueAuth(req, res, next){
     next();
 }
 
+export function internalAuth(req, res, next){
+    // authenticate internal api key
+    const apiKey = req.headers['key'];
+    if(!apiKey || apiKey != process.env.INTERNAL_API_KEY){
+        return res.status(403).json({message: "API key authentication required"});
+    }
+
+    next();
+}
+
 export function sanitize(input){
     return input.trim();
 }

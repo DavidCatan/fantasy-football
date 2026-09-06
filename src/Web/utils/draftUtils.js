@@ -21,7 +21,7 @@ for (const player in playerData) {
     players["positions"].push(playerData[player].position);
     players["headshots"].push(playerData[player].headshot);*/
     let newPlayer = playerData[player];
-    newPlayer["points"] = calculatePoints(playerData[player]["name"]).reduce((a, b) => a + b, 0);
+    newPlayer["points"] = calculatePoints(playerData[player]["name"], playerStats).reduce((a, b) => a + b, 0);
     players["all"].push(newPlayer);
     players[playerData[player]["position"]].push(newPlayer);
     playerNames.set(Number(newPlayer["id"]), newPlayer["name"]);
@@ -51,7 +51,7 @@ export async function fetchPlayerStats(season, playerId) {
   }
 }
 
-export function calculatePoints(player){
+export function calculatePoints(player, playerStats){
   var totalPoints = new Array(18).fill(0);
   const PASSING_MULTIPLIER = 0.04;
   const RUSHING_MULTIPLIER = 0.1;
@@ -64,12 +64,6 @@ export function calculatePoints(player){
   const MISSED_FG_MULTIPLIER = -1;
   const MADE_XP_MULTIPLIER = 1;
   const MISSED_XP_MULTIPLIER = -1;
-
-  const statCategories = [
-    "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
-    "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
-    "kickReturnTouchdowns", "puntReturnTouchdowns", "madeFG", "missedFG", "madeXP", "missedXP"
-  ];
 
   const pointDistr = {
     "passingYards" : PASSING_MULTIPLIER,
@@ -90,7 +84,7 @@ export function calculatePoints(player){
   };
 
   for(let i = 0; i < 18; i++){
-    if(playerStats["week"][i+1].hasOwnProperty(player)){
+    if(playerStats["week"][i+1]?.hasOwnProperty(player)){
       for (const stat in pointDistr){
         if (playerStats["week"][i+1][player].hasOwnProperty(stat)){
 
@@ -105,9 +99,12 @@ export function calculatePoints(player){
           //console.log(playerStats["week"][i][player][stat]);
         }
       }
-      
+      totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;
     }
-    totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;
+    else{
+      totalPoints[i] = "-";
+    }
+  
   }
   
   return totalPoints;

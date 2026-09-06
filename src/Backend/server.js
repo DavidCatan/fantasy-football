@@ -1,15 +1,17 @@
 import express from 'express';
-import 'dotenv/config'
+import 'dotenv/config';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
-import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, internalAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
 import bcrypt from 'bcrypt';
+import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder } from './serverUtils.js';
+import cron from 'node-cron';
 
 
 const app = express();
@@ -19,7 +21,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 0 * 1000; 
+const DRAFT_TIME = 0 * 1000;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -34,24 +36,19 @@ var leagueMatchups = new Map();
 leagueMatchups.set("leagues", new Map());
 var draftTimers = new Map();
 
-/*
-    Leagues : {
-        1234 : {
-            week : {
-                1 : [ [1,2], [3,4] ]
-            }
-        },
-
-        5678 : {
-            week :{
-                1 : 
-            }
-        }
+// live weekly variables
+var weekNum = 0;
+var liveStats = {
+    "week": {
+        "1": {}
     }
-*/
+};
+var livePlayers = new Set();
+var liveGames = new Set();
+
 
 // for TESTING!!!!!
-const leagueId = '5itD1h';
+const leagueId = 'XDFFqg';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
@@ -96,23 +93,60 @@ app.use(session({
     on all: check input for unique identifier
     check if team id matches owner
 */
-/*const matchups = db.prepare('SELECT * from matchups WHERE week=?').all(10);
-matchups.forEach((matchup) => {
-    let team1 = matchup["home_team_id"];
-    let team2 = matchup["away_team_id"];
 
-    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team1);
+// reset weekly states/variables every tuesday at 3:00am
+cron.schedule('0 0 3 * * 2', async () => {
+    try{
+        weekNum++;
+        livePlayers.clear();
+        liveGames.clear();
+        processLiveGames(weekNum, processLiveStats);
+    }
+    catch(err){
+        console.log(err);
+    }
+});
 
-    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team2);
-    db.prepare('UPDATE teams SET wins=? WHERE id=?').run(0, team2);
 
-    db.prepare('UPDATE teams SET losses=? WHERE id=?').run(0, team1);
-    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-    .run(0, 0, team1);
-    
-    db.prepare('UPDATE teams SET points_for=?, points_against=? WHERE id=?')
-    .run(0,0, team2);
-})*/
+
+
+
+async function processLiveStats(weekNum, liveGames) {
+    liveStats = await getLiveStats(weekNum, liveGames);
+}
+
+async function processLiveGames(weekNum, processLiveStats) {
+    try{
+        const games = await getLiveGames(weekNum); 
+        for (const game of games) {
+            let gameTime = new Date(game['date']).getTime();
+            let curTime = Date.now();
+            let timeDiff = gameTime - curTime;
+
+            if (timeDiff <= 0 ){
+                liveGames.add(game['id']);
+                processLiveRosters(game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                processLiveRosters(game['competitions'][0]['competitors'][1]['id'], livePlayers);
+            }
+            else{
+                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][1]['id'], livePlayers);
+                setTimeout(() => {
+                    liveGames.add(game['id']);
+                }, timeDiff);
+            }
+        };
+        processLiveStats(weekNum, liveGames);
+
+        // run every minute
+        setInterval(async () => {
+            processLiveStats(weekNum, liveGames);
+        }, 60000);
+    }
+    catch(err){
+        console.log(err);
+    }
+}
 
 // api endpoint to process the end of the season
 app.post('/api/admin/process-season-end', adminAuth, (req, res) => {
@@ -241,9 +275,6 @@ app.post('/api/admin/set-playoffs', adminAuth, (req, res) => {
     catch(err){
         console.log(err);
         return res.status(400).json({message: "failed to set playoff matchtups"});
-    }
-    function standingsOrder(team1, team2) {
-        return team1["wins"] < team2["wins"] ? 1 : team1["wins"] > team2["wins"] ? -1 : team1["points_for"] < team2["points_for"] ? 1 : -1;
     }
 });
 
@@ -406,6 +437,85 @@ app.post('/api/admin/process-trades', (req, res) => {
 
 });
 
+// api endpoint to process waivers
+app.post('/api/admin/process-waivers', adminAuth, async (req, res) => {
+    try{
+        const leagues = db.prepare('SELECT league_id FROM leagues').all();
+        const getWaivers = db.prepare('SELECT * FROM waivers WHERE league_id=?');
+        const getStandings = db.prepare('SELECT * FROM teams WHERE league_id=?')
+        const deleteWaiver = db.prepare('DELETE FROM waivers WHERE id=?');
+        const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
+                + 'VALUES (?, ?, ?, ?, ?, ?)');
+        const deleteFromRoster = db.prepare('DELETE FROM roster_slots WHERE team_id=? AND player_id=?');
+        const updatePlayerAvailablity = db.prepare('UPDATE players SET drafted=? WHERE league_id=? AND player_id=?');
+        const getPlayer = db.prepare('SELECT * FROM players WHERE league_id=? AND player_id=?'); 
+        const getTeam = db.prepare('SELECT * FROM roster_slots WHERE team_id=?');
+            
+        leagues.forEach((league) => {
+            let waivers = getWaivers.all(league['league_id']);
+            let waiverOrder = getStandings.all(league['league_id']).sort(standingsOrder).reverse();
+
+            while (waivers.length > 0){
+                // check first team in waiver priority for active waiver claim
+                for (const waiver of waivers){
+                    if(waiverOrder[0]['id'] == waiver['team_id']){
+                        // check if player is available
+                        let player = getPlayer.get(waiver['league_id'], waiver['player_id']);
+                        if (player['drafted'] == 1){
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // drop player if needed
+                        if(waiver['dropped_player_id']){
+                            deleteFromRoster.run(waiver['team_id'], waiver['dropped_player_id']);
+                            updatePlayerAvailablity.run(0, waiver['league_id'], waiver['dropped_player_id']);
+                        }
+
+                        // check if roster has empty slot
+                        const rosteredPlayers = getTeam.all(waiver['team_id']);
+                        if(rosteredPlayers.length >= MAX_SLOTS){
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // check for available slot
+                        let openSlots = getEmptySlots(waiver['team_id']);
+                        var slot;
+                        let openIndex = openSlots.findIndex((slot) => slot['eligiblePositions'].includes(player['player_pos']));
+                        if(openIndex > -1){
+                            slot = openSlots.splice(openIndex, 1)[0]["id"];
+                        }
+                        else{
+                            deleteWaiver.run(waiver['id']);
+                            waiverOrder.push(waiverOrder.shift());
+                            waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                            break;
+                        }
+                        // add player and update status
+                        addToRoster.run(waiver['team_id'], waiver['league_id'], player['player_id'], player['player_name'], player['player_pos'], slot);
+                        updatePlayerAvailablity.run(1, waiver['league_id'], player['player_id']);
+
+                        deleteWaiver.run(waiver['id']);
+                        waiverOrder.push(waiverOrder.shift());
+                        waivers = waivers.filter((w) => w['id'] != waiver['id'] );
+                    }
+                }
+                waiverOrder.push(waiverOrder.shift());
+            }
+        });
+        
+        return res.status(200).json({message: "Successfully Processed waivers!"});  
+
+    }
+    catch(err){
+        console.log(err);
+        return res.status(400).json({message: "Failure to process trades"});
+    }
+});
+
 // api endpoint to check admin session
 app.get('/api/admin/session', (req, res) => {
     if(req.session.logged&&req.session.admin){
@@ -430,7 +540,7 @@ app.get('/api/session', (req, res) => {
 // api endpoint to check league
 app.get('/api/league', (req, res) => {
     if(req.session.activeLeague){
-        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, activeTeam: req.session.activeTeam});
+        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, activeTeam: req.session.activeTeam, weekNum: weekNum});
     }
     return res.status(200).json({activeLeague: null, leagueOwner: null});
 });
@@ -689,6 +799,14 @@ app.post('/api/updateLineup', sessionAuth, leagueAuth, (req,res) => {
     }
     try{
         req.session.legalRoster = checkRosterLegality(teamId);
+        
+        let livePlayer1 = player1 ? checkLivePlayer(player1.id) : false;
+        let livePlayer2 = player2 ? checkLivePlayer(player2.id) : false;
+
+        if(livePlayer1 || livePlayer2){
+            return res.status(400).json({message : "Player is locked for the week!"})
+        }
+        
 
         if(!player1){ // fill button clicked on empty position
             if(!slot1.eligiblePositions.includes(player2.position) || !slot2.eligiblePositions.includes(player2.position)) {
@@ -926,6 +1044,11 @@ app.get('/api/leagues/:league_id/rosters', sessionAuth, leagueAuth, (req, res) =
     }
 });
 
+// api endpoint fo fetch live stats
+app.get('/api/stats/live-stats', (req, res) => {
+    return res.status(200).json({ data: liveStats });
+});
+
 
 // /api Endpoint to draft a player
 app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
@@ -1013,6 +1136,24 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
     }
 
     try{
+        // submit waiver claim if player is live
+        if(checkLivePlayer(playerId)){
+            const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
+            if(draftStatus["draft_status"] != 'COMPLETE'){
+                throw new Error("Complete the draft first!");
+            }
+
+            const playerIsRostered = db.prepare('SELECT drafted FROM players WHERE league_id=? AND player_id=?').get(leagueId, playerId);
+            if(playerIsRostered["drafted"]){
+                throw new Error("Player has been taken! You got sniped!");
+            }
+
+            db.prepare('INSERT INTO waivers (league_id, team_id, player_id, dropped_player_id) VALUES (?,?,?,?)')
+            .run(leagueId, teamId, playerId, droppedPlayerId);
+
+            return res.status(200).json({message: "Waiver claim sent!", waiver: true});
+        }
+
         const addPlayer = db.transaction((teamId, leagueId, playerId, playerName, playerPos, slot, droppedPlayerId) => {
             const draftStatus = db.prepare('SELECT draft_status FROM leagues WHERE league_id=?').get(leagueId);
             if(draftStatus["draft_status"] != 'COMPLETE'){
@@ -1023,6 +1164,11 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
             const playerIsRostered = db.prepare('SELECT drafted FROM players WHERE league_id=? AND player_id=?').get(leagueId, playerId);
             if(playerIsRostered["drafted"]){
                 throw new Error("Player has been taken! You got sniped!");
+            }
+
+            // check if player is in live game
+            if(checkLivePlayer(playerId) || checkLivePlayer(droppedPlayerId)){
+                throw new Error("Player is locked for the week!");
             }
             
             // drop player if needed
@@ -1070,6 +1216,9 @@ app.post('/api/drop', sessionAuth, leagueAuth, (req, res) => {
     }
 
     try{
+        if(checkLivePlayer(playerId)){
+            return res.status(400).json({message : 'Player is locked for the week!'});
+        }
         const deleted = db.prepare('DELETE FROM roster_slots WHERE league_id=? AND team_id=? AND player_id=?')
         .run(leagueId, teamId, playerId);
         if(deleted["changes"] === 0){
@@ -1165,6 +1314,12 @@ app.post('/api/register', async (req, res) => {
     }
 
 });
+
+// api endpoint for live stats
+/*app.post('/api/internal/live-updates', internalAuth, (req, res) => {
+    liveStats = req.body;
+    return res.status(200);
+});*/
 
 function checkRosterLegality(team){
     const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
@@ -1324,6 +1479,102 @@ function getEmptySlots(team){
     let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
     return openSlots;
 }
+
+/*async function fetchLiveData(gameIds) {
+    for (const gameId of gameIds){
+        try{
+            const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`);
+            const data = await response.json();
+
+            var drives; 
+            data.drives?.previous ? drives = data.drives.previous : drives = [];
+
+            for (const drive of drives){
+                for (const play of drive["plays"]) {
+                    if (processedPlays.has(play["id"])){
+                        continue;
+                    }
+                    processedPlays.add(play["id"]);
+                    calculateLivePoints(play);
+                }
+            }
+        }
+        catch(err){
+            console.log(err, gameId);
+        }
+    }
+}
+
+// fetch data during active games every 20 seconds
+setInterval(() => {
+    const liveGameIds = ['401873275']; 
+    if (liveGameIds.length > 0) {
+        fetchLiveData(liveGameIds);
+    }
+}, 20000);
+
+function calculateLivePoints(play){
+    switch(play["type"]["text"]){
+
+        case "Punt Return Touchdown" :
+        case "Kickoff Return Touchdown" :
+            // handle kick return
+            break;
+        
+        case "Field Goal Good" :
+        case "Extra Point Good" :
+            // handle kick good
+            break;
+        
+        case "Field Goal Blocked"  :
+        case "Field Goal Missed"   :
+        case "Extra Point Missed"  : 
+        case "Extra Point Blocked" :
+            // handle kick no good 
+            break;
+  
+        case "Pass Reception" :
+        case "Passing Touchdown" :
+        case "Pass Interception Return" :
+            // handle pass play
+            handlePassPlay(play);
+            break;
+        
+        case "Rush" :
+        case "Rushing Touchdown" :
+        case "Fumble Recovery (Opponent)" :
+            // handle rushing play
+            break;
+
+        case "Two-Point Pass" :
+        case "Two-Point Rush" :
+            // handle two point conversion
+            break;
+
+        // cases to ignore
+        case "Timeout"     :
+        case "Penalty"     :
+        case "End Period"  :
+        case "End of Half" :
+        case "End of Game" :
+        case "Coin Toss"   :
+            break;
+    }
+  
+}
+
+function handlePassPlay(play) {
+    console.log(play);
+    switch (play["type"]["text"]){
+        case "Pass Reception":
+            
+    }
+}*/
+
+function checkLivePlayer(player){
+    return livePlayers.has(Number(player));
+}
+
 
 function broadcastUpdate(type, data, league_id){
     wss.clients.forEach(client =>

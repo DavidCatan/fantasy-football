@@ -1,11 +1,12 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
+import playerStats from "../../Backend/nfl_stats.json";
 import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRosters, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups} from '../utils/leagueUtils';
+import {getTeam, getTeamRosters, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups, getLiveStats, calculateWeeklyPoints} from '../utils/leagueUtils';
 import {Swiper, SwiperSlide} from 'swiper/react';
 import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
 import 'swiper/css';
@@ -14,16 +15,28 @@ import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
-const WEEK_NUM = 12;
-
 const Matchup = () => {
 
-    const { showAlert, league, owner, lineup, userTeam } = useLeague();
+    const { showAlert, league, owner, lineup, userTeam, weekNum } = useLeague();
+        console.log(weekNum);
+
     const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
     const [matchups, setMatchups] = React.useState([]);
     const [teams, setTeams] = React.useState([]);
     const [totalPoints, setTotalPoints] = React.useState(new Map());
+    const [livePlayerStats, setLivePlayerStats] = React.useState({});
+
+    const fetchStats = async () => {
+        let stats = await getLiveStats();
+        if(stats){
+            setLivePlayerStats(stats);
+        }
+    }
+
+    setInterval(() => {
+       fetchStats();
+    }, 100000);
     
     React.useEffect(() => {
         if(!owner || !league || !userTeam){
@@ -37,18 +50,23 @@ const Matchup = () => {
                 let tp = new Map(); 
                 
                 let allTeams = await getTeams(league);    
+                let stats = await getLiveStats();
+                console.log(stats);
+                if(stats){
+                    setLivePlayerStats(stats);
+                }
 
-                if(r){
+                if(r && stats){
                     Object.entries(r).forEach(([team, players]) => {
                         let slots = new Map();
                         let points = 0.0;
                         players.forEach((player) => {
                             slots.set(player["player_slot"], player["player_name"]);
                             if(!player["player_slot"].includes("BN")){
-                                points += calculatePoints(player["player_name"])[WEEK_NUM-1];
+                                points += calculateWeeklyPoints(weekNum, player["player_name"], stats);
                             }
                         });
-                        points = Math.round((points + Number.EPSILON) * 100) / 100;
+                    
                         tp.set(Number(team), points);
                         l.set(Number(team), slots);
                     });
@@ -56,7 +74,7 @@ const Matchup = () => {
                 setTotalPoints(tp);
 
                 // swap matches so user matchup is first in array and first to display
-                let matches = await getMatchups(league, WEEK_NUM);
+                let matches = await getMatchups(league, weekNum);
                 matches = matches["data"];
                 let id = userTeam["id"];
                 console.log(matches);
@@ -68,7 +86,6 @@ const Matchup = () => {
                         break;
                     }
                 }       
-                
                 setLineups(l);
                 setMatchups(matches);
                 setTeams(allTeams);
@@ -103,8 +120,8 @@ const Matchup = () => {
                                 return(
                                     <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
                                         <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                                            <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} totalPoints={homePoints} oppPoints={awayPoints} />
-                                            <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)} totalPoints={awayPoints} oppPoints={homePoints} />
+                                            <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} totalPoints={homePoints} oppPoints={awayPoints} playerStats={livePlayerStats} />
+                                            <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)} totalPoints={awayPoints} oppPoints={homePoints} playerStats={livePlayerStats} />
                                         </div>
                                     </SwiperSlide>    
                                 );         
@@ -118,9 +135,8 @@ const Matchup = () => {
     );
 }
 
-function Lineup({team, lineup, totalPoints, oppPoints}){
-    const { league, owner } = useLeague();
-
+function Lineup({team, lineup, totalPoints, oppPoints, playerStats}){
+    const { league, owner, weekNum } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -139,7 +155,6 @@ function Lineup({team, lineup, totalPoints, oppPoints}){
         setTradeOpen(true);
     }
 
-
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
             <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
@@ -149,7 +164,7 @@ function Lineup({team, lineup, totalPoints, oppPoints}){
            
            {/* Show team's roster in the matchup list */}
            <RosterSlots lineup={lineup} openModal={openModal} 
-           points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculatePoints(playerInSlot.name)[WEEK_NUM-1] : 0.0}</span>}/>
+           points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculateWeeklyPoints(weekNum, playerInSlot.name, playerStats) : 0.0}</span>}/>
             
             {/* Modal that opens after initial click on player */}
             <PlayerModal player={curPlayer} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}

@@ -64,12 +64,29 @@ const Admin = () => {
         }
     }
 
+    const handleProcessWaivers = async () => {
+       const response = await fetch('http://localhost:3001/api/admin/process-waivers', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(),
+        });
+
+        const data = await response.json();
+        if(response.ok){
+          alert('success: ' + data.message);
+        }
+        else{
+          alert('failure: ' + data.message);
+        }
+    }
+
     const handlePlayoffMatchups = async () => {
        const response = await fetch('http://localhost:3001/api/admin/set-playoffs', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({leagueId: 'ciJNFG', weekNum: 17}),
+            body: JSON.stringify({leagueId: '5itD1h', weekNum: 17}),
         });
 
         const data = await response.json();
@@ -126,12 +143,16 @@ const Admin = () => {
                 <h2 className="text-3xl font-bold mb-4 border-b border-gray-700 pb-2">Admin Dashboard</h2>
                   <div className="p-6 max-w-4xl mx-auto bg-white rounded-xl mt-5">
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
-                    transition-all font-medium" onClick={() => handleWeek(17)}>
+                    transition-all font-medium" onClick={() => handleWeek(1)}>
                   Lock in Week
                   </button>
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
                     transition-all font-medium" onClick={handleProcessTrades}>
                   Process Trades
+                  </button>
+                  <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
+                    transition-all font-medium" onClick={handleProcessWaivers}>
+                  Process Waivers
                   </button>
                   <button className="px-10 mb-4 mt-4 mx-auto flex px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 
                     transition-all font-medium" onClick={handlePlayoffMatchups}>

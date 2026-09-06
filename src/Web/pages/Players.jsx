@@ -405,12 +405,20 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
     });
     const data = await response.json();
     if(response.ok){
+        if(data['waiver']){
+            showAlert("success", data["message"]);
+            return;
+        }
+
         showAlert("success", "Player has been added!");
         setRoster((prev) => [...prev, data.addData]);
         setRosteredPlayers((prev) => [...prev, Number(data.addData.player_id)]);
         console.log(data.dropData);
 
         if(data.dropData){
+             setRoster((prev) => prev.filter((p) => {
+                return p.player_id != Number(data.dropData);
+            }));
             setRosteredPlayers((prev) => prev.filter((id) => {
                 return id != Number(data.dropData);
             }));
