@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { useLeague } from "../utils/LeagueContext";
 
 const Home = () => {
-    const {owner, league, setLeague, setLeagueOwner, setTeam } = useLeague();
+    const {owner, league, setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop } = useLeague();
 
     const navigate = useNavigate();
     const [username, setUsername] = React.useState();
@@ -97,6 +97,8 @@ const Home = () => {
         setLeague(data["activeLeague"]);
         setLeagueOwner(data["leagueOwner"]);
         setTeam(data["activeTeam"]);
+        setWeekNum(data["weekNum"]);
+        setHasPoop(data["hasPoop"]);
         navigate("/roster");
 
       } else {

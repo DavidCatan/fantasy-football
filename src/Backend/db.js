@@ -29,6 +29,7 @@ db.exec(`
         points_for REAL NOT NULL DEFAULT 0,
         points_against REAL NOT NULL DEFAULT 0,
         final_rank INTEGER DEFAULT NULL,
+        has_poop INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (league_id) REFERENCES leagues(league_id) ON DELETE CASCADE
 
     );

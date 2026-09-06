@@ -48,23 +48,23 @@ var liveGames = new Set();
 
 
 // for TESTING!!!!!
-const leagueId = 'XDFFqg';
+const leagueId = '3z0GR3';
 //db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
 //const SALT_ROUNDS = 10;
 //const password = 'Test!1234';
 //const hash = await bcrypt.hash(password, SALT_ROUNDS);
 //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
-/*for(let i = 2; i < 11; i++){
+/*for(let i = 2; i < 10; i++){
     //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
     db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
         
        
 }
-var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
+/*var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
 if(teams.length >= MAX_TEAMS){
     setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
 }*/
-
+//db.prepare('DELETE FROM teams WHERE id=?').run(10);
 db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
 db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
 db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_STARTED', leagueId);
@@ -363,6 +363,27 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
                 setPoints.run(points2["points_for"]+totalPoints2, points2["points_against"]+totalPoints1, awayTeam); 
             }            
         });
+
+        /*
+            set the poop medal holder
+        */
+        const getStandings = db.prepare('SELECT * FROM teams WHERE league_id=?');
+        const setPoopMedal = db.prepare('UPDATE teams SET has_poop=? WHERE id=?');
+        const updateName = db.prepare('UPDATE teams SET name=? WHERE id=?');
+        const findPoopMedal = db.prepare('SELECT id FROM teams WHERE has_poop=? AND league_id=?');
+
+        const leagues = db.prepare('SELECT league_id FROM leagues').all();
+        leagues.forEach((league) => {
+            let standings = getStandings.all(league['league_id']).sort(standingsOrder);
+            let lastPlace = standings.at(-1);
+            let currentPoopHolder = findPoopMedal.get(1, league['league_id']);
+            if(lastPlace['id'] != currentPoopHolder['id']){
+                setPoopMedal.run(0, currentPoopHolder['id']);
+                setPoopMedal.run(1, lastPlace['id']);
+                updateName.run('ThePoopGodPicks', lastPlace['id']);
+            }
+        });
+
         return res.status(200).json({message: "successfully processed week!"})
     }
     catch(err){
@@ -442,7 +463,7 @@ app.post('/api/admin/process-waivers', adminAuth, async (req, res) => {
     try{
         const leagues = db.prepare('SELECT league_id FROM leagues').all();
         const getWaivers = db.prepare('SELECT * FROM waivers WHERE league_id=?');
-        const getStandings = db.prepare('SELECT * FROM teams WHERE league_id=?')
+        const getStandings = db.prepare('SELECT * FROM teams WHERE league_id=?');
         const deleteWaiver = db.prepare('DELETE FROM waivers WHERE id=?');
         const addToRoster = db.prepare('INSERT INTO roster_slots (team_id, league_id, player_id, player_name, player_pos, player_slot)'
                 + 'VALUES (?, ?, ?, ?, ?, ?)');
@@ -539,10 +560,17 @@ app.get('/api/session', (req, res) => {
 
 // api endpoint to check league
 app.get('/api/league', (req, res) => {
-    if(req.session.activeLeague){
-        return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, activeTeam: req.session.activeTeam, weekNum: weekNum});
+    try{
+        if(req.session.activeLeague){
+            const hasPoop = db.prepare('SELECT has_poop FROM teams WHERE id=?').get(req.session.activeTeam);
+            return res.status(200).json({activeLeague: req.session.activeLeague, leagueOwner : req.session.leagueOwner, 
+                activeTeam: req.session.activeTeam, weekNum: weekNum, hasPoop: hasPoop["has_poop"]});
+        }
+        return res.status(200).json({activeLeague: null, leagueOwner: null});
     }
-    return res.status(200).json({activeLeague: null, leagueOwner: null});
+    catch(err){
+        console.log(err);
+    }  
 });
 
 // api endpoint to logout
@@ -611,10 +639,11 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
             return res.status(400).json({message: "League is full!"});
         }
 
-        db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
+        const team = db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, owner);
         
         var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
         if(teams.length >= MAX_TEAMS){
+            db.prepare('UPDATE teams SET has_poop=?, name=? WHERE id=?').run(1, "ThePoopGodPicks", team.lastInsertRowid);
             setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
             //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
               //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
@@ -644,10 +673,12 @@ app.post('/api/leagues/enter', sessionAuth, (req,res) => {
         const teamId = db.prepare('SELECT id FROM teams WHERE league_id=? AND owner=?').get(leagueId, owner);
         if(teamId){
             const leagueOwner = db.prepare('SELECT league_owner FROM leagues WHERE league_id=?').get(leagueId);
+            const hasPoop = db.prepare('SELECT has_poop FROM teams WHERE id=?').get(teamId["id"]);
             req.session.activeLeague = leagueId;
             req.session.leagueOwner = leagueOwner["league_owner"];
             req.session.activeTeam = teamId["id"];
-            return res.status(200).json({message: "successfully entered league", activeLeague: leagueId, leagueOwner: leagueOwner["league_owner"], activeTeam: teamId["id"]});
+            return res.status(200).json({message: "successfully entered league", activeLeague: leagueId, 
+                leagueOwner: leagueOwner["league_owner"], activeTeam: teamId["id"], weekNum: weekNum, hasPoop: hasPoop["has_poop"]});
         }
         else{
             return res.status(400).json({message: "User not in valid league"});
@@ -775,6 +806,13 @@ app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
 app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
     const {displayName} = req.body;
     sanitize(displayName);
+
+    // don't let user change name if they have the poop medal
+    const hasPoop = db.prepare('SELECT has_poop FROM teams WHERE id=?').get(req.session.activeTeam);
+    if(hasPoop["has_poop"]){
+        return res.status(400).json({message: "You cannot change your name while you have the poop medal!"});
+    }
+    
     const newName = displayName.substring(0,50); // truncate name if too long
     if (!newName){
         return res.status(400).json({message: "Missing name field"});

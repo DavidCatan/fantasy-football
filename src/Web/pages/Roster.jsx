@@ -241,7 +241,7 @@ function DropButton({ player, close}) {
 }
 
 function ProfileModal({name}){
-    const {showAlert} = useLeague();
+    const {showAlert, hasPoop} = useLeague();
 
     const [profileIsOpen, setProfileOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState(name);
@@ -300,7 +300,7 @@ function ProfileModal({name}){
                                 type="text"
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 required
-                                    placeholder={displayName}
+                                    placeholder={hasPoop ? name : displayName}
                                 className="block w-full rounded-md bg-gray-200 px-3 py-1.5 text-base outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
                                 />
                             </div>
