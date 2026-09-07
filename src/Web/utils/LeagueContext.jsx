@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Snackbar } from "@mui/material";
 import { determineSlot } from './draftUtils';
 import { getTeamRoster, getTeam } from './leagueUtils';
+import fart from '../assets/audio/fart.mp3';
 
 const LeagueContext = React.createContext();
 
@@ -15,6 +16,7 @@ export function LeagueProvider({ children }){
     const [draftStatus, setDraftStatus] = React.useState(null);
     const [isLegal, setIsLegal] = React.useState(false);
     const [weekNum, setWeekNum] = React.useState(1);
+    const [hasPoop, setHasPoop] = React.useState(false);
 
     const [state, setState] = React.useState({
         open: false,
@@ -53,12 +55,14 @@ export function LeagueProvider({ children }){
                         setLeagueOwner(data["leagueOwner"]);
                         setTeam(data["activeTeam"]);
                         setWeekNum(data["weekNum"]);
+                        setHasPoop(data["hasPoop"]);
                     }
                     else{
                         setLeague(null);
                         setLeagueOwner(null);
                         setTeam(null);
                         setWeekNum(null);
+                        setHasPoop(null);
                     }
             });
         }
@@ -109,6 +113,30 @@ export function LeagueProvider({ children }){
          
     }, [owner, league, team]);
 
+    // make fart noises if user has poop medal
+    React.useEffect(() => {
+        if(hasPoop){
+             // Preload audio instance
+            const audio = new Audio(fart);
+            audio.volume = 1;
+
+            const handleGlobalClick = (event) => {
+                const target = event.target.closest('button, a, .sound-click');
+                if (target) {
+                    audio.currentTime = 0; 
+                    audio.play().catch(() => {}); 
+                }
+            };
+
+            window.addEventListener('click', handleGlobalClick);
+
+            return () => {
+                window.removeEventListener('click', handleGlobalClick);
+            };
+        }
+       
+    }, [hasPoop]);
+
     const { lineup, posCount } = React.useMemo(() =>{
         let l = new Map();
         let p = {"qb": 0, "rb" : 0, "wr": 0, "flex": 0, "te": 0, "k" : 0, "bn" : 0, "total": 0};
@@ -125,7 +153,7 @@ export function LeagueProvider({ children }){
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
         roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam,
-        weekNum
+        weekNum, setWeekNum, hasPoop, setHasPoop
     }
 
     return(
