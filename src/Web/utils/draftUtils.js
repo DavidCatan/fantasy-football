@@ -1,5 +1,5 @@
-import playerData from "../../../nfl_players.json"  with { type: 'json' };
-import playerStats from "../../Backend/nfl_stats.json"  with { type: 'json' };
+import playerData from "../../../nfl_players.js";
+import playerStats from "../../Backend/nfl_stats.js";
 
 //console.log(playerData);
 var players = {

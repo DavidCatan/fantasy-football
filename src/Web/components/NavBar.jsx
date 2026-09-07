@@ -9,7 +9,7 @@ const Navbar = () => {
     const location = useLocation();
 
     React.useEffect(() => {
-            fetch('http://localhost:3001/api/session', {credentials: 'include'})
+            fetch('/api/session', {credentials: 'include'})
                 .then(res => res.json())
                 .then(data => {
                     if(data.logged){
@@ -19,7 +19,7 @@ const Navbar = () => {
                     setOwner(null);
                     }
                 });
-            fetch('http://localhost:3001/api/league', {credentials: 'include'})
+            fetch('/api/league', {credentials: 'include'})
                 .then(res => res.json())
                 .then(data => {
                     if(data.activeLeague){
@@ -69,7 +69,7 @@ const Navbar = () => {
 
 async function logout(){
     try{
-        const response = await fetch('http://localhost:3001/api/logout', {
+        const response = await fetch('/api/logout', {
             credentials: 'include',
             method: 'POST'
         })

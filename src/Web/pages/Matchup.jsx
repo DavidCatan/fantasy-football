@@ -367,7 +367,7 @@ function TradeTransactionButton({playerInSlot, slot, tradePlayers, setTradePlaye
 }
 
 async function updateTradeDB(recvTeam, sendTeam, leagueId, sendPlayers, recvPlayers, showAlert){
-    const response = await fetch ('http://localhost:3001/api/trades/propose-trade', {
+    const response = await fetch ('api/trades/propose-trade', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body:

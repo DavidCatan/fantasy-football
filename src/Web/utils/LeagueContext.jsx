@@ -34,7 +34,7 @@ export function LeagueProvider({ children }){
 
     React.useEffect(() => {
         try{
-            fetch('http://localhost:3001/api/session', {credentials: 'include'})
+            fetch('/api/session', {credentials: 'include'})
                 .then(res => res.json())
                 .then(data => {
                     if(data.logged){
@@ -45,7 +45,7 @@ export function LeagueProvider({ children }){
                         setOwner(null);
                     }
             });
-            fetch('http://localhost:3001/api/league', {credentials: 'include'})
+            fetch('/api/league', {credentials: 'include'})
                 .then(res => res.json())
                 .then(data => {
                     if(data.activeLeague){
@@ -90,7 +90,7 @@ export function LeagueProvider({ children }){
             }
         }
         try{
-            fetch('http://localhost:3001/api/leagues/draft-status', {credentials: 'include'})
+            fetch('/api/leagues/draft-status', {credentials: 'include'})
             .then(res => res.json())
             .then(data => {
                 if(data){

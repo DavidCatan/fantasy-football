@@ -26,7 +26,7 @@ const Home = () => {
     const handleLogin = async (e) => {
         e.preventDefault(); 
 
-        const response = await fetch('http://localhost:3001/api/login', {
+        const response = await fetch('/api/login', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ const Home = () => {
       if(!leagueName || leagueName.length == 0 || leagueName.length > 100){
         return alert('League Name must be at least 1 character and less than 100 characters');
       }
-      const response = await fetch('http://localhost:3001/api/leagues/create', {
+      const response = await fetch('/api/leagues/create', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -67,7 +67,7 @@ const Home = () => {
 
     const joinLeague = async (e) => {
       e.preventDefault();
-      const response = await fetch('http://localhost:3001/api/leagues/join', {
+      const response = await fetch('/api/leagues/join', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -84,7 +84,7 @@ const Home = () => {
     }
 
     const enterLeague = async () => {
-      const response = await fetch('http://localhost:3001/api/leagues/enter', {
+      const response = await fetch('/api/leagues/enter', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -121,7 +121,7 @@ const Home = () => {
     }
 
     React.useEffect(() => {
-      fetch('http://localhost:3001/api/session', {credentials: 'include'})
+      fetch('/api/session', {credentials: 'include'})
         .then(res => res.json())
         .then(data => {
           if(data.logged){

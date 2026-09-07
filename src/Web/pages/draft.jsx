@@ -111,7 +111,7 @@ const Draft = () => {
     }, [league, team]);
 
     const handleStartDraft = async () => {
-        const response = await fetch('http://localhost:3001/api/leagues/start-draft', {
+        const response = await fetch('/api/leagues/start-draft', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -459,7 +459,7 @@ function startDraftTimer(pickDeadline, setDraftClock){
 }
 
 async function updateDraftDB(teamId, leagueId, player, slot, showAlert, setRoster){
-    const response = await fetch ('http://localhost:3001/api/draft', {
+    const response = await fetch ('/api/draft', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:

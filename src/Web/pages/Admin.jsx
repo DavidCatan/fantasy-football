@@ -13,7 +13,7 @@ const Admin = () => {
     const handleLogin = async (e) => {
         e.preventDefault(); 
 
-        const response = await fetch('http://localhost:3001/api/admin/login', {
+        const response = await fetch('/api/admin/login', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -31,7 +31,7 @@ const Admin = () => {
     };
 
     const handleWeek = async (weekNum) => {
-       const response = await fetch('http://localhost:3001/api/admin/process-week', {
+       const response = await fetch('/api/admin/process-week', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ const Admin = () => {
     }
 
     const handleProcessTrades = async () => {
-       const response = await fetch('http://localhost:3001/api/admin/process-trades', {
+       const response = await fetch('/api/admin/process-trades', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ const Admin = () => {
     }
 
     const handleProcessWaivers = async () => {
-       const response = await fetch('http://localhost:3001/api/admin/process-waivers', {
+       const response = await fetch('/api/admin/process-waivers', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ const Admin = () => {
     }
 
     const handlePlayoffMatchups = async () => {
-       const response = await fetch('http://localhost:3001/api/admin/set-playoffs', {
+       const response = await fetch('/api/admin/set-playoffs', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -99,7 +99,7 @@ const Admin = () => {
     }
 
     const handleEndSeason = async () => {
-       const response = await fetch('http://localhost:3001/api/admin/process-season-end', {
+       const response = await fetch('/api/admin/process-season-end', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -117,7 +117,7 @@ const Admin = () => {
 
     // check admin sesison auth
     React.useEffect(() => {
-        fetch('http://localhost:3001/api/admin/session', {credentials: 'include'})
+        fetch('/api/admin/session', {credentials: 'include'})
         .then(res => res.json())
         .then(data => {
             if(data.logged&&data.admin){

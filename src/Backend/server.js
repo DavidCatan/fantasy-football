@@ -14,6 +14,7 @@ import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder } from '
 import cron from 'node-cron';
 
 
+
 const app = express();
 //const db = new Database('fantasy.db');
 const server = http.createServer(app);
@@ -69,9 +70,22 @@ db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
 db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
 db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_STARTED', leagueId);
 
+const allowedOrigins = [
+  'http://localhost',
+  'http://192.168.1.190',
+  'http://localhost:5173' 
+];
+
 app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true               
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or same-origin requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
 
 app.use(express.json());
@@ -1586,4 +1600,4 @@ function broadcastUpdate(type, data, league_id){
     
 }
 
-server.listen(3001, () => console.log('Backend running on port 3001'));
+server.listen(3000, () => console.log('Backend running on port 3000'));

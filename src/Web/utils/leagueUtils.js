@@ -1,5 +1,5 @@
 import roundrobin from 'roundrobin-tournament-js';
-import playerStats from "../../Backend/nfl_stats.json" with { type: 'json' };
+import playerStats from "../../Backend/nfl_stats.js";
 
 export const ROSTER_TEMPLATE = [
     { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
@@ -24,7 +24,7 @@ const API_HOST = "localhost";
 const API_PORT = 3001;
 
 export async function getLiveStats(){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/stats/live-stats`, {credentials: 'include', cache: 'no-store'});
+    const response = await fetch(`/api/stats/live-stats`, {credentials: 'include', cache: 'no-store'});
     const data = await response.json();
     if(response.ok){
         //const ids = data["data"].map(item => item.player_id);
@@ -35,14 +35,14 @@ export async function getLiveStats(){
 }
 
 export async function getRosteredPlayers(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/rostered`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/rostered`, {credentials: 'include'});
     const data = await response.json();
     const ids = data.map(item => item.player_id);
     return ids;
 }
 
 export async function getTeamRoster(league_id, team_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${team_id}/roster`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/teams/${team_id}/roster`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         //const ids = data["data"].map(item => item.player_id);
@@ -53,7 +53,7 @@ export async function getTeamRoster(league_id, team_id){
 }
 
 export async function getTeamRosters(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/rosters`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/rosters`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data["data"];
@@ -63,7 +63,7 @@ export async function getTeamRosters(league_id){
 
 export async function getLeagues(user){
     try{
-        const response = await fetch(`http://${API_HOST}:${API_PORT}/api/${user}`, {credentials: 'include'});
+        const response = await fetch(`/api/${user}`, {credentials: 'include'});
         const data = await response.json();
         return {success: true, leagues: data};
     }
@@ -74,7 +74,7 @@ export async function getLeagues(user){
 }
 
 export async function getTeam(league_id, owner){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${owner}`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/teams/${owner}`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data;
@@ -84,7 +84,7 @@ export async function getTeam(league_id, owner){
 }
 
 export async function getTeams(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/teams`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data["data"];
@@ -93,7 +93,7 @@ export async function getTeams(league_id){
 }
 
 export async function getStandings(league_id){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/standings`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/standings`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data["data"];
@@ -102,7 +102,7 @@ export async function getStandings(league_id){
 }
 
 export async function getMatchup(league_id, team, week){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}/${team}`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/matchups/${week}/${team}`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data;
@@ -111,7 +111,7 @@ export async function getMatchup(league_id, team, week){
 }
 
 export async function getMatchups(league_id, week){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/matchups/${week}`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/matchups/${week}`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data;
@@ -120,7 +120,7 @@ export async function getMatchups(league_id, week){
 }
 
 export async function getTrades(league_id, team){
-    const response = await fetch(`http://${API_HOST}:${API_PORT}/api/leagues/${league_id}/teams/${team}/trades`, {credentials: 'include'});
+    const response = await fetch(`/api/leagues/${league_id}/teams/${team}/trades`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
         return data;
@@ -132,7 +132,7 @@ export async function dropPlayer(team, league_id, player){
     if(!league_id || !team || !player){
         return {success: false, message: "something went wrong"};
     }
-    const response = await fetch ('http://localhost:3001/api/drop', {
+    const response = await fetch ('/api/drop', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:

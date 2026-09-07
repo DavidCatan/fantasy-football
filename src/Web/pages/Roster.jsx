@@ -262,7 +262,7 @@ function ProfileModal({name}){
             return;
         }
 
-        const response = await fetch('http://localhost:3001/api/teams/change-name', {
+        const response = await fetch('/api/teams/change-name', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -482,7 +482,7 @@ function FinalResultsModal(){
 }
 
 async function changeSlots(player1, slot1, player2, slot2, team, showAlert, setRoster){
-    const response = await fetch ('http://localhost:3001/api/updateLineup', {
+    const response = await fetch ('/api/updateLineup', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:
@@ -510,7 +510,7 @@ async function changeSlots(player1, slot1, player2, slot2, team, showAlert, setR
 }
 
 async function declineTrade(trades, trade, index, showAlert){
-    const response = await fetch ('http://localhost:3001/api/trades/decline-trade', {
+    const response = await fetch ('/api/trades/decline-trade', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:
@@ -530,7 +530,7 @@ async function declineTrade(trades, trade, index, showAlert){
 }
 
 async function acceptTrade(trades, trade, index, showAlert){
-    const response = await fetch ('http://localhost:3001/api/trades/accept-trade', {
+    const response = await fetch ('/api/trades/accept-trade', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:

@@ -388,7 +388,7 @@ function AddTransactionButton({playerInSlot, slot, setDroppedPlayer, setUpdatedS
 }
 
 async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, showAlert, setRoster, setRosteredPlayers){
-    const response = await fetch ('http://localhost:3001/api/add', {
+    const response = await fetch ('/api/add', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body:
