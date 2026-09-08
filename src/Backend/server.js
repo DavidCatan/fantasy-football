@@ -10,7 +10,7 @@ import session from 'express-session';
 import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
 import bcrypt from 'bcrypt';
-import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder } from './serverUtils.js';
+import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder, getProjections } from './serverUtils.js';
 import cron from 'node-cron';
 
 
@@ -22,7 +22,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 60 * 1000;
+const DRAFT_TIME = 0 * 1000;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -47,6 +47,11 @@ var liveStats = {
 var livePlayers = new Set();
 var liveGames = new Set();
 
+var liveProjections = {
+    "week": {
+        "1": {}
+    }
+};
 
 // for TESTING!!!!!
 const leagueId = '3z0GR3';
@@ -120,6 +125,7 @@ cron.schedule('0 0 3 * * 2', async () => {
             livePlayers.clear();
             liveGames.clear();
             await processLiveGames(weekNum, processLiveStats);
+            await getProjections(weekNum, liveProjections);
             console.log(`[CRON] Weekly reset complete. Current week: ${weekNum}`);
         });
      
@@ -129,12 +135,13 @@ cron.schedule('0 0 3 * * 2', async () => {
     }
 });
 
-
-
+weekNum++;
+await getProjections(weekNum, liveProjections);
+await processLiveGames(weekNum, processLiveStats);
 
 
 async function processLiveStats(weekNum, liveGames) {
-    liveStats = await getLiveStats(weekNum, liveGames);
+    liveStats = await getLiveStats(weekNum, liveGames, liveStats);
 }
 
 async function processLiveGames(weekNum, processLiveStats) {
@@ -1107,6 +1114,11 @@ app.get('/api/leagues/:league_id/rosters', sessionAuth, leagueAuth, (req, res) =
 // api endpoint fo fetch live stats
 app.get('/api/stats/live-stats', (req, res) => {
     return res.status(200).json({ data: liveStats });
+});
+
+// api endpoint to fetch weekly projections
+app.get('/api/stats/projections', (req, res) => {
+    return res.status(200).json({data: liveProjections});
 });
 
 

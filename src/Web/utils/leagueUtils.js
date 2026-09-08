@@ -34,6 +34,17 @@ export async function getLiveStats(){
     return null;
 }
 
+export async function getProjections(){
+    const response = await fetch(`/api/stats/projections`, {credentials: 'include', cache: 'no-store'});
+    const data = await response.json();
+    if(response.ok){
+        //const ids = data["data"].map(item => item.player_id);
+        //return ids;
+        return data["data"];
+    }
+    return null;
+}
+
 export async function getRosteredPlayers(league_id){
     const response = await fetch(`/api/leagues/${league_id}/rostered`, {credentials: 'include'});
     const data = await response.json();
@@ -252,7 +263,7 @@ export function calculateWeeklyPoints(week, playerName, newStats){
         "receptions" : RECEPTION_MULTIPLIER,
         "receivingYards" : RECEIVING_MULTIPLIER,
         "receivingTouchdowns" : TD_MULITIPLER,
-        "fumbles" :  TURNOVER_MULTIPLIER,
+        "fumblesLost" :  TURNOVER_MULTIPLIER,
         "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
         "puntReturnTouchdowns" : TURNOVER_MULTIPLIER,
         "madeFG" : MADE_FG_MULTIPLIER,

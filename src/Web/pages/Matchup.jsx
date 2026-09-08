@@ -12,21 +12,20 @@ import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/module
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
-import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { PlayerModal, RosterSlots, calculateProjections } from "../utils/playerUtils";
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
 
 const Matchup = () => {
 
-    const { showAlert, league, owner, lineup, userTeam, weekNum } = useLeague();
-    console.log('hello',weekNum);
-
+    const { showAlert, league, owner, lineup, userTeam, weekNum, projections } = useLeague();
+    
     const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
     const [matchups, setMatchups] = React.useState([]);
     const [teams, setTeams] = React.useState([]);
     const [totalPoints, setTotalPoints] = React.useState(new Map());
     const [livePlayerStats, setLivePlayerStats] = React.useState({});
-
+    const [projectedPoints, setProjectedPoints] = React.useState(0.0);
     const fetchStats = async () => {
         let stats = await getLiveStats();
         if(stats){
@@ -48,10 +47,10 @@ const Matchup = () => {
                 let r = await getTeamRosters(league);
                 let l = new Map();
                 let tp = new Map(); 
+                let projP = new Map();
                 
                 let allTeams = await getTeams(league);    
                 let stats = await getLiveStats();
-                console.log(stats);
                 if(stats){
                     setLivePlayerStats(stats);
                 }
@@ -60,24 +59,28 @@ const Matchup = () => {
                     Object.entries(r).forEach(([team, players]) => {
                         let slots = new Map();
                         let points = 0.0;
+                        let projPoints = 0.0;
                         players.forEach((player) => {
                             slots.set(player["player_slot"], player["player_name"]);
                             if(!player["player_slot"].includes("BN")){
                                 points += calculateWeeklyPoints(weekNum, player["player_name"], stats);
+                                projPoints += calculateProjections(projections["week"][weekNum][player.player_id]);
                             }
                         });
-                    
+                        projPoints = Math.round((projPoints + Number.EPSILON) * 100) / 100;
+                        points = Math.round((points + Number.EPSILON) * 100) / 100;
                         tp.set(Number(team), points);
+                        projP.set(Number(team), projPoints);
                         l.set(Number(team), slots);
                     });
                 }
                 setTotalPoints(tp);
+                setProjectedPoints(projP);
 
                 // swap matches so user matchup is first in array and first to display
                 let matches = await getMatchups(league, weekNum);
                 matches = matches["data"];
                 let id = userTeam["id"];
-                console.log(matches);
                 for(let i = 0; i < matches.length; i++){
                     if(matches[i]["home_team_id"] == id || matches[i]["away_team_id"] == id){
                         let temp = matches[0];
@@ -120,8 +123,14 @@ const Matchup = () => {
                                 return(
                                     <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
                                         <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
-                                            <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} totalPoints={homePoints} oppPoints={awayPoints} playerStats={livePlayerStats} />
-                                            <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)} totalPoints={awayPoints} oppPoints={homePoints} playerStats={livePlayerStats} />
+                                            <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} 
+                                                totalPoints={homePoints} oppPoints={awayPoints} playerStats={livePlayerStats} 
+                                                projectedPoints={projectedPoints.get(homeTeam)} 
+                                            />
+                                            <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)}
+                                                totalPoints={awayPoints} oppPoints={homePoints} playerStats={livePlayerStats} 
+                                                projectedPoints={projectedPoints.get(awayTeam)}
+                                            />
                                         </div>
                                     </SwiperSlide>    
                                 );         
@@ -135,7 +144,7 @@ const Matchup = () => {
     );
 }
 
-function Lineup({team, lineup, totalPoints, oppPoints, playerStats}){
+function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoints}){
     const { league, owner, weekNum } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
@@ -160,6 +169,9 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats}){
             <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
                 <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center w-100 truncate">{team["name"] ? team["name"] : team["owner"]}</h1>
                 <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
+                <h3 className="text-slate-800 font-normal mr-2">
+                    {projectedPoints}
+                </h3>
             </div>
            
            {/* Show team's roster in the matchup list */}

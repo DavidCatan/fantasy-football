@@ -74,7 +74,7 @@ export function calculatePoints(player, playerStats){
     "receptions" : RECEPTION_MULTIPLIER,
     "receivingYards" : RECEIVING_MULTIPLIER,
     "receivingTouchdowns" : TD_MULITIPLER,
-    "fumbles" :  TURNOVER_MULTIPLIER,
+    "fumblesLost" :  TURNOVER_MULTIPLIER,
     "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
     "puntReturnTouchdowns" : TURNOVER_MULTIPLIER,
     "madeFG" : MADE_FG_MULTIPLIER,

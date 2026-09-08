@@ -5,6 +5,7 @@ import stats2026 from "../../Backend/2026_stats.json";
 import { ROSTER_TEMPLATE, getLiveStats } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
 import { Button, ButtonGroup } from "@mui/material";
+import { useLeague } from './LeagueContext';
 import React from 'react';
 
 const STATS = {"2025" : playerStats, "2026": await getLiveStats()};
@@ -12,7 +13,6 @@ const STATS = {"2025" : playerStats, "2026": await getLiveStats()};
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
     const [year, setYear] = React.useState("2026");
     const [stats, setStats] = React.useState(STATS["2026"]);
-    console.log(stats);
     // change displayed stats
     const data = React.useMemo(() => {
         return player?.name ? calculatePoints(player.name, stats) : [];
@@ -58,9 +58,6 @@ const modalStyles =  React.useMemo(() => {
     },
     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: zIndex }}
 }, [zIndex]);
-    
-console.log('PLAYRE MODAL: ', isOpen, player);
-
     
 
     return (
@@ -108,6 +105,9 @@ console.log('PLAYRE MODAL: ', isOpen, player);
 }
 
 export function RosterSlots({lineup, button, points, openModal}) {
+    const {weekNum, projections} = useLeague();
+    
+  
     var roster = ROSTER_TEMPLATE.slice();
     lineup.forEach((player, slot) => {
         let pos = slot.slice(0,2);
@@ -120,7 +120,6 @@ export function RosterSlots({lineup, button, points, openModal}) {
         <div className="flex flex-col gap-2">
             {roster.map((slot, index) => {
                 const playerInSlot = playerData[lineup?.get(slot["id"])];
-
                 return(
                     <div key={slot["id"]} className={`flex items-center justify-between pl-3 rounded-md border 
                     ${index>ROSTER_TEMPLATE.length-1 ? 'border-red-500' : undefined}`}>
@@ -153,12 +152,20 @@ export function RosterSlots({lineup, button, points, openModal}) {
                         : <span className="italic text-slate-500" >Empty</span>
                         }
                         </div>
+
+                        {button ? <div className="text-slate-400 font-normal mr-2">
+                                {playerInSlot ? calculateProjections(projections["week"][weekNum][playerInSlot.id]) : undefined}
+                            </div> : undefined}
                         
                             
                         <div>
                             {button ? button({ playerInSlot, slot, index })
                             : undefined}
                             {points ? points({playerInSlot}) : undefined}
+
+                            {!button ? <div className="text-slate-400 font-normal mr-2">
+                                {playerInSlot ? calculateProjections(projections["week"][weekNum][playerInSlot.id]) : undefined}
+                            </div> : undefined}
                         </div>
                     </div>
 
@@ -166,4 +173,53 @@ export function RosterSlots({lineup, button, points, openModal}) {
             })}
         </div>
     );
+}
+
+export function calculateProjections(stats){
+    if(!stats){
+        return;
+    }
+
+    var totalPoints = 0;
+
+    const PASSING_MULTIPLIER = 0.04;
+    const RUSHING_MULTIPLIER = 0.1;
+    const RECEIVING_MULTIPLIER = 0.1;
+    const RECEPTION_MULTIPLIER = 1;
+    const PASS_TD_MULTIPLIER = 4;
+    const TD_MULITIPLER = 6;
+    const TURNOVER_MULTIPLIER = -2;
+    const FG_50_MULTIPLIER = 5;
+    const FG_40_MULTIPLIER = 4;
+    const FG_0_MULTIPLIER = 3;
+    const MISSED_FG_MULTIPLIER = -1;
+    const MADE_XP_MULTIPLIER = 1;
+    const MISSED_XP_MULTIPLIER = -1;
+
+    const pointDistr = {
+        "passingYards" : PASSING_MULTIPLIER,
+        "passingTouchdowns" : PASS_TD_MULTIPLIER,
+        "interceptions" : TURNOVER_MULTIPLIER,
+        "rushingYards" : RUSHING_MULTIPLIER,
+        "rushingTouchdowns" : TD_MULITIPLER,
+        "receptions" : RECEPTION_MULTIPLIER,
+        "receivingYards" : RECEIVING_MULTIPLIER,
+        "receivingTouchdowns" : TD_MULITIPLER,
+        "fumblesLost" :  TURNOVER_MULTIPLIER,
+        "kickReturnTouchdowns" : TURNOVER_MULTIPLIER,
+        "puntReturnTouchdowns" : TURNOVER_MULTIPLIER,
+        "madeFG50" : FG_50_MULTIPLIER,
+        "madeFG40" : FG_40_MULTIPLIER,
+        "madeFG0" : FG_0_MULTIPLIER,
+        "missedFG" : MISSED_FG_MULTIPLIER,
+        "madeXP" : MADE_XP_MULTIPLIER,
+        "missedXP" : MISSED_XP_MULTIPLIER
+    };
+    for (const stat in pointDistr){
+        if(stats.hasOwnProperty(stat)){
+             totalPoints += stats[stat] * pointDistr[stat];
+        }
+    }
+    totalPoints = Math.round((totalPoints + Number.EPSILON) * 100) / 100;
+    return totalPoints;
 }

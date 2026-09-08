@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Snackbar } from "@mui/material";
 import { determineSlot } from './draftUtils';
-import { getTeamRoster, getTeam } from './leagueUtils';
+import { getTeamRoster, getTeam, getProjections } from './leagueUtils';
 import fart from '../assets/audio/fart.mp3';
 
 const LeagueContext = React.createContext();
@@ -17,6 +17,7 @@ export function LeagueProvider({ children }){
     const [isLegal, setIsLegal] = React.useState(false);
     const [weekNum, setWeekNum] = React.useState(1);
     const [hasPoop, setHasPoop] = React.useState(false);
+    const [projections, setProjections] = React.useState({});
 
     const [state, setState] = React.useState({
         open: false,
@@ -82,12 +83,14 @@ export function LeagueProvider({ children }){
 
                 let r = await getTeamRoster(league, team);
                 let t = await getTeam(league, owner);
+                let proj = await getProjections();
                 if(r){
                     setRoster(r);
                 }
                 if(t){
                     setUserTeam(t["data"]);
                 }
+                setProjections(proj);
             } catch(err){
                 console.log(err);
                 showAlert('error', 'Error getting roster data. Try refreshing');
@@ -153,7 +156,7 @@ export function LeagueProvider({ children }){
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
         roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam,
-        weekNum, setWeekNum, hasPoop, setHasPoop
+        weekNum, setWeekNum, hasPoop, setHasPoop, projections
     }
 
     return(

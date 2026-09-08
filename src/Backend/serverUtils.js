@@ -22,9 +22,51 @@ export async function getLiveGames(weekNum){
     return null;
 }
 
-export async function getLiveStats(weekNum, liveGameIds) {
-    const liveData = {"week" : {}};
-    liveData['week'][weekNum] = {};
+export async function getProjections(weekNum, liveProjections){
+    const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${SEASON}/players?scoringPeriodId=${weekNum}&view=players_wl&view=kona_player_info`;
+    const filterHeader = {
+        players: {
+            limit: 2000, 
+            filterSlotIds: {
+                value: [0, 2, 4, 6, 17] // QB, RB, WR, TE, K
+            }
+        }    
+    };
+    const response = await fetch(url, {
+        headers:{'X-Fantasy-Filter' : JSON.stringify(filterHeader)}
+    });
+    const data = await response.json();
+    data.forEach((player) => {
+        const projections = player?.stats?.find(
+            s => s.statSourceId == 1 && s.statSplitTypeId == 1 && s.scoringPeriodId == weekNum && s.seasonId == 2026
+        );
+        const stats = projections?.stats || {};
+    
+        // populate projections with corresponding stat code    
+        liveProjections['week'][weekNum][player?.id] = {
+            passingYards: stats[3] || 0,
+            passingTouchdowns: stats[4] || 0,
+            interceptions: stats[20] || 0,
+            rushingYards: stats[24] || 0,
+            rushingTouchdowns: stats[25] || 0,
+            receptions: stats[53] || 0,
+            receivingYards: stats[42] || 0,
+            receivingTouchdowns: stats[43] || 0,
+            fumblesLost: stats[72] || 0,
+            madeFG50: stats[74] || 0,
+            madeFG40: stats[77] || 0,
+            madeFG0: stats[80] || 0,
+            missedFg: stats[85] || 0,
+            madeXP : stats[86] || 0,
+            missedXP: stats[88] || 0,
+            kickReturnTouchdowns: stats[101] || 0,
+            puntReturnTouchdowns: stats[102] || 0
+        }
+    });
+}
+
+export async function getLiveStats(weekNum, liveGameIds, liveData) {
+
     for (const gameId of liveGameIds) {
         const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`);
         const box = await response.json();
