@@ -22,7 +22,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 0 * 1000;
+const DRAFT_TIME = 60 * 1000;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -73,7 +73,10 @@ db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_START
 const allowedOrigins = [
   'http://localhost',
   'http://192.168.1.190',
-  'http://localhost:5173' 
+  'http://localhost:5173',
+  'https://phantomfantasy.com',
+  'http://phantomfantasy.com',
+  'https://www.phantomfantasy.com'
 ];
 
 app.use(cors({
@@ -111,10 +114,15 @@ app.use(session({
 // reset weekly states/variables every tuesday at 3:00am
 cron.schedule('0 0 3 * * 2', async () => {
     try{
-        weekNum++;
-        livePlayers.clear();
-        liveGames.clear();
-        processLiveGames(weekNum, processLiveStats);
+        setImmediate(async () => {
+            console.log(`[CRON] Starting weekly reset for Week ${weekNum + 1}...`);
+            weekNum++;
+            livePlayers.clear();
+            liveGames.clear();
+            await processLiveGames(weekNum, processLiveStats);
+            console.log(`[CRON] Weekly reset complete. Current week: ${weekNum}`);
+        });
+     
     }
     catch(err){
         console.log(err);

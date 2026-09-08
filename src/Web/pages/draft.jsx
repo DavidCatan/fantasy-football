@@ -11,6 +11,7 @@ import {draftPlayer, determineSlot} from "../utils/draftUtils";
 import { data } from "react-router-dom";
 import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
 import { LeagueProvider, useLeague } from "../utils/LeagueContext";
+import { PlayerModal } from "../utils/playerUtils";
 
 const SEASON = "2025"; 
 
@@ -65,8 +66,11 @@ const Draft = () => {
         }
       
         getRostered();
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/draft?league=${league}&team=${team}`;
 
-        ws.current = new WebSocket(`ws://localhost:3001/draft?league=${league}&team=${team}`);
+        ws.current = new WebSocket(wsUrl); 
+        //ws.current = new WebSocket(`ws://localhost:3000/draft?league=${league}&team=${team}`);
 
         ws.current.onopen = () => {
             console.log("Connected to WebSocket Server!");
@@ -299,55 +303,29 @@ function PlayerList({ pos, draftedPlayers, setDraftedPlayers, curDraftTeam, team
                 </button>
             )}
 
-            <PlayerModal player={curPlayer} isOpen={modalIsOpen} draftedPlayers={draftedPlayers} 
+            <DraftModal player={curPlayer} modalIsOpen={modalIsOpen} draftedPlayers={draftedPlayers} setIsOpen={setIsOpen}
             setDraftedPlayers={setDraftedPlayers} close={() => setIsOpen(false)} curDraftTeam={curDraftTeam} team={team} league={league} ws={ws}
             />
         </div>
     );
 }
 
-function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, ws }) {
+function DraftModal({ player, close, modalIsOpen, setIsOpen, draftedPlayers, setDraftedPlayers, curDraftTeam, league, team, ws }) {
     if (!player) return null;
 
-    const {showAlert, posCount, setRoster} = useLeague();
+    const {showAlert, posCount, setRoster} = useLeague();    
 
     React.useEffect(() => {
-        if(draftedPlayers.includes(Number(player.id)) && isOpen) {
+        if(draftedPlayers.includes(Number(player.id)) && modalIsOpen) {
             showAlert('warning', 'Player has been drafted! You got sniped!');
             close();
         }
 
-    }, [draftedPlayers, isOpen]);
+    }, [draftedPlayers, modalIsOpen]);
+     
 
-    const data = calculatePoints(player.name);
-    
-    const modalStyles = {
-        content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '16px',
-            border: 'none',
-            padding: '24px',
-            maxWidth: '90%',
-            width: '400px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-        },
-        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }
-    };
     console.log(curDraftTeam);
     console.log('team', team);
-
-    var wideimage; 
-    if (Math.floor(Math.random() * 20) == 0){
-        wideimage = "w-500 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    } 
-    else{
-        wideimage = "w-36 h-30 mx-auto my-4 rounded-full border-4 border-slate-100 shadow-inner bg-radial via-yellow-400 to-orange-700";
-    }
 
     var draftbutton;
     if (team == curDraftTeam){
@@ -386,47 +364,21 @@ function PlayerModal({ player, isOpen, close, draftedPlayers, setDraftedPlayers,
     }
 
     return (
-        <Modal isOpen={isOpen} style={modalStyles} onRequestClose={close} closeTimeoutMS={200}>
-            <div className="relative">
-                <button onClick={close} className="absolute -top-2 -right-2 text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                
-                <div className="text-center mb-4">
-                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{player.name}</h2>
-                    <h3 className="font-black text-slate-800 uppercase tracking-tight">{player.team} | {player.position}</h3>
-                    <img src={player.headshot} className={wideimage} alt={player.name} />
-                </div>
-
-                <button 
+        <PlayerModal player={player} isOpen={modalIsOpen} close={() => setIsOpen(false)} zIndex={1000}
+            button={<button
                     onClick={() => 
                         {if(team == curDraftTeam){
                             draftPlayer(team, player);
                         }}
                     }
                     className={draftbutton}
+                
                 >
-                    Draft
+                Draft
                 </button>
+            }
 
-                <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-sm text-center border-collapse">
-                        <thead className="bg-slate-50 sticky top-0">
-                            <tr>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Week</th>
-                                <th className="p-3 border-b border-slate-200 font-bold text-slate-600">Points</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.map((points, index) => (
-                                <tr key={index} className="hover:bg-blue-50 transition-colors even:bg-slate-50/50">
-                                    <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-3 font-bold text-slate-800">{points}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </Modal>
+        />
     );
 }
 

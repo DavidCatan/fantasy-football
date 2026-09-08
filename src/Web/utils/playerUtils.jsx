@@ -7,12 +7,12 @@ import { calculatePoints } from "./draftUtils";
 import { Button, ButtonGroup } from "@mui/material";
 import React from 'react';
 
-const STATS = {"2025" : playerStats, "2026": getLiveStats()};
+const STATS = {"2025" : playerStats, "2026": await getLiveStats()};
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
     const [year, setYear] = React.useState("2026");
     const [stats, setStats] = React.useState(STATS["2026"]);
-
+    console.log(stats);
     // change displayed stats
     const data = React.useMemo(() => {
         return player?.name ? calculatePoints(player.name, stats) : [];
@@ -27,7 +27,7 @@ export function PlayerModal({ player, isOpen, close, button, zIndex}) {
         fetchStats();
         
     }, [year]);
-
+    
     
 
     const wideimage = React.useMemo(() => {
@@ -59,7 +59,7 @@ const modalStyles =  React.useMemo(() => {
     overlay: { backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: zIndex }}
 }, [zIndex]);
     
-
+console.log('PLAYRE MODAL: ', isOpen, player);
 
     
 
