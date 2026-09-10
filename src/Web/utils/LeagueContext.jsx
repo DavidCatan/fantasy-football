@@ -3,6 +3,7 @@ import { Alert, Snackbar } from "@mui/material";
 import { determineSlot } from './draftUtils';
 import { getTeamRoster, getTeam, getProjections } from './leagueUtils';
 import fart from '../assets/audio/fart.mp3';
+import { useWindowSize } from "@reactuses/core";
 
 const LeagueContext = React.createContext();
 
@@ -18,6 +19,8 @@ export function LeagueProvider({ children }){
     const [weekNum, setWeekNum] = React.useState(1);
     const [hasPoop, setHasPoop] = React.useState(false);
     const [projections, setProjections] = React.useState({});
+    const { width } = useWindowSize();
+    const isMobile = width < 768;
 
     const [state, setState] = React.useState({
         open: false,
@@ -156,7 +159,7 @@ export function LeagueProvider({ children }){
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
         roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam,
-        weekNum, setWeekNum, hasPoop, setHasPoop, projections
+        weekNum, setWeekNum, hasPoop, setHasPoop, projections, isMobile
     }
 
     return(

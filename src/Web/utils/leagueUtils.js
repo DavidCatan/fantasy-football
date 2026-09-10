@@ -2,20 +2,20 @@ import roundrobin from 'roundrobin-tournament-js';
 import playerStats from "../../Backend/nfl_stats.js";
 
 export const ROSTER_TEMPLATE = [
-    { id: "QB",   label: "QB",   eligiblePositions: ["QB"] },
-    { id: "RB1",  label: "RB",   eligiblePositions: ["RB"] },
-    { id: "RB2",  label: "RB",   eligiblePositions: ["RB"] },
-    { id: "WR1",  label: "WR",   eligiblePositions: ["WR"] },
-    { id: "WR2",  label: "WR",   eligiblePositions: ["WR"] },
-    { id: "TE",   label: "TE",   eligiblePositions: ["TE"] },
-    { id: "FLEX", label: "FLEX", eligiblePositions: ["RB", "WR", "TE"] },
-    { id: "PK",    label: "K",    eligiblePositions: ["PK"] },
-    { id: "BN1",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
-    { id: "BN2",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
-    { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
-    { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
-    { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
-    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] }//,
+    { id: "QB",   label: "QB",   eligiblePositions: ["QB"], abbreviation: "QB" },
+    { id: "RB1",  label: "RB",   eligiblePositions: ["RB"], abbreviation: "RB" },
+    { id: "RB2",  label: "RB",   eligiblePositions: ["RB"], abbreviation: "RB" },
+    { id: "WR1",  label: "WR",   eligiblePositions: ["WR"], abbreviation: "WR" },
+    { id: "WR2",  label: "WR",   eligiblePositions: ["WR"], abbreviation: "WR" },
+    { id: "TE",   label: "TE",   eligiblePositions: ["TE"], abbreviation: "WR" },
+    { id: "FLEX", label: "FLEX", eligiblePositions: ["RB", "WR", "TE"], abbreviation: "FX" },
+    { id: "PK",    label: "K",    eligiblePositions: ["PK"], abbreviation: "PK" },
+    { id: "BN1",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" },
+    { id: "BN2",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" },
+    { id: "BN3",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" },
+    { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" },
+    { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" },
+    { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"], abbreviation: "BN" }//,
     //{ id: "BN7",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
 
 ];
