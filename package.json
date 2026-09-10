@@ -13,7 +13,9 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.9",
+    "@reactuses/core": "^6.5.6",
     "@tailwindcss/vite": "^4.3.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.10.0",

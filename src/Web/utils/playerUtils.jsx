@@ -104,8 +104,8 @@ const modalStyles =  React.useMemo(() => {
     );
 }
 
-export function RosterSlots({lineup, button, points, openModal}) {
-    const {weekNum, projections} = useLeague();
+export function RosterSlots({lineup, button, points, openModal, isRightSide=false}) {
+    const {weekNum, projections, isMobile} = useLeague();
     
   
     var roster = ROSTER_TEMPLATE.slice();
@@ -120,11 +120,16 @@ export function RosterSlots({lineup, button, points, openModal}) {
         <div className="flex flex-col gap-2">
             {roster.map((slot, index) => {
                 const playerInSlot = playerData[lineup?.get(slot["id"])];
+                let name = playerInSlot?.name;
+                if(isMobile && name){
+                    name = name.split(" ");
+                    name = name[0].at(0)+". " + name[1];
+                }
                 return(
-                    <div key={slot["id"]} className={`flex items-center justify-between pl-3 rounded-md border 
+                    <div key={slot["id"]} className={`flex items-center justify-between pl-3 rounded-md border ${isMobile ? 'h-12' : undefined} 
                     ${index>ROSTER_TEMPLATE.length-1 ? 'border-red-500' : undefined}`}>
                         <div className= 
-                        {
+                        {isMobile && points ? undefined :
                             ` px-2 py-1 rounded text-md
                             ${slot["label"] == "QB" ? 'bg-red-900'// mr-6' 
                                 : slot["label"] == "RB" ? 'bg-blue-900'// mr-7' 
@@ -135,18 +140,18 @@ export function RosterSlots({lineup, button, points, openModal}) {
                                 : 'bg-gray-700'
                             }`
                         }>
-                            {slot["label"]}
+                            {isMobile && points ? undefined : slot["label"]}
                         </div>
                         <div className='flex-1 items-center justify-between p-3'>
-                        {playerInSlot ? 
+                        {playerInSlot ?
                                 <button 
                                     onClick={() => openModal(playerInSlot)} 
                                     className="w-full flex items-center gap-4 text-left hover:bg-yellow-500 hover:text-slate-700 transition-colors rounded-md"
                                 >
-                                    <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
-                                    via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} />
+                                    {!isMobile || !points ? <img src={playerInSlot.headshot} className="w-15 h-12 rounded-full border border-slate-200 bg-radial
+                                    via-yellow-400 to-orange-700" loading="lazy" alt={playerInSlot.name} /> : undefined}
                                     <span className="font-semibold text-white-700">
-                                        {playerInSlot.name} <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span>
+                                        {name} {!isMobile ? <span className="text-slate-400 font-normal ml-2">| {playerInSlot.position}</span> : undefined}
                                     </span>
                                 </button>
                         : <span className="italic text-slate-500" >Empty</span>
@@ -161,6 +166,8 @@ export function RosterSlots({lineup, button, points, openModal}) {
                         <div>
                             {button ? button({ playerInSlot, slot, index })
                             : undefined}
+
+                            
                             {points ? points({playerInSlot}) : undefined}
 
                             {!button ? <div className="text-slate-400 font-normal mr-2">

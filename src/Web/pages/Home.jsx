@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { useLeague } from "../utils/LeagueContext";
 
 const Home = () => {
-    const {owner, league, setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop } = useLeague();
+    const {owner, league, setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop, isMobile } = useLeague();
 
     const navigate = useNavigate();
     const [username, setUsername] = React.useState();
@@ -185,8 +185,12 @@ const Home = () => {
               </div>
             </div>
           </div>
-          <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 ml-7">
-            <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
+          <div className={` bg-white rounded-xl mt-5 p-6 mb-10 ${!isMobile ? ' max-w-4xl mr-7'
+            : 'w-40 ml-20' 
+          }`}>
+            <div className={` font-bold mb-4 text-slate-800 text-center ${!isMobile ? 'text-3xl ' : 
+              'text-xl'
+            }`}>
               Create New League
             </div>
             <form onSubmit={createLeague} className="space-y-6">
@@ -213,8 +217,12 @@ const Home = () => {
             </form>
           </div>
 
-          <div className="p-6 max-w-4xl bg-white rounded-xl mt-5 mr-7">
-            <div className="text-3xl font-bold mb-4 text-slate-800 text-center">
+          <div className={` bg-white rounded-xl mt-5 mb-10 p-6 ${!isMobile ? ' max-w-4xl mr-7'
+            : 'w-40 ml-50' 
+          }`}>
+            <div className={` font-bold mb-4 text-slate-800 text-center ${!isMobile ? 'text-3xl ' : 
+              'text-xl'
+            }`}>
               Have a League ID? Join Now
             </div>
             <form onSubmit={joinLeague} className="space-y-6">
