@@ -1,19 +1,15 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { nameArray, calculatePoints } from "../utils/draftUtils";
-import Modal from "react-modal";
+import { nameArray } from "../utils/draftUtils";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import {draftPlayer, determineSlot} from "../utils/draftUtils";
-import { data } from "react-router-dom";
-import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster} from '../utils/leagueUtils';
-import { LeagueProvider, useLeague } from "../utils/LeagueContext";
+import {determineSlot} from "../utils/draftUtils";
+import {getRosteredPlayers} from '../utils/leagueUtils';
+import { useLeague } from "../utils/LeagueContext";
 import { PlayerModal } from "../utils/playerUtils";
-
-const SEASON = "2025"; 
 
 const MAX_SLOTS = 14;
 let timerInterval = null;
@@ -78,13 +74,11 @@ const Draft = () => {
 
         // update page when message received from server
         ws.current.onmessage = (message) => {
-            //console.log(message);
             const data = JSON.parse(message.data);
             if(data['type'] == 'UPDATE_BOARD'){
                 setDraftedPlayers((prev) => [...prev, data['data']]);
             }
             else if(data['type'] == 'DRAFT_ORDER'){
-                console.log(data['data']);
                 setDraftOrder(data['data']);
             }
             else if(data['type'] == 'UPDATE_DRAFTER'){
@@ -102,12 +96,11 @@ const Draft = () => {
 
         }
         ws.current.onerror = (error) => {
-            console.log(error);
+            showAlert("error", error);
         }
 
         return () => {
             if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
-                console.log('closing');
                 ws.current.close();
             }
         };
@@ -322,10 +315,6 @@ function DraftModal({ player, close, modalIsOpen, setIsOpen, draftedPlayers, set
         }
 
     }, [draftedPlayers, modalIsOpen]);
-     
-
-    console.log(curDraftTeam);
-    console.log('team', team);
 
     var draftbutton;
     if (team == curDraftTeam){
@@ -352,14 +341,12 @@ function DraftModal({ player, close, modalIsOpen, setIsOpen, draftedPlayers, set
         }
         if(ws.current && ws.current.readyState === WebSocket.OPEN){
             let slot = determineSlot(player.position, posCount);  
-            console.log(slot);          
             updateDraftDB(team, league, player, slot, showAlert, setRoster);
             ws.current.send(JSON.stringify({'type': 'UPDATE_DRAFTER', 'data' : league}));
         }
         else{
             showAlert('error', 'Websocket connection error');
         }
-        //setDraftedPlayers((prev) => [...prev, player.id]);
         close();
     }
 
@@ -419,9 +406,6 @@ async function updateDraftDB(teamId, leagueId, player, slot, showAlert, setRoste
             teamId: teamId,
             leagueId: leagueId,
             playerId: Number(player.id)
-            /*playerName: player.name,
-            playerPos: player.position,
-            slot: slot*/
         }),
         credentials: 'include'
     });

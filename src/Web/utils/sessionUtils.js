@@ -16,8 +16,6 @@ export async function register_user(username, password){
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
     try{
         db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hash);
-        // for TESTING!!!
-        //db.prepare('INSERT INTO teams (league_id, name, owner) VALUES (?,?,?)').run("123ABC",'E','ERIC');
     }
     catch(e){
         if (e.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
@@ -89,16 +87,6 @@ export function leagueAuth(req, res, next){
     if(!req.session.activeLeague){
         return res.status(403).json({message: "No league data. Please enter a league first"});
     }
-    next();
-}
-
-export function internalAuth(req, res, next){
-    // authenticate internal api key
-    const apiKey = req.headers['key'];
-    if(!apiKey || apiKey != process.env.INTERNAL_API_KEY){
-        return res.status(403).json({message: "API key authentication required"});
-    }
-
     next();
 }
 

@@ -1,13 +1,9 @@
 import React from "react";
-import players from "../utils/draftUtils";
-import playerData from "../../../nfl_players.json";
-import { playerNames, calculatePoints } from "../utils/draftUtils";
+import { playerNames } from "../utils/draftUtils";
 import Modal from "react-modal";
-import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
-import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRoster, ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
+import { ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
-import { LeagueProvider, useLeague } from "../utils/LeagueContext";
+import { useLeague } from "../utils/LeagueContext";
 
 const MODAL_STYLES = {
         content: {
@@ -29,7 +25,7 @@ const MODAL_STYLES = {
 
 const Roster = () => {
 
-    const {showAlert, team, league, owner, lineup, isLegal, userTeam} = useLeague();
+    const {showAlert, team, league, owner, userTeam} = useLeague();
 
     const [teams, setTeams] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -49,7 +45,6 @@ const Roster = () => {
                 setLoading(false);
             }
             catch(err){
-                console.log(err);
                 showAlert("error", "Error getting roster data. Try refreshing");
             }
             
@@ -76,7 +71,6 @@ const Roster = () => {
 function Lineup({ trades, teams }){
     
     const { showAlert, team, userTeam, lineup, setRoster, isLegal } = useLeague();
-    console.log(lineup);
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
     const [moving, setMoving] = React.useState(false);
@@ -102,7 +96,6 @@ function Lineup({ trades, teams }){
             if(!movingPlayer){ // fill button clicked
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots.includes(player.position)){
-                        console.log('interesting');
                         changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
@@ -110,7 +103,6 @@ function Lineup({ trades, teams }){
             else if(!player){ // move player to empty slot
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index]){
-                        console.log('interesting');
                         changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
@@ -118,7 +110,6 @@ function Lineup({ trades, teams }){
             else{ // moving two players
                 if(eligibleSlots.length > 0){
                     if(eligibleSlots[index] && movingSlot.eligiblePositions.includes(player.position)){
-                        console.log('interesting');
                         changeSlots(movingPlayer, movingSlot, player, curSlot, team, showAlert, setRoster);
                     }
                 }
@@ -228,7 +219,7 @@ function DropButton({ player, close}) {
                     }
                 })
                 .catch(err => {                   
-                    console.error("Request failed:", err);
+                    showAlert("error", err);
                 });
                 ;
                 close();
@@ -273,7 +264,6 @@ function ProfileModal({name}){
         if (response.ok) {
             showAlert("success", data.message);
             handleClose();
-            //location.reload(); // maybe put displayName in an earlier react state instead
         } else {
             showAlert("error", "Could not change display name: " + data.message);
         }
@@ -390,7 +380,6 @@ function TradeRow({trades, trade, index, proposerName, receiverName, closeParent
     }
     
     const sender = trade["items"][0]?.sender_id;
-    const receiver = trade["items"][0]?.receiver_id;
     return(
         <>
             <tr onClick={() => setIsOpen(true)} 

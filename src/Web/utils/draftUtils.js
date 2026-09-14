@@ -1,7 +1,6 @@
 import playerData from "../../../nfl_players.js";
 import playerStats from "../../Backend/nfl_stats.js";
 
-//console.log(playerData);
 var players = {
   "all" : [],
   "QB" : [],
@@ -14,12 +13,7 @@ export var playerNames = new Map();
 export var nameSet = new Set();
 export var nameArray = new Array();
 
-// add isRostered field, add into players only if not rostered
 for (const player in playerData) {
-    /*players["ids"].push(playerData[player].id);
-    players["names"].push(playerData[player].name);
-    players["positions"].push(playerData[player].position);
-    players["headshots"].push(playerData[player].headshot);*/
     let newPlayer = playerData[player];
     newPlayer["points"] = calculatePoints(playerData[player]["name"], playerStats).reduce((a, b) => a + b, 0);
     players["all"].push(newPlayer);
@@ -27,7 +21,6 @@ for (const player in playerData) {
     playerNames.set(Number(newPlayer["id"]), newPlayer["name"]);
     nameArray.push(playerData[player]["name"]);
     nameSet.add(playerData[player]["name"]);
-    //playerData[player]["available"] = true;
 }
 
 for (const key in players){
@@ -96,7 +89,6 @@ export function calculatePoints(player, playerStats){
           else{
             totalPoints[i] += playerStats["week"][i+1][player][stat] * pointDistr[stat];
           }
-          //console.log(playerStats["week"][i][player][stat]);
         }
       }
       totalPoints[i] = Math.round((totalPoints[i] + Number.EPSILON) * 100) / 100;

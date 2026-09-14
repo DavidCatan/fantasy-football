@@ -1,6 +1,5 @@
-import e from "cors";
 import React from "react";
-import {getTeam, getTeamRoster, getTeams, getStandings} from '../utils/leagueUtils';
+import {getTeams, getStandings} from '../utils/leagueUtils';
 import { useLeague } from "../utils/LeagueContext";
 
 const League = () => {
@@ -16,11 +15,9 @@ const League = () => {
         }
         const loadLeagueData = async () => {
             try{
-                //let t = await getTeam(league, owner); 
                 let allTeams = await getTeams(league);    
                 let s = await getStandings(league);                                  
 
-                //setTeam(t["data"]);
                 setTeams(allTeams["data"]);
                 setStandings(s);
                 setLoading(false);

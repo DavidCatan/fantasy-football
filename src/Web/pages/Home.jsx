@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { useLeague } from "../utils/LeagueContext";
 
 const Home = () => {
-    const {owner, league, setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop } = useLeague();
+    const {setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop } = useLeague();
 
     const navigate = useNavigate();
     const [username, setUsername] = React.useState();
@@ -35,7 +35,6 @@ const Home = () => {
 
         const data = await response.json();
         if (data.success) {
-            //alert(data.message);
             location.reload();
 
         } else {
@@ -93,7 +92,6 @@ const Home = () => {
 
       const data = await response.json();
       if (response.ok) {
-         // alert(data.message);
         setLeague(data["activeLeague"]);
         setLeagueOwner(data["leagueOwner"]);
         setTeam(data["activeTeam"]);
@@ -109,11 +107,6 @@ const Home = () => {
     const getUserLeagues = async () => {
       const data = await getLeagues(user);
       if (data.success) {
-        console.log(data["leagues"]);
-        /*let l = [data.length];
-        for(let i = 0; i < data.length; i++){
-          l[i] = data[i]["league_id"];
-        }*/
         setUserLeagues(data["leagues"]);
       } 
       else {
@@ -250,9 +243,7 @@ const Home = () => {
       <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
           <img
-            // add cool image here
-            //alt="Your Company"
-            //src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
+
             className="mx-auto h-10 w-auto"
           />
           <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight text-white">Sign in to your account</h2>

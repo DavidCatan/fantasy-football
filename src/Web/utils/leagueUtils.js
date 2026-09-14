@@ -16,19 +16,13 @@ export const ROSTER_TEMPLATE = [
     { id: "BN4",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
     { id: "BN5",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] },
     { id: "BN6",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "PK"] }//,
-    //{ id: "BN7",  label: "BENCH", eligiblePositions: ["QB", "RB", "WR", "TE", "K"] }
 
 ];
-
-const API_HOST = "localhost";
-const API_PORT = 3001;
 
 export async function getLiveStats(){
     const response = await fetch(`/api/stats/live-stats`, {credentials: 'include', cache: 'no-store'});
     const data = await response.json();
     if(response.ok){
-        //const ids = data["data"].map(item => item.player_id);
-        //return ids;
         return data["data"];
     }
     return null;
@@ -38,8 +32,6 @@ export async function getProjections(){
     const response = await fetch(`/api/stats/projections`, {credentials: 'include', cache: 'no-store'});
     const data = await response.json();
     if(response.ok){
-        //const ids = data["data"].map(item => item.player_id);
-        //return ids;
         return data["data"];
     }
     return null;
@@ -56,8 +48,6 @@ export async function getTeamRoster(league_id, team_id){
     const response = await fetch(`/api/leagues/${league_id}/teams/${team_id}/roster`, {credentials: 'include'});
     const data = await response.json();
     if(response.ok){
-        //const ids = data["data"].map(item => item.player_id);
-        //return ids;
         return data["data"];
     }
     return null;
@@ -192,18 +182,10 @@ export function makeId(length) {
 export function setMatchups(leagueId, teams, leagueMatchups, db ) { // TODO: implement a rival system?????
     leagueMatchups.set(leagueId , new Map());
     leagueMatchups.get(leagueId).set("week", new Map());
-    //console.log(leagueMatchups);
     const schedule = roundrobin(teams);
-    console.log(schedule);
-    //console.log(schedule);
-   // for(let i = 0; i < 9; i++){
-     //   leagueMatchups.get(leagueId).get("week").set(i+1, schedule[i]);
     schedule.forEach((week, weekNum) => {
-        console.log("week", week);
         week.forEach((matchup) => {
-            console.log("matchup", matchup);
             if(matchup){
-                console.log(matchup[0]["id"]);
                 db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)')
                 .run(leagueId, matchup[0]["id"], matchup[1]["id"], weekNum+1);
             }
@@ -214,18 +196,13 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // TODO: imp
     //}
     // fill remaining weeks with random matchups
     for(let i = teams.length-1; i < 13; i++){
-        //leagueMatchups.get(leagueId).get("week").set(i+1, generateMatchups(teams));
         let randomMatchups = generateMatchups(teams);
-        console.log(randomMatchups);
         randomMatchups.forEach((matchup) => {
                 db.prepare('INSERT INTO matchups (league_id, home_team_id, away_team_id, week) VALUES (?,?,?,?)')
                 .run(leagueId, matchup[0]["id"], matchup[1]["id"], i+1);
         });
   
     }
-    //console.log(leagueMatchups.get(leagueId).get("week"));
-    //console.log(leagueMatchups.get(leagueId).get("week").get(1));
-    //console.log(leagueMatchups.get(leagueId).get("week").get(13));
 
 }
 
@@ -247,12 +224,6 @@ export function calculateWeeklyPoints(week, playerName, newStats){
     const MISSED_FG_MULTIPLIER = -1;
     const MADE_XP_MULTIPLIER = 1;
     const MISSED_XP_MULTIPLIER = -1;
-
-    const statCategories = [
-        "passingYards", "passingTouchdowns", "interceptions", "rushingYards", 
-        "rushingTouchdowns", "receptions", "receivingYards", "receivingTouchdowns", "fumbles", 
-        "kickReturnTouchdowns", "puntReturnTouchdowns", "madeFG", "missedFG", "madeXP", "missedXP"
-    ];
 
     const pointDistr = {
         "passingYards" : PASSING_MULTIPLIER,
@@ -308,14 +279,10 @@ function generateMatchups(teams){
 function shuffle(array) {
   let currentIndex = array.length;
 
-  // While there remain elements to shuffle...
   while (currentIndex != 0) {
 
-    // Pick a remaining element...
     let randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
-
-    // And swap it with the current element.
     [array[currentIndex], array[randomIndex]] = [
       array[randomIndex], array[currentIndex]];
   }

@@ -1,7 +1,6 @@
 import Modal from 'react-modal';
 import playerData from "../../../nfl_players.json";
 import playerStats from "../../Backend/nfl_stats.json";
-import stats2026 from "../../Backend/2026_stats.json";
 import { ROSTER_TEMPLATE, getLiveStats } from "./leagueUtils";
 import { calculatePoints } from "./draftUtils";
 import { Button, ButtonGroup } from "@mui/material";

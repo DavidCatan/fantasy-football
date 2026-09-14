@@ -3,20 +3,17 @@ import 'dotenv/config';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import { getDraftOrder, makeId, getTeams, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
+import { getDraftOrder, makeId, setMatchups, calculateWeeklyPoints, ROSTER_TEMPLATE } from '../Web/utils/leagueUtils.js';
 import db from './db.js';
-import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, internalAuth, sanitize } from '../Web/utils/sessionUtils.js';
+import { register_user, login_user, sessionAuth, adminAuth, leagueAuth, sanitize } from '../Web/utils/sessionUtils.js';
 import session from 'express-session';
-import { RiQqFill } from 'react-icons/ri';
 import players from '../Web/utils/draftUtils.js';
-import bcrypt from 'bcrypt';
 import { getLiveGames, processLiveRosters, getLiveStats, standingsOrder, getProjections } from './serverUtils.js';
 import cron from 'node-cron';
 
 
 
 const app = express();
-//const db = new Database('fantasy.db');
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 
@@ -53,28 +50,6 @@ var liveProjections = {
     }
 };
 
-// for TESTING!!!!!
-const leagueId = '3z0GR3';
-//db.prepare('INSERT INTO leagues (league_id) VALUES (?)').run("""123ABC");
-//const SALT_ROUNDS = 10;
-//const password = 'Test!1234';
-//const hash = await bcrypt.hash(password, SALT_ROUNDS);
-//db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test', hash);
-/*for(let i = 2; i < 10; i++){
-    //db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('test'+i, hash);
-    db.prepare('INSERT INTO teams (league_id, owner) VALUES (?,?)').run(leagueId, 'test'+i);
-        
-       
-}
-/*var teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(leagueId);
-if(teams.length >= MAX_TEAMS){
-    setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
-}*/
-//db.prepare('DELETE FROM teams WHERE id=?').run(10);
-db.prepare('DELETE FROM roster_slots WHERE league_id=?').run(leagueId);
-db.prepare('UPDATE players SET drafted=? WHERE league_id=?').run(0, leagueId);
-db.prepare('UPDATE leagues SET draft_status=? WHERE league_id=?').run('NOT_STARTED', leagueId);
-
 const allowedOrigins = [
   'http://localhost',
   'http://192.168.1.190',
@@ -86,7 +61,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or same-origin requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -103,18 +77,12 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 60 * 60 * 1000, // 15 minutes 
-        secure: false,          // Set to true for https!!!!!!!
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+        secure: true,          
         httpOnly: true,       
-        sameSite: 'lax' // set to lax later
+        sameSite: 'lax' 
     }
 }));
-
-/*
-    TODO: validate inputs
-    on all: check input for unique identifier
-    check if team id matches owner
-*/
 
 // reset weekly states/variables every tuesday at 3:00am
 cron.schedule('0 0 3 * * 2', async () => {
@@ -654,9 +622,7 @@ app.post('/api/leagues/create', sessionAuth, (req, res) => {
 // api endpoint to join a league
 app.post('/api/leagues/join', sessionAuth, (req,res) => {
     const {leagueId, owner} = req.body;
-    /*if(isNaN(leagueId)){
-        return res.status(400).json({ message: "League not found" });
-    }*/
+
     try{
         const league = db.prepare('SELECT * FROM leagues WHERE league_id=?').get(leagueId);
         if(!league){
@@ -674,10 +640,6 @@ app.post('/api/leagues/join', sessionAuth, (req,res) => {
         if(teams.length >= MAX_TEAMS){
             db.prepare('UPDATE teams SET has_poop=?, name=? WHERE id=?').run(1, "ThePoopGodPicks", team.lastInsertRowid);
             setMatchups(leagueId, teams, leagueMatchups.get("leagues"), db);
-            //leagueMatchups.get("leagues").get(leagueId).get("week").forEach((week) => {
-              //   leagueMatchups.get("leagues").get(leagueId).get("week").get()
-            //})
-            //db.prepare('INSERT INTO matchups (l')
         }
 
         return res.status(200).json({message: "Successfully added to league!"});
@@ -1031,9 +993,7 @@ app.get('/api/:owner', sessionAuth, (req, res) => {
 // /api Endpoint to get all teams from league
 app.get('/api/leagues/:league_id/teams', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    /*if(isNaN(league_id)){
-        return res.status(400).json({ error: "Invalid League ID" });
-    }*/
+
    try{
         const teams = db.prepare('SELECT * FROM teams WHERE league_id=?').all(league_id);
         return res.status(200).json({message: "successfully found teams", data: teams});
@@ -1047,9 +1007,7 @@ app.get('/api/leagues/:league_id/teams', sessionAuth, leagueAuth, (req, res) => 
 // /api Endpoint to get team from league
 app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    /*if(isNaN(league_id)){
-        return res.status(400).json({ error: "Invalid League ID" });
-    }*/
+
     try{
         const team = db.prepare('SELECT * FROM teams WHERE league_id=? AND owner=?').get(league_id, req.params.owner);
         return res.status(200).json({message: "successfully found team", data: team});
@@ -1065,9 +1023,7 @@ app.get('/api/leagues/:league_id/teams/:owner', sessionAuth, leagueAuth, (req, r
 // /api Endpoint to get rostered data from league
 app.get('/api/leagues/:league_id/rostered', sessionAuth, leagueAuth, (req, res) => {
     const league_id = req.params.league_id;
-    /*if(isNaN(league_id)){
-        return res.status(400).json({ error: "Invalid League ID" });
-    }*/
+
     const players = db.prepare('SELECT player_id FROM roster_slots WHERE league_id=?').all(league_id);
     res.json(players);
 });
@@ -1122,7 +1078,7 @@ app.get('/api/stats/projections', (req, res) => {
 });
 
 
-// /api Endpoint to draft a player
+// api Endpoint to draft a player
 app.post('/api/draft', sessionAuth, leagueAuth, (req, res) => {
 
     const { teamId, leagueId, playerId } = req.body;
@@ -1270,8 +1226,7 @@ app.post('/api/add', sessionAuth, leagueAuth, (req, res) => {
         
          const addData = {id: addId, league_id: leagueId, player_id: playerId, player_name: playerName,
                  player_pos: playerPos, player_slot: slot, team_id: teamId};
-        //broadcastUpdate('UPDATE_DRAFTER', nextDrafter, leagueId);
-        //broadcastUpdate('UPDATE_BOARD', null, leagueId);
+
         return res.status(200).json({ message: "successfully added player!", addData: addData, dropData: droppedPlayerId });
     }
     catch(err){
@@ -1322,13 +1277,9 @@ app.post('/api/login', async (req, res) => {
         req.session.logged = true;
         req.session.username = username;
         req.session.browser = req.headers['user-agent'];
-        //req.session.save((err) => {
-          //  if (err) {
-            //    console.error("Session save error:", err);
-              //  return res.status(500).json({ message: "Server error" });
-            //}
+
         return res.status(200).json({message: "Successfully logged in!", success: true});
-       // });
+
     }
     else{
         return res.status(400).json({ message: "Error logging in; invalid username or password" });
@@ -1387,11 +1338,6 @@ app.post('/api/register', async (req, res) => {
 
 });
 
-// api endpoint for live stats
-/*app.post('/api/internal/live-updates', internalAuth, (req, res) => {
-    liveStats = req.body;
-    return res.status(200);
-});*/
 
 function checkRosterLegality(team){
     const roster = db.prepare('SELECT * FROM roster_slots WHERE team_id=?').all(team);
@@ -1403,31 +1349,13 @@ wss.on('connection', (ws, req) => {
     const parameters = new URL(url);
     const leagueId = parameters.searchParams.get('league');
     const teamId = parameters.searchParams.get('team');
-    //const teams = parameters.searchParams.get('teams');
-    //console.log('web-teams',teams);
+
     ws.leagueId = leagueId;
     ws.teamId = teamId
     if(parameters['pathname'] == '/draft'){
         sendDraftOrder(ws, leagueId);
         draftTimers.get(leagueId) ? ws.send(JSON.stringify({'type' : 'UPDATE_CLOCK', 'data': draftTimers.get(leagueId)})) : undefined;
     }
-
-    /*ws.on('message', (message) => {
-        const messageString = Buffer.isBuffer(message) ? message.toString() : message;
-        const data = JSON.parse(messageString);
-
-        if(data['type'] == 'UPDATE_DRAFTER'){
-            const league_id = data['data'];
-            if(leagueDraftOrders.has(league_id)){
-                const draftOrder = leagueDraftOrders.get(league_id)[0];
-                let draftIndex = leagueDraftOrders.get(league_id)[1];
-                //draftIndex = (draftIndex + 1) % draftOrder.length;
-                const curDrafter = draftOrder[draftIndex];
-                //leagueDraftOrders.set(league_id,[draftOrder, draftIndex]);
-                broadcastUpdate('UPDATE_DRAFTER', curDrafter);
-            }
-        }
-    });*/
   
 });
 
@@ -1551,97 +1479,6 @@ function getEmptySlots(team){
     let openSlots = ROSTER_TEMPLATE.filter((slot) => !slots.has(slot["id"]));
     return openSlots;
 }
-
-/*async function fetchLiveData(gameIds) {
-    for (const gameId of gameIds){
-        try{
-            const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`);
-            const data = await response.json();
-
-            var drives; 
-            data.drives?.previous ? drives = data.drives.previous : drives = [];
-
-            for (const drive of drives){
-                for (const play of drive["plays"]) {
-                    if (processedPlays.has(play["id"])){
-                        continue;
-                    }
-                    processedPlays.add(play["id"]);
-                    calculateLivePoints(play);
-                }
-            }
-        }
-        catch(err){
-            console.log(err, gameId);
-        }
-    }
-}
-
-// fetch data during active games every 20 seconds
-setInterval(() => {
-    const liveGameIds = ['401873275']; 
-    if (liveGameIds.length > 0) {
-        fetchLiveData(liveGameIds);
-    }
-}, 20000);
-
-function calculateLivePoints(play){
-    switch(play["type"]["text"]){
-
-        case "Punt Return Touchdown" :
-        case "Kickoff Return Touchdown" :
-            // handle kick return
-            break;
-        
-        case "Field Goal Good" :
-        case "Extra Point Good" :
-            // handle kick good
-            break;
-        
-        case "Field Goal Blocked"  :
-        case "Field Goal Missed"   :
-        case "Extra Point Missed"  : 
-        case "Extra Point Blocked" :
-            // handle kick no good 
-            break;
-  
-        case "Pass Reception" :
-        case "Passing Touchdown" :
-        case "Pass Interception Return" :
-            // handle pass play
-            handlePassPlay(play);
-            break;
-        
-        case "Rush" :
-        case "Rushing Touchdown" :
-        case "Fumble Recovery (Opponent)" :
-            // handle rushing play
-            break;
-
-        case "Two-Point Pass" :
-        case "Two-Point Rush" :
-            // handle two point conversion
-            break;
-
-        // cases to ignore
-        case "Timeout"     :
-        case "Penalty"     :
-        case "End Period"  :
-        case "End of Half" :
-        case "End of Game" :
-        case "Coin Toss"   :
-            break;
-    }
-  
-}
-
-function handlePassPlay(play) {
-    console.log(play);
-    switch (play["type"]["text"]){
-        case "Pass Reception":
-            
-    }
-}*/
 
 function checkLivePlayer(player){
     return livePlayers.has(Number(player));

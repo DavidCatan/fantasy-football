@@ -1,4 +1,3 @@
-import { Button } from "@mui/material";
 import React from "react";
 import { Link } from "react-router-dom";
 
@@ -172,12 +171,6 @@ const Admin = () => {
     <>
       <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <img
-            // add cool image here
-            //alt="Your Company"
-            //src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-            className="mx-auto h-10 w-auto"
-          />
           <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight text-white">Sign in as admin</h2>
         </div>
 

@@ -1,5 +1,3 @@
-// src/App.jsx
-import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './Web/pages/Home';
 import Draft from './Web/pages/draft';

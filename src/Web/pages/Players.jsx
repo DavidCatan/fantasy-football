@@ -1,23 +1,18 @@
 import React from "react";
 import players from "../utils/draftUtils";
 import playerData from "../../../nfl_players.json";
-import { nameArray, calculatePoints } from "../utils/draftUtils";
+import { nameArray } from "../utils/draftUtils";
 import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
-import {draftPlayer, determineSlot} from "../utils/draftUtils";
-import { data } from "react-router-dom";
-import {getRosteredPlayers, getLeagues, getTeam, getDraftOrder, getTeamRoster, ROSTER_TEMPLATE, dropPlayer} from '../utils/leagueUtils';
+import {getRosteredPlayers, dropPlayer} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useMemo } from "react";
-import { LeagueProvider, useLeague } from "../utils/LeagueContext";
-
-const SEASON = "2025"; 
-const MAX_SLOTS = 14;
+import { useLeague } from "../utils/LeagueContext";
 
 const Players = () => {
 
-    const {showAlert, owner, league, team, roster, posCount, lineup} = useLeague();
+    const {showAlert, owner, league, team} = useLeague();
 
     const [pos, setPosition] = React.useState("all");
     const [rosteredPlayers, setRosteredPlayers] = React.useState([]);
@@ -69,7 +64,7 @@ const Players = () => {
 };
 
 function PlayerList({ pos, rosteredPlayers, setRosteredPlayers, changedLineup, setChangedLineup }) {
-    const { team, league, roster, lineup } = useLeague(); 
+    const { roster } = useLeague(); 
 
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [isExpanded, setIsExpanded] = React.useState(false);
@@ -187,7 +182,7 @@ function AddButton({open}) {
     )
 }
 
-function DropButton({ player, changedLineup, setChangedLineup, close, setRosteredPlayers }) {
+function DropButton({ player, close, setRosteredPlayers }) {
     const { showAlert, team, league, setRoster } = useLeague();
     return(
         <>
@@ -203,14 +198,13 @@ function DropButton({ player, changedLineup, setChangedLineup, close, setRostere
                             setRosteredPlayers((prev) => prev.filter((id) => {
                                 return id != player.id;
                             }));
-                            //setChangedLineup(!changedLineup);
                         }    
                         else{
                             showAlert("error", "Failure to drop player");
                         }
                     })
                     .catch(err => {                   
-                        console.error("Request failed:", err);
+                        showAlert("error", err);
                     });
                     ;
                     close();
@@ -226,7 +220,7 @@ function DropButton({ player, changedLineup, setChangedLineup, close, setRostere
 
 function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, changedLineup, setChangedLineup, close, isOpen }) {
     if (!player) return null;
-    const { showAlert, team, league, roster, lineup, posCount, setRoster } = useLeague();
+    const { showAlert, team, league, posCount, setRoster } = useLeague();
 
     const[droppedPlayer, setDroppedPlayer] = React.useState();
     const [updatedSlot, setUpdatedSlot] = React.useState();
@@ -254,7 +248,6 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, c
        
         // add new player if slot is open or player is dropped  
         updatePlayerDB(team, league, player, updatedSlot["id"], droppedPlayer?.id, showAlert, setRoster, setRosteredPlayers);
-        //setChangedLineup(!changedLineup);
         droppedPlayer ? setDroppedPlayer(null) : undefined;
         setUpdatedSlot(null);
         close();
@@ -306,20 +299,17 @@ function DropModal({ player, rosteredPlayers, setRosteredPlayers, closeParent, c
     );
 }
 
-function Lineup({changedLineup, setChangedLineup, player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
-    const { team, league, roster, lineup } = useLeague();
-    console.log(roster, lineup);
+function Lineup({ player, setDroppedPlayer, droppedPlayer, updatedSlot, setUpdatedSlot, setEmptySlot}){
+    const { roster, lineup } = useLeague();
 
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
-    const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
     function openModal(player) {
         if (!player) return;
         setPlayer(player);
         setIsOpen(true);
     }
-    console.log(roster);
     return(
         <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Roster</h2>
@@ -413,7 +403,6 @@ async function updatePlayerDB(teamId, leagueId, player, slot, droppedPlayer, sho
         showAlert("success", "Player has been added!");
         setRoster((prev) => [...prev, data.addData]);
         setRosteredPlayers((prev) => [...prev, Number(data.addData.player_id)]);
-        console.log(data.dropData);
 
         if(data.dropData){
              setRoster((prev) => prev.filter((p) => {

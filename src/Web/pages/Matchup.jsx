@@ -1,19 +1,13 @@
 import React from "react";
-import players from "../utils/draftUtils";
-import playerData from "../../../nfl_players.json";
-import playerStats from "../../Backend/nfl_stats.json";
-import { playerNames, calculatePoints } from "../utils/draftUtils";
 import Modal from "react-modal";
-import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
-import { Button, ButtonGroup, TextField } from "@mui/material";
-import {getTeam, getTeamRosters, ROSTER_TEMPLATE, getMatchup, getTeams, getMatchups, getLiveStats, calculateWeeklyPoints} from '../utils/leagueUtils';
+import {getTeamRosters, getTeams, getMatchups, getLiveStats, calculateWeeklyPoints} from '../utils/leagueUtils';
 import {Swiper, SwiperSlide} from 'swiper/react';
-import { Navigation, Pagination, EffectCoverflow, Keyboard } from 'swiper/modules';
+import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { PlayerModal, RosterSlots, calculateProjections } from "../utils/playerUtils";
-import { LeagueProvider, useLeague } from "../utils/LeagueContext";
+import { useLeague } from "../utils/LeagueContext";
 
 const Matchup = () => {
 
@@ -94,7 +88,6 @@ const Matchup = () => {
                 setTeams(allTeams);
                 setLoading(false);
             } catch(err){
-                console.log(err);
                 showAlert('error', 'Error getting team data. Try refreshing');
             }
         }
@@ -145,14 +138,10 @@ const Matchup = () => {
 }
 
 function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoints}){
-    const { league, owner, weekNum } = useLeague();
+    const { owner, weekNum } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
-    const [moving, setMoving] = React.useState(false);
-    const [movingPlayer, setMovingPlayer] = React.useState();
-    const [movingSlot, setMovingSlot] = React.useState();
-    const [eligibleSlots, setEligibleSlots] = React.useState([]);
 
     function openModal(player) {
         if (!player) return;
@@ -308,8 +297,7 @@ function TradeModal({ player, rosteredPlayers, setRosteredPlayers, team, closePa
     );
 }
 
-function UserLineup({team, lineup, player, setTradePlayers, tradePlayers, updatedSlots, setUpdatedSlots, setEmptySlot}){
-    const { league } = useLeague();
+function UserLineup({team, lineup, setTradePlayers, tradePlayers, setUpdatedSlots, setEmptySlot}){
 
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -344,15 +332,11 @@ function UserLineup({team, lineup, player, setTradePlayers, tradePlayers, update
 }
 
 function TradeTransactionButton({playerInSlot, slot, tradePlayers, setTradePlayers, setUpdatedSlots}){
-    //const [clicked, setClicked] = React.useState(new Map());
     return(
         <button onClick={() => 
             {
                 if( playerInSlot&&!tradePlayers.includes(playerInSlot) ){
                     setTradePlayers((prev) => [...prev, playerInSlot]);
-                    //let c = clicked;
-                    //c.set(playerInSlot, true);
-                    //setClicked(c);
                     setUpdatedSlots((prev) => [...prev, slot]);
                 }
                 else if(tradePlayers.includes(playerInSlot)){

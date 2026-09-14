@@ -1,6 +1,3 @@
-//import playerData from '../../nfl_players.json'  with { type: 'json' };
-
-
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
@@ -8,7 +5,6 @@ const playerData = require('../../nfl_players.json');
 
 const SEASON = 2026;
 const SEASON_TYPE = 2;
-//const WEEK_NUM = 3;
 const POSITIONS = ["QB", "WR", "RB", "TE", "PK"];
 
 
