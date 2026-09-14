@@ -11,7 +11,7 @@ import { useLeague } from "../utils/LeagueContext";
 
 const Matchup = () => {
 
-    const { showAlert, league, owner, lineup, userTeam, weekNum, projections, isMobile } = useLeague();
+    const { showAlert, league, owner, userTeam, weekNum, projections, isMobile } = useLeague();
     
     const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
