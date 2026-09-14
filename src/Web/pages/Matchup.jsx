@@ -11,7 +11,7 @@ import { useLeague } from "../utils/LeagueContext";
 
 const Matchup = () => {
 
-    const { showAlert, league, owner, lineup, userTeam, weekNum, projections } = useLeague();
+    const { showAlert, league, owner, lineup, userTeam, weekNum, projections, isMobile } = useLeague();
     
     const [lineups, setLineups] = React.useState(new Map());
     const [loading, setLoading] = React.useState(true);
@@ -115,14 +115,39 @@ const Matchup = () => {
                             let awayPoints = totalPoints.get(awayTeam);
                                 return(
                                     <SwiperSlide key={matchup["id"]} className="text-center truncate z-10" >
-                                        <div className="grid grid-cols-2 gap-4 justify-items-center m-auto">
+                                        <div className={`grid ${!isMobile ?  ' gap-4 grid-cols-2 justify-items-center m-auto'
+                                            : 'text-sm grid-cols-[1fr_auto_1fr]'
+                                        }`}>
                                             <Lineup team={teams.find(team => team["id"] == homeTeam)} lineup={lineups.get(homeTeam)} 
                                                 totalPoints={homePoints} oppPoints={awayPoints} playerStats={livePlayerStats} 
                                                 projectedPoints={projectedPoints.get(homeTeam)} 
                                             />
+                                            {isMobile ? 
+                                                <div className="flex flex-col gap-2 w-5 mt-34 items-center z-10">
+                                                    {ROSTER_TEMPLATE.map((slot, index) => {
+                                                        return (
+                                                        <div key={index} className={`py-3 rounded text-sm h-12 w-6
+                                                            ${slot["label"] == "QB" ? 'bg-red-900'
+                                                                : slot["label"] == "RB" ? 'bg-blue-900' 
+                                                                : slot["label"] == "WR" ? 'bg-green-900'
+                                                                : slot["label"] == "TE" ? 'bg-purple-900'
+                                                                : slot["label"] == "FLEX" ? 'bg-pink-900'
+                                                                : slot["label"] == "K" ? "bg-cyan-700"
+                                                                : 'bg-gray-700'
+                                                            }`}
+                                                        
+                                                        >
+                                                            {slot["abbreviation"]}
+                                                        </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                                : undefined
+                                            }
+                                        
                                             <Lineup team={teams.find(team => team["id"] == awayTeam)} lineup={lineups.get(awayTeam)}
                                                 totalPoints={awayPoints} oppPoints={homePoints} playerStats={livePlayerStats} 
-                                                projectedPoints={projectedPoints.get(awayTeam)}
+                                                projectedPoints={projectedPoints.get(awayTeam)} isRightSide={true}
                                             />
                                         </div>
                                     </SwiperSlide>    
@@ -137,8 +162,8 @@ const Matchup = () => {
     );
 }
 
-function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoints}){
-    const { owner, weekNum } = useLeague();
+function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoints, isRightSide}){
+    const { owner, weekNum, isMobile } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -154,9 +179,12 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoi
     }
 
     return(
-        <div className="max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl">
+        <div className={` ${!isMobile ? 'max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl'
+        : 'min-w-35 max-w-48'}`}>
             <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
-                <h1 className="text-2xl font-bold mb-4 pb-2 justify-self-center w-100 truncate">{team["name"] ? team["name"] : team["owner"]}</h1>
+                <h1 className={` font-bold mb-4 pb-2 justify-self-center w-100 truncate ${isMobile ? 'text-md'
+                : 'text-2xl truncate'}`}>
+                    {team["name"] ? team["name"] : team["owner"]}</h1>
                 <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
                 <h3 className="text-slate-800 font-normal mr-2">
                     {projectedPoints}
@@ -164,7 +192,7 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoi
             </div>
            
            {/* Show team's roster in the matchup list */}
-           <RosterSlots lineup={lineup} openModal={openModal} 
+           <RosterSlots lineup={lineup} openModal={openModal} isRightSide={isRightSide}
            points={({playerInSlot}) => <span className="p-2">{playerInSlot ? calculateWeeklyPoints(weekNum, playerInSlot.name, playerStats) : 0.0}</span>}/>
             
             {/* Modal that opens after initial click on player */}

@@ -180,14 +180,14 @@ function Lineup({ trades, teams }){
 }
 
 function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot, slot, index}){
-    const { isLegal } = useLeague();
+    const { isLegal, isMobile } = useLeague();
     return(
         <button onClick={() => moving&&playerInSlot&&!movingSlot.eligiblePositions.includes(playerInSlot.position) ?
             undefined 
             : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? undefined 
             : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? undefined // clicking fill
             : movePlayer(playerInSlot, slot, index)} 
-            className={`px-6 mb-4 mt-4 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium 
+            className={`mb-4 mt-4 mr-2 mx-auto flex p-2 rounded-full transition-all font-medium 
                 ${!isLegal&&moving&&playerInSlot==movingPlayer ? "bg-blue-700 hover:bg-blue-500"
                     : !isLegal&&moving&&playerInSlot&&movingPlayer ? "bg-gray-500 text-black"
                     : moving&&slot==movingSlot ? "bg-blue-700 hover:bg-blue-500"
@@ -195,8 +195,10 @@ function MoveButton({moving, movingSlot, movingPlayer, movePlayer, playerInSlot,
                     : moving&&!playerInSlot&&!movingPlayer&&slot!=movingSlot ? "bg-gray-500 text-black" // clicking fill
                     : moving&&movingPlayer&&!slot.eligiblePositions.includes(movingPlayer.position) ? "bg-gray-500 text-black" 
                     :"bg-slate-800 text-white hover:bg-blue-700"}
+                ${isMobile ? 'w-10' : undefined}
             `}>
-                {playerInSlot ? "Move" : "Fill"}
+                {isMobile ? <CloseFullscreenIcon className="text-secondary"/>
+                 : playerInSlot ? "Move" : "Fill"}
         </button>
     );
 }
@@ -232,7 +234,7 @@ function DropButton({ player, close}) {
 }
 
 function ProfileModal({name}){
-    const {showAlert, hasPoop} = useLeague();
+    const {showAlert, hasPoop, isMobile} = useLeague();
 
     const [profileIsOpen, setProfileOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState(name);
@@ -272,8 +274,10 @@ function ProfileModal({name}){
 
     return(
         <>
-            <button className="flex w-40 px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-blue-700 
-                border hover:bg-blue-600 justify-center hover:cursor-pointer" onClick={openProfileModal}>
+            <button className={`px-6 mb-4 mt-2 ml-2 mx-auto flex px-6 py-2 rounded-full transition-all bg-blue-700 border hover:bg-blue-600 justify-center hover:cursor-pointer
+                ${!isMobile ? 'w-40 font-medium text-lg'
+                : undefined
+                }`} onClick={openProfileModal}>
                     Profile
             </button>
             <Modal isOpen={profileIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
@@ -311,6 +315,7 @@ function ProfileModal({name}){
 }
 
 function TradeModal({trades, teams }) {
+    const {isMobile} = useLeague();
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     
     const openTradeModal = () => {
@@ -323,8 +328,10 @@ function TradeModal({trades, teams }) {
 
     return(
         <>
-            <button className="flex w-40 px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all font-medium text-lg bg-green-700 
-                border hover:bg-green-600 justify-center hover:cursor-pointer" onClick={openTradeModal}>
+            <button className={`flex px-6 mb-4 mt-2 mr-2 mx-auto flex px-6 py-2 rounded-full transition-all bg-green-700 border hover:bg-green-600 justify-center hover:cursor-pointer
+                ${!isMobile ? ' w-40 font-medium text-lg'  
+                : undefined} `}
+                onClick={openTradeModal}>
                     Trades
             </button>
             <Modal isOpen={tradeIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
