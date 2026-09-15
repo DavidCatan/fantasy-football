@@ -2,6 +2,8 @@
 
 A full-stack fantasy sports platform built with React, Node.js, and Express, featuring real-time WebSocket scoring updates, automated scheduling, and interactive roster and trade management.
 
+[phantomfantasy.com](https://phantomfantasy.com)
+
 ## Key Features
 
 - **Live Head-to-Head Matchup Tracker:** Synchronized, side-by-side roster tracking with real-time score updates and projections.
