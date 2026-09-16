@@ -20,7 +20,7 @@ const wss = new WebSocketServer({server});
 
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
-const DRAFT_TIME = 0 * 1000;
+const DRAFT_TIME = 60 * 1000;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -39,7 +39,7 @@ var draftTimers = new Map();
 var weekNum = 0;
 var liveStats = {
     "week": {
-        "1": {}
+        "1": {},
     }
 };
 var livePlayers = new Set();
@@ -72,7 +72,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
-
+app.set('trust proxy', 1);
 app.use(session({
     secret: process.env.SESSION_SECRET, // Used to sign the session ID cookie
     resave: false,
@@ -104,9 +104,13 @@ cron.schedule('0 0 3 * * 2', async () => {
     }
 });
 
-weekNum++;
-await getProjections(weekNum, liveProjections);
-await processLiveGames(weekNum, processLiveStats);
+for(let i = 1; i < 3; i++){
+    weekNum++;
+    livePlayers.clear();
+    liveGames.clear();
+    await getProjections(weekNum, liveProjections);
+    await processLiveGames(weekNum, processLiveStats);   
+}
 
 
 async function processLiveStats(weekNum, liveGames) {
@@ -302,6 +306,8 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
         const getHomePoints = db.prepare('SELECT home_points FROM matchups WHERE week=? AND home_team_id=?');
         const getAwayPoints = db.prepare('SELECT away_points FROM matchups WHERE week=? AND away_team_id=?');
 
+//        db.prepare('UPDATE teams SET wins=?, losses=?, points_for=?, points_against=?').run(0,0,0,0);
+ //       db.prepare('UPDATE matchups SET home_points=?, away_points=?').run(0,0);
 
         matchups.forEach((matchup) => {
 
@@ -312,16 +318,15 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
 
             let totalPoints1 = 0;
             let totalPoints2 = 0;
-
         
             roster1.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
-                    totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"]);
+                    totalPoints1 += calculateWeeklyPoints(weekNum, player["player_name"], liveStats);
                 }
             });
             roster2.forEach((player) => {
                 if(!player["player_slot"].includes("BN")){
-                    totalPoints2 += calculateWeeklyPoints(weekNum, player["player_name"]);
+                    totalPoints2 += calculateWeeklyPoints(weekNum, player["player_name"], liveStats);
                 }
             });
 
@@ -375,6 +380,9 @@ app.post('/api/admin/process-week', adminAuth, (req, res) => {
             let standings = getStandings.all(league['league_id']).sort(standingsOrder);
             let lastPlace = standings.at(-1);
             let currentPoopHolder = findPoopMedal.get(1, league['league_id']);
+            if(!currentPoopHolder){
+                return;
+            }
             if(lastPlace['id'] != currentPoopHolder['id']){
                 setPoopMedal.run(0, currentPoopHolder['id']);
                 setPoopMedal.run(1, lastPlace['id']);

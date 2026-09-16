@@ -206,7 +206,7 @@ export function setMatchups(leagueId, teams, leagueMatchups, db ) { // TODO: imp
 
 }
 
-export function calculateWeeklyPoints(week, playerName, newStats){
+export function calculateWeeklyPoints(week, player, newStats){
     var totalPoints = 0;
 
     if (!newStats){
@@ -242,17 +242,17 @@ export function calculateWeeklyPoints(week, playerName, newStats){
         "madeXP" : MADE_XP_MULTIPLIER,
         "missedXP" : MISSED_XP_MULTIPLIER
     };
-    if(newStats["week"][week]?.hasOwnProperty(playerName)){
+    if(newStats["week"][week]?.hasOwnProperty(player)){
         for (const stat in pointDistr){
-            if (newStats["week"][week][playerName].hasOwnProperty(stat)){
+            if (newStats["week"][week][player].hasOwnProperty(stat)){
 
                 if (stat == "madeFG"){ // calculate points from array
-                    newStats["week"][week][playerName][stat].forEach((fg) => {
+                    newStats["week"][week][player][stat].forEach((fg) => {
                         totalPoints += Math.floor(fg / 10) * pointDistr[stat];
                     });
                 }
                 else{
-                    totalPoints += newStats["week"][week][playerName][stat] * pointDistr[stat];
+                    totalPoints += newStats["week"][week][player][stat] * pointDistr[stat];
                 }
             }          
         }

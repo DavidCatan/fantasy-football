@@ -32,13 +32,17 @@ export async function getProjections(weekNum, liveProjections){
         headers:{'X-Fantasy-Filter' : JSON.stringify(filterHeader)}
     });
     const data = await response.json();
+
+    if (!liveProjections['week']) liveProjections['week'] = {};
+    if (!liveProjections['week'][weekNum]) liveProjections['week'][weekNum] = {};
+    
     data.forEach((player) => {
         const projections = player?.stats?.find(
             s => s.statSourceId == 1 && s.statSplitTypeId == 1 && s.scoringPeriodId == weekNum && s.seasonId == 2026
         );
         const stats = projections?.stats || {};
     
-        // populate projections with corresponding stat code    
+        // populate projections with corresponding stat code   
         liveProjections['week'][weekNum][player?.id] = {
             passingYards: stats[3] || 0,
             passingTouchdowns: stats[4] || 0,
