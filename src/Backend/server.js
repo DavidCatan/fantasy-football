@@ -44,6 +44,7 @@ var liveStats = {
 };
 var livePlayers = new Set();
 var liveGames = new Set();
+var liveStatsInterval = null;
 
 var liveProjections = {
     "week": {
@@ -104,6 +105,7 @@ cron.schedule('0 0 3 * * 2', async () => {
     }
 });
 
+// temporary fix for weekly stats
 for(let i = 1; i < 3; i++){
     weekNum++;
     livePlayers.clear();
@@ -120,6 +122,9 @@ async function processLiveStats(weekNum, liveGames) {
 async function processLiveGames(weekNum, processLiveStats) {
     try{
         const games = await getLiveGames(weekNum); 
+        if(liveStatsInterval){
+            clearInterval(liveStatsInterval);
+        }
         for (const game of games) {
             let gameTime = new Date(game['date']).getTime();
             let curTime = Date.now();
@@ -127,22 +132,26 @@ async function processLiveGames(weekNum, processLiveStats) {
 
             if (timeDiff <= 0 ){
                 liveGames.add(game['id']);
-                processLiveRosters(game['competitions'][0]['competitors'][0]['id'], livePlayers);
-                processLiveRosters(game['competitions'][0]['competitors'][1]['id'], livePlayers);
+                await processLiveRosters(game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                await processLiveRosters(game['competitions'][0]['competitors'][1]['id'], livePlayers);
             }
             else{
-                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][0]['id'], livePlayers);
-                setTimeout(processLiveRosters, timeDiff, game['competitions'][0]['competitors'][1]['id'], livePlayers);
-                setTimeout(() => {
-                    liveGames.add(game['id']);
+                setTimeout(async () => {
+                    try {
+                        liveGames.add(game['id']);
+                        await processLiveRosters(game['competitions'][0]['competitors'][0]['id'], livePlayers);
+                        await processLiveRosters(game['competitions'][0]['competitors'][1]['id'], livePlayers);
+                    } catch (err) {
+                        console.log(err);
+                    }
                 }, timeDiff);
             }
         };
-        processLiveStats(weekNum, liveGames);
+        await processLiveStats(weekNum, liveGames);
 
         // run every minute
-        setInterval(async () => {
-            processLiveStats(weekNum, liveGames);
+        liveStatsInterval = setInterval(async () => {
+            await processLiveStats(weekNum, liveGames);
         }, 60000);
     }
     catch(err){
