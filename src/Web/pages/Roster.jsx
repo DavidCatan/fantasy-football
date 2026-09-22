@@ -4,6 +4,7 @@ import Modal from "react-modal";
 import { ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
 import { PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useLeague } from "../utils/LeagueContext";
+import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen"
 
 const MODAL_STYLES = {
         content: {
