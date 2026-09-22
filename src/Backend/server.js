@@ -116,6 +116,9 @@ for(let i = 1; i < 3; i++){
 
 
 async function processLiveStats(weekNum, liveGames) {
+    if (!liveStats['week'][weekNum]){
+        liveStats['week'][weekNum] = {};
+    }
     liveStats = await getLiveStats(weekNum, liveGames, liveStats);
 }
 
