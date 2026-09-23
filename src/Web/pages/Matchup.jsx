@@ -1,6 +1,6 @@
 import React from "react";
 import Modal from "react-modal";
-import {getTeamRosters, getTeams, getMatchups, getLiveStats, calculateWeeklyPoints} from '../utils/leagueUtils';
+import {getTeamRosters, getTeams, getMatchups, getLiveStats, calculateWeeklyPoints, ROSTER_TEMPLATE} from '../utils/leagueUtils';
 import {Swiper, SwiperSlide} from 'swiper/react';
 import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import 'swiper/css';
