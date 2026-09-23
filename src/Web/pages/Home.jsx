@@ -7,6 +7,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { useLeague } from "../utils/LeagueContext";
+import { LoadingScreen } from "../utils/playerUtils";
 
 const Home = () => {
     const {isMobile, setLeague, setLeagueOwner, setTeam, setWeekNum, setHasPoop } = useLeague();
@@ -138,7 +139,9 @@ const Home = () => {
     },[user, newLeague]);
 
     if(loading){
-      return (<div className="text-3xl font-bold mb-4 text-yellow-800">Loading...</div>)
+      return (
+        <LoadingScreen></LoadingScreen>
+      )
     }
 
     if(user){

@@ -6,7 +6,7 @@ import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
-import { PlayerModal, RosterSlots, calculateProjections } from "../utils/playerUtils";
+import { LoadingScreen, PlayerModal, RosterSlots, calculateProjections } from "../utils/playerUtils";
 import { useLeague } from "../utils/LeagueContext";
 
 const Matchup = () => {
@@ -97,7 +97,7 @@ const Matchup = () => {
     },[owner, league, userTeam]);
 
     if(loading){
-        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+        return <LoadingScreen></LoadingScreen>
     }
     return(
             <div className="max-w-4xl mx-auto p-4 bg-gray-900 text-white rounded-lg shadow-xl">

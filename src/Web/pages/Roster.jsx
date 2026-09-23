@@ -2,7 +2,7 @@ import React from "react";
 import { playerNames } from "../utils/draftUtils";
 import Modal from "react-modal";
 import { ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
-import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { LoadingScreen, PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useLeague } from "../utils/LeagueContext";
 import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen"
 
@@ -56,7 +56,7 @@ const Roster = () => {
     }, [owner, league, userTeam]);
     
     if(loading){
-        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+        return <LoadingScreen></LoadingScreen>
     }
 
     return(

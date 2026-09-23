@@ -1,6 +1,7 @@
 import React from "react";
 import {getTeams, getStandings} from '../utils/leagueUtils';
 import { useLeague } from "../utils/LeagueContext";
+import { LoadingScreen } from "../utils/playerUtils";
 
 const League = () => {
     const { league, owner } = useLeague();
@@ -32,7 +33,7 @@ const League = () => {
     },[owner, league]);
 
     if(loading){
-        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+        return <LoadingScreen></LoadingScreen>
     }
 
     return(

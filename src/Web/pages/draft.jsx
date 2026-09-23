@@ -9,7 +9,7 @@ import Divider from '@mui/material/Divider';
 import {determineSlot} from "../utils/draftUtils";
 import {getRosteredPlayers} from '../utils/leagueUtils';
 import { useLeague } from "../utils/LeagueContext";
-import { PlayerModal } from "../utils/playerUtils";
+import { LoadingScreen, PlayerModal } from "../utils/playerUtils";
 
 const MAX_SLOTS = 14;
 let timerInterval = null;
@@ -126,7 +126,7 @@ const Draft = () => {
 
     
     if(loading){
-        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+        return <LoadingScreen></LoadingScreen>
     }
 
     if(draftStatus == 'NOT_STARTED'){

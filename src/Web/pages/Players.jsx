@@ -6,7 +6,7 @@ import Modal from "react-modal";
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { Button, ButtonGroup, TextField } from "@mui/material";
 import {getRosteredPlayers, dropPlayer} from '../utils/leagueUtils';
-import { PlayerModal, RosterSlots } from "../utils/playerUtils";
+import { LoadingScreen, PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useMemo } from "react";
 import { useLeague } from "../utils/LeagueContext";
 
@@ -40,7 +40,7 @@ const Players = () => {
 
     
     if(loading){
-        return <div className="text-3xl font-bold mb-4 text-slate-800">Loading...</div>;
+        return <LoadingScreen></LoadingScreen>
     }
 
     return (

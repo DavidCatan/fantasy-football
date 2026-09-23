@@ -6,8 +6,20 @@ import { calculatePoints } from "./draftUtils";
 import { Button, ButtonGroup } from "@mui/material";
 import { useLeague } from './LeagueContext';
 import React from 'react';
+import logo from '../assets/images/logos/logo-symmetric.png';
 
 const STATS = {"2025" : playerStats, "2026": await getLiveStats()};
+
+export function LoadingScreen(){
+    return(
+        <div className="flex flex-col items-center justify-center m-5">
+        <img src={logo} className="w-lg rounded-2xl"></img>
+        <div className="text-5xl font-bold mb-4 text-yellow-800 ">
+          Loading...
+        </div>
+      </div>
+    )
+}
 
 export function PlayerModal({ player, isOpen, close, button, zIndex}) {
     const [year, setYear] = React.useState("2026");
