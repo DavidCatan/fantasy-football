@@ -5,6 +5,8 @@ import { getTeamRoster, getTeam, getProjections } from './leagueUtils';
 import fart from '../assets/audio/fart.mp3';
 import { useWindowSize } from "@reactuses/core";
 
+const profileModules = import.meta.glob('../assets/images/profiles/*.png', { eager: true });
+const profilePictures = Object.values(profileModules).map(m => m.default);
 const LeagueContext = React.createContext();
 
 export function LeagueProvider({ children }){
@@ -27,7 +29,7 @@ export function LeagueProvider({ children }){
         message: '',
         severity: ''
     });
-    
+
     const { vertical, horizontal, open, message, severity } = state;
 
     const handleClose = () => {
@@ -159,7 +161,7 @@ export function LeagueProvider({ children }){
     const value = {
         showAlert, league, owner, setLeague, setOwner, leagueOwner, setLeagueOwner, team, setTeam,
         roster, setRoster, posCount, draftStatus, setDraftStatus, lineup, isLegal, setIsLegal, userTeam, setUserTeam,
-        weekNum, setWeekNum, hasPoop, setHasPoop, projections, isMobile
+        weekNum, setWeekNum, hasPoop, setHasPoop, projections, isMobile, profilePictures
     }
 
     return(

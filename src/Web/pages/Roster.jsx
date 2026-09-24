@@ -4,7 +4,9 @@ import Modal from "react-modal";
 import { ROSTER_TEMPLATE, dropPlayer, getTrades, getTeams} from '../utils/leagueUtils';
 import { LoadingScreen, PlayerModal, RosterSlots } from "../utils/playerUtils";
 import { useLeague } from "../utils/LeagueContext";
-import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen"
+import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen";
+import EditIcon from '@mui/icons-material/Edit';
+//import defaultProfile from "../assets/images/profiles/profile_1.png";
 
 const MODAL_STYLES = {
         content: {
@@ -235,11 +237,12 @@ function DropButton({ player, close}) {
 }
 
 function ProfileModal({name}){
-    const {showAlert, hasPoop, isMobile} = useLeague();
+    const {showAlert, hasPoop, isMobile, userTeam, profilePictures} = useLeague();
 
     const [profileIsOpen, setProfileOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState(name);
-    
+    const [picture, setPicture] = React.useState(userTeam["picture"] || profilePictures[0]);
+
     const openProfileModal = () => {
         setProfileOpen(true);
     }
@@ -284,11 +287,23 @@ function ProfileModal({name}){
             <Modal isOpen={profileIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
                     <form onSubmit={handleDisplayName} className="space-y-6 ">
-                        <div className="text-black">
-                            <label className="block text-sm/6 font-medium">
-                                Display Name
-                            </label>
-                            <div className="mt-2">
+                        <div className="text-black grid grid-flow-col grid-rows-3 gap-4">
+                            
+                            <div className="row-span-2">
+                                <ProfilePictureModal picture={picture} setPicture={setPicture}/>
+                            </div>
+
+                            <div className="text-6xl text-shadow-lg col-span-2">
+                                <span className="w-full break-all line-clamp-2">
+                                    {displayName}
+                                </span>
+                            </div>
+
+                            
+                            <div className="mt-2 col-span-2">
+                                <label className="block text-sm/6 font-medium">
+                                    Display Name
+                                </label>
                                 <input
                                 id="displayName"
                                 name="displayName"
@@ -299,20 +314,55 @@ function ProfileModal({name}){
                                 className="block w-full rounded-md bg-gray-200 px-3 py-1.5 text-base outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
                                 />
                             </div>
+                            <div className="col-start-1 row-start-3 col-span-3">
+                                <button
+                                    type="submit"
+                                    className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 hover:cursor-pointer"
+                                >
+                                    Save
+                                </button>
+                            </div>
                         </div>
-                        <div>
-                        <button
-                            type="submit"
-                            className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm/6 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 hover:cursor-pointer"
-                        >
-                            Change Name
-                        </button>
-                        </div>
+                        
                     </form>
                 </div>
             </Modal>
         </>
     );
+}
+
+function ProfilePictureModal({picture, setPicture}){
+    const {profilePictures} = useLeague();
+    
+    const [picturesIsOpen, setProfilePicturesOpen] = React.useState(false);
+
+    const openProfilePictureModal = () => {
+        setProfilePicturesOpen(true);
+    }
+
+    const handleClose = () => {
+        setProfilePicturesOpen(false);
+    }
+    return(
+        <>
+            <img src={picture} className="w-30"></img>
+            <button className="hover:cursor-pointer" type="button" onClick={openProfilePictureModal}>
+                <EditIcon />
+            </button>
+
+            <Modal isOpen={picturesIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
+                <div className="grid grid-cols-5 gap-2">
+                    {profilePictures.map((picture) => {
+                        return(
+                            <button key={picture} className="hover:cursor-pointer" onClick={() => setPicture(picture) & handleClose()}>
+                                <img src={picture} className="w-30 "></img>
+                            </button>
+                        )
+                    })}    
+                </div>
+            </Modal>
+        </>
+    )
 }
 
 function TradeModal({trades, teams }) {
