@@ -163,7 +163,7 @@ const Matchup = () => {
 }
 
 function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoints, isRightSide}){
-    const { owner, weekNum, isMobile } = useLeague();
+    const { owner, weekNum, isMobile, profilePictures } = useLeague();
     const [modalIsOpen, setIsOpen] = React.useState(false);
     const [tradeIsOpen, setTradeOpen] = React.useState(false);
     const [curPlayer, setPlayer] = React.useState("");
@@ -181,14 +181,21 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoi
     return(
         <div className={` ${!isMobile ? 'max-w-4xl mx-auto p-4 bg-gray-800 text-white rounded-lg shadow-xl'
         : 'min-w-35 max-w-48'}`}>
-            <div className={`mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
-                <h1 className={` font-bold mb-4 pb-2 justify-self-center w-100 truncate ${isMobile ? 'text-md'
-                : 'text-2xl truncate'}`}>
+            <div className={`grid grid-cols-2 mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
+
+                {!isRightSide ? <img src={profilePictures[team["profile"]]} className="w-30 rounded-lg"></img> : undefined}
+                
+                <div className={`${isRightSide ? 'justify-self-start' : 'justify-self-end'} p-2`}>
+                    <h1 className={` font-bold mb-4 pb-2 truncate ${isMobile ? 'text-md'
+                : 'text-2xl truncate'} `}>
                     {team["name"] ? team["name"] : team["owner"]}</h1>
-                <h2 className="text-2xl font-bold mb-4 pb-2 justify-self-center">{totalPoints}</h2>
-                <h3 className="text-slate-800 font-normal mr-2">
-                    {projectedPoints}
-                </h3>
+                    <h2 className="text-2xl font-bold mb-4 pb-2">{totalPoints}</h2>
+                    <h3 className="text-slate-800 font-normal mr-2">
+                        {projectedPoints}
+                    </h3>
+                </div>
+                {isRightSide ? <img src={profilePictures[team["profile"]]} className="w-30 justify-self-end rounded-lg"></img> : undefined}
+                                
             </div>
            
            {/* Show team's roster in the matchup list */}

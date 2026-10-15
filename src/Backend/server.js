@@ -87,6 +87,7 @@ app.use(session({
     }
 }));
 
+
 // reset weekly states/variables every tuesday at 3:00am
 cron.schedule('0 0 3 * * 2', async () => {
     try{
