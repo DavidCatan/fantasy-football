@@ -292,7 +292,7 @@ function ProfileModal({name}){
                                 <ProfilePictureModal profileId={profileId} setPicture={setPicture}/>
                             </div>
 
-                            <div className="text-6xl text-shadow-lg col-span-2">
+                            <div className={`text-shadow-lg col-span-2 ${isMobile ? 'text-xl' : 'text-6xl'}`}>
                                 <span className="w-full break-all line-clamp-2">
                                     {displayName}
                                 </span>

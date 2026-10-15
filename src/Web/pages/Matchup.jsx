@@ -183,18 +183,17 @@ function Lineup({team, lineup, totalPoints, oppPoints, playerStats, projectedPoi
         : 'min-w-35 max-w-48'}`}>
             <div className={`grid grid-cols-2 mb-4 text-white rounded-lg shadow-xl border border-dotted ${totalPoints >= oppPoints ? "bg-green-600" : "bg-red-600"}`}>
 
-                {!isRightSide ? <img src={profilePictures[team["profile"]]} className="w-30 rounded-lg"></img> : undefined}
+                {!isRightSide ? <img src={profilePictures[team["profile"]]} className={` ${isMobile ? 'w-16 p-1 justify-self-start place-self-end' : 'w-30'} rounded-lg`}></img> : undefined}
                 
-                <div className={`${isRightSide ? 'justify-self-start' : 'justify-self-end'} p-2`}>
-                    <h1 className={` font-bold mb-4 pb-2 truncate ${isMobile ? 'text-md'
-                : 'text-2xl truncate'} `}>
+                <div className={`${isRightSide ? 'justify-self-start' : 'justify-self-end'} ${!isMobile ? 'p-2' : undefined}`}>
+                    <h1 className={` font-bold mb-4 pb-2 truncate ${isMobile ? `text-md max-w-40 ${isRightSide ? 'pl-1' : 'pr-1'}`: 'text-2xl  max-w-65'} `}>
                     {team["name"] ? team["name"] : team["owner"]}</h1>
-                    <h2 className="text-2xl font-bold mb-4 pb-2">{totalPoints}</h2>
-                    <h3 className="text-slate-800 font-normal mr-2">
+                    <h2 className={`text-2xl font-bold mb-4 pb-2 ${isRightSide ? 'justify-self-start pl-1' : 'justify-self-end pr-1'}`}>{totalPoints}</h2>
+                    <h3 className={`text-slate-800 font-normal mr-2 ${isRightSide ? 'justify-self-start pl-1' : 'justify-self-end pr-1'}`}>
                         {projectedPoints}
                     </h3>
                 </div>
-                {isRightSide ? <img src={profilePictures[team["profile"]]} className="w-30 justify-self-end rounded-lg"></img> : undefined}
+                {isRightSide ? <img src={profilePictures[team["profile"]]} className={` ${isMobile ? 'w-16 place-self-end p-1' : 'w-30'} justify-self-end rounded-lg`}></img> : undefined}
                                 
             </div>
            
