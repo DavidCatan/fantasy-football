@@ -241,7 +241,7 @@ function ProfileModal({name}){
 
     const [profileIsOpen, setProfileOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState(name);
-    const [picture, setPicture] = React.useState(userTeam["picture"] || profilePictures[0]);
+    const [profileId, setPicture] = React.useState(userTeam["profile"] || 0);
 
     const openProfileModal = () => {
         setProfileOpen(true);
@@ -251,19 +251,18 @@ function ProfileModal({name}){
         setProfileOpen(false);
     }
 
-    const handleDisplayName = async (e) => {
+    const handleProfileUpdate = async (e) => {
         e.preventDefault(); 
-
-        if(!displayName){
+        /*if(!displayName){
             showAlert("warning", "Please enter a name!");
             return;
-        }
+        }*/
 
-        const response = await fetch('/api/teams/change-name', {
+        const response = await fetch('/api/teams/change-profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ displayName })
+            body: JSON.stringify({ displayName: displayName, profileId: profileId })
         });
 
         const data = await response.json();
@@ -271,7 +270,7 @@ function ProfileModal({name}){
             showAlert("success", data.message);
             handleClose();
         } else {
-            showAlert("error", "Could not change display name: " + data.message);
+            showAlert("error", "Could not change profile: " + data.message);
         }
     };
 
@@ -286,11 +285,11 @@ function ProfileModal({name}){
             </button>
             <Modal isOpen={profileIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
                 <div className="max-h-[400px] overflow-auto rounded-lg border border-slate-200">
-                    <form onSubmit={handleDisplayName} className="space-y-6 ">
+                    <form onSubmit={handleProfileUpdate} className="space-y-6 ">
                         <div className="text-black grid grid-flow-col grid-rows-3 gap-4">
                             
                             <div className="row-span-2">
-                                <ProfilePictureModal picture={picture} setPicture={setPicture}/>
+                                <ProfilePictureModal profileId={profileId} setPicture={setPicture}/>
                             </div>
 
                             <div className="text-6xl text-shadow-lg col-span-2">
@@ -309,7 +308,7 @@ function ProfileModal({name}){
                                 name="displayName"
                                 type="text"
                                 onChange={(e) => setDisplayName(e.target.value)}
-                                required
+                                
                                     placeholder={hasPoop ? name : displayName}
                                 className="block w-full rounded-md bg-gray-200 px-3 py-1.5 text-base outline-1 -outline-offset-1 outline-black/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 sm:text-sm/6"
                                 />
@@ -331,7 +330,7 @@ function ProfileModal({name}){
     );
 }
 
-function ProfilePictureModal({picture, setPicture}){
+function ProfilePictureModal({profileId, setPicture}){
     const {profilePictures} = useLeague();
     
     const [picturesIsOpen, setProfilePicturesOpen] = React.useState(false);
@@ -345,16 +344,16 @@ function ProfilePictureModal({picture, setPicture}){
     }
     return(
         <>
-            <img src={picture} className="w-30"></img>
+            <img src={profilePictures[profileId]} className="w-30"></img>
             <button className="hover:cursor-pointer" type="button" onClick={openProfilePictureModal}>
                 <EditIcon />
             </button>
 
             <Modal isOpen={picturesIsOpen} style={MODAL_STYLES} onRequestClose={handleClose} closeTimeoutMS={200}>
                 <div className="grid grid-cols-5 gap-2">
-                    {profilePictures.map((picture) => {
+                    {profilePictures.map((picture, index) => {
                         return(
-                            <button key={picture} className="hover:cursor-pointer" onClick={() => setPicture(picture) & handleClose()}>
+                            <button key={picture} className="hover:cursor-pointer" onClick={() => setPicture(index) & handleClose()}>
                                 <img src={picture} className="w-30 "></img>
                             </button>
                         )

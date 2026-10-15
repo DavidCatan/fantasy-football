@@ -21,6 +21,7 @@ const wss = new WebSocketServer({server});
 const MAX_SLOTS = 14;
 const MAX_TEAMS = 10;
 const DRAFT_TIME = 60 * 1000;
+const MAX_PROFILE_INDEX = 9;
 
 const AUTO_DRAFT_LIMITS = {
     "QB" : 3,
@@ -815,9 +816,13 @@ app.post('/api/trades/accept-trade', sessionAuth, leagueAuth, (req, res) => {
 });
 
 // api endpoint to change display name
-app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
-    const {displayName} = req.body;
+app.post('/api/teams/change-profile', sessionAuth, leagueAuth, (req, res) => {
+    const {displayName, profileId} = req.body;
     sanitize(displayName);
+
+    if(!profileId || profileId < 0 || profileId > MAX_PROFILE_INDEX){
+        return res.status(400).json({message: "Invalid profile image"});
+    }
 
     // don't let user change name if they have the poop medal
     const hasPoop = db.prepare('SELECT has_poop FROM teams WHERE id=?').get(req.session.activeTeam);
@@ -831,7 +836,8 @@ app.post('/api/teams/change-name', sessionAuth, leagueAuth, (req, res) => {
     }
     try{
        db.prepare('UPDATE teams SET name=? WHERE id=?').run(newName, req.session.activeTeam);
-       return res.status(200).json({message: "Succesfully updated name!"})
+       db.prepare('UPDATE teams SET profile=? WHERE id=?').run(profileId, req.session.activeTeam);
+       return res.status(200).json({message: "Succesfully updated profile!"})
 
     }
     catch(err){
